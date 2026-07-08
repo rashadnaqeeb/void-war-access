@@ -192,3 +192,22 @@ function vwa_speech_panic()
         : "no shim (file capture only)";
     vwa_speak([vwa_t("vwa--speech-reset"), backend], true);
 }
+
+// Orderly shim teardown, called from oGlobal's Game End event (appended by
+// build-mod; fires on quit and on window close, at the menu and in-run).
+// Without it vw_shutdown is never called in a real run: the subclassed
+// WndProc and the server thread persist to process kill, and a teardown
+// path that unloads the DLL before the window dies would leave the window
+// dispatching into unmapped code (session-7 review).
+function vwa_shim_shutdown()
+{
+    if (global.vwaShim == undefined)
+    {
+        vwa_log("shutdown: no shim loaded; nothing to tear down");
+        return;
+    }
+    vwa_log("shutdown: game end, tearing down shim");
+    external_call(global.vwaShim.shutdownShim);
+    global.vwaShimReady = false;
+    global.vwaShim = undefined;
+}

@@ -58,6 +58,12 @@ group.QueueAppend("gml_Object_oInputManager_Step_1",
 group.QueueAppend("gml_Object_oInputManager_Step_1",
     File.ReadAllText(Path.Combine(gmlDir, "oInputManager_Step_1.dev.append.gml")));
 
+// Orderly shim teardown on the game's Game End event (oGlobal also
+// autosaves there): restore the window's WndProc and stop the dev server
+// before the runner unloads the DLL.
+group.QueueAppend("gml_Object_oGlobal_Other_3",
+    File.ReadAllText(Path.Combine(gmlDir, "oGlobal_Other_3.append.gml")));
+
 // Suppression lever: the game's three keyboard input_check* wrappers gain
 // our flag alongside the game's own textFieldInputEnabled gate. The search
 // string appears exactly three times in scrKeybinds, once per keyboard

@@ -291,7 +291,11 @@ function vwa_announcements_build(b)
     for (var i = 0; i < array_length(msgs); i++)
     {
         var msg = msgs[i];
-        vwa_gb_add(b, vwa_id_ref(msg, "ann:" + string(msg.messageTitle)), {
+        // The index keeps the structural key unique: titles are game data,
+        // and a duplicate title would make the graph builder throw on every
+        // build, quarantining the whole popup (session-7 review). The list
+        // is fixed at boot, so the index is stable while the popup lives.
+        vwa_gb_add(b, vwa_id_ref(msg, "ann:" + string(i) + ":" + string(msg.messageTitle)), {
             typeKey: "button",
             parts: [vwa_part_fn("label", method({ msg: msg }, function()
             {

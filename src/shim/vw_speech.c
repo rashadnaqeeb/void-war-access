@@ -63,10 +63,13 @@ static volatile LONG g_running = 0;
 // Background-run: the runner pauses the whole game when its window
 // deactivates, which kills unattended dev loops. We subclass the game
 // window's WndProc and swallow the deactivation messages so the runner
-// never observes focus loss. Dev-build workaround, config-gated (bg=0 /
-// VWACCESS_BG=0 disables). Known trade-off: the game also keeps reading
-// global key state (keyboard_check_direct) while unfocused.
-static int g_bg_on = 1;
+// never observes focus loss. Dev-loop workaround, OPT-IN (bg=1 in
+// vw_speech.cfg - run-game.ps1 writes it - or VWACCESS_BG=1): a launch
+// with no cfg keeps the game's own pause-on-focus-loss, because a real
+// player who alt-tabs away mid-combat must not leave the fight running
+// unheard (session-7 review). Known trade-off while enabled: the runner
+// also keeps stale key state (see scrVwaInput's unstick).
+static int g_bg_on = 0;
 static WNDPROC g_orig_wndproc = NULL;
 static HWND g_game_hwnd = NULL;
 
@@ -613,6 +616,11 @@ static void handle_connection(SOCKET s)
 {
     DWORD timeout = 2000;
     setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (const char *)&timeout, sizeof timeout);
+    // The send side needs a timeout too: connections are handled
+    // synchronously inside the single accept loop, so one client that stops
+    // draining (killed curl mid-/gui/raw) would otherwise block send()
+    // forever and wedge every endpoint including /health.
+    setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, (const char *)&timeout, sizeof timeout);
 
     size_t cap = VWP_MAX_HEADER + VWP_MAX_BODY + 16;
     char *buf = malloc(cap);
@@ -906,16 +914,22 @@ VW_EXPORT double vw_reply(const char *text)
 VW_EXPORT double vw_key_delay(void)
 {
     UINT val = 0; // 0..3 -> 250..1000 ms
-    if (!SystemParametersInfoW(SPI_GETKEYBOARDDELAY, 0, &val, 0))
+    if (!SystemParametersInfoW(SPI_GETKEYBOARDDELAY, 0, &val, 0)) {
+        vw_logf("key_delay: SPI_GETKEYBOARDDELAY failed (err %lu), using 500ms",
+                GetLastError());
         return 500;
+    }
     return (double)((val + 1) * 250);
 }
 
 VW_EXPORT double vw_key_rate(void)
 {
     DWORD val = 0; // 0..31 -> ~2.5..30 repeats/sec; return the period in ms
-    if (!SystemParametersInfoW(SPI_GETKEYBOARDSPEED, 0, &val, 0))
+    if (!SystemParametersInfoW(SPI_GETKEYBOARDSPEED, 0, &val, 0)) {
+        vw_logf("key_rate: SPI_GETKEYBOARDSPEED failed (err %lu), using 50ms",
+                GetLastError());
         return 50;
+    }
     double per_sec = 2.5 + (double)val * (27.5 / 31.0);
     return 1000.0 / per_sec;
 }

@@ -23,7 +23,8 @@ mods: `../wotr-access` (UI architecture we are porting), `../tangledeep`
 - `src/gml/` - GML source fragments assembled into the game by build-mod.
   `scrVwaCore.gml` (speech chokepoint, logging, shim binding),
   `scrVwaInput.gml` (input layer: actions, categories, shadowing, typematic
-  repeat, suppression watchdog, stale-modifier unstick; the one sanctioned
+  repeat, suppression watchdog, stale-key unstick, text-safe speech controls
+  that survive the game's text-field mode; the one sanctioned
   home of raw `keyboard_check`), `scrVwaGraph.gml` (control graph: two-tier
   node identity, menu/raw builder, Tab stops, focus reconciliation; PURE -
   no game or global references), `scrVwaAnnounce.gml` (parts, control types
@@ -133,7 +134,10 @@ other flag order, or the permission rule won't match.
   game backgrounded). The documented pause is a BOOT freeze - frozen until the
   window is focused once - which Steam's `-applaunch` clears by itself, so no
   human focus is normally needed; if `/health` still stalls, ask Rashad to focus
-  the window once. `-NoBg` (launcher) / `bg=0` (cfg) disables the keepalive.
+  the window once. The keepalive is OPT-IN since session 7 (`bg=1` in the
+  cfg, which run-game.ps1 writes by default; `-NoBg` writes `bg=0`): a launch
+  with no cfg keeps the game's own pause-on-focus-loss, so a shipped install
+  never runs combat unheard in the background.
 - Logs: shim -> `build\vw_speech.log`; GML mod log -> save dir
   (`%AppData%\Roaming\Void_War\vwa-mod.log`); every spoken line also lands in
   `vwa-speech.log` there. `show_debug_message` does NOT reach `-debugoutput`;
@@ -148,7 +152,9 @@ other flag order, or the permission rule won't match.
   mod bug can never leave the game's keyboard dead).
 - **One speech chokepoint.** All speech flows through `vwa_speak(parts,
   interrupt)`; parts is an array (strings or `{text:...}` structs); joining
-  happens only there. No direct shim calls from feature code.
+  happens only there. No direct shim calls from feature code (sanctioned
+  non-speech shim calls: the input layer's typematic delay/rate reads, the
+  dev pump's poll/reply, and the Game End teardown via `vwa_shim_shutdown`).
 - **Hooks never speak.** Patched game events set state or enqueue; speech
   happens once per frame from the pump/diff.
 - **Never cache game state.** Re-query at speak time; stale speech is worse

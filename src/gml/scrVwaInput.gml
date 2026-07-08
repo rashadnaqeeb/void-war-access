@@ -21,7 +21,7 @@ function vwa_input_init()
     global.vwaActions = {};      // actionKey -> action struct
     global.vwaActionOrder = [];  // registration order: stable dumps, shadow tie-breaks
     global.vwaScreenStack = [];  // owned by scrVwaScreens once vwa_screens_init runs
-    global.vwaChordState = {};   // chordId -> {vk, downAt, lastFire} for edge + repeat
+    global.vwaChordState = {};   // string(vk) -> {vk, actionKey, downAt, lastFire} for edge + repeat
     global.vwaSuppressGameKeys = false;
     global.vwaInputFault = false;           // armed by the dev driver to test the watchdog
     global.vwaInputWatchdogTripped = false; // sticky until cleared; /state reports it
@@ -64,6 +64,10 @@ function vwa_action_register(actionKey, labelKey, category, binding, repeats, ha
     variable_struct_set(a, "binding", binding);
     variable_struct_set(a, "repeats", repeats);
     variable_struct_set(a, "handler", handler);
+    // textSafe: still dispatches while the game's text-field input is
+    // active. Only for chords that cannot type a character into the field
+    // (set after registration; see vwa_register_global_actions).
+    variable_struct_set(a, "textSafe", false);
     variable_struct_set(global.vwaActions, actionKey, a);
 }
 
@@ -160,11 +164,11 @@ function vwa_input_fire(actionKey)
     {
         throw ("no such action: " + actionKey);
     }
-    if (global.textFieldInputEnabled)
+    var a = variable_struct_get(global.vwaActions, actionKey);
+    if (global.textFieldInputEnabled && !a.textSafe)
     {
         throw "text field input active; actions suppressed";
     }
-    var a = variable_struct_get(global.vwaActions, actionKey);
     var live = vwa_live_categories();
     if (vwa_array_index_of(live, a.category) < 0)
     {
@@ -189,17 +193,17 @@ function vwa_input_tick()
             global.vwaInputFault = false;
             throw "injected test fault (vwa_dev_arm_input_fault)";
         }
-        vwa_input_unstick_modifiers();
+        vwa_input_unstick_keys();
         // Screen layer first (resolve/diff the stack, sync focus, announce),
         // so the live category set is current when chords dispatch below.
         if (variable_global_exists("vwaScreens"))
         {
             vwa_screens_tick();
         }
-        if (!global.textFieldInputEnabled)
-        {
-            vwa_input_dispatch();
-        }
+        // While the game's text-field input is active, only text-safe
+        // actions dispatch: the speech controls must never go dead while
+        // the player is typing (never strand the user).
+        vwa_input_dispatch(global.textFieldInputEnabled);
         // Release chord state once the main key is up, so the next press is
         // a fresh edge. (Kept while a chord is merely broken by a modifier
         // change: re-completing a held non-repeat chord must not re-fire.)
@@ -224,14 +228,15 @@ function vwa_input_tick()
 
 // The background keepalive (the shim's WndProc subclass) swallows the
 // focus-loss messages that normally make the runner clear its key state, so
-// a modifier pressed while switching windows reads "held" forever - its
-// release went to another window. That silently breaks exact-modifier chord
-// matching (a stale Alt pinned keyboard_check(vk_alt) for minutes; bit us
-// session 4). Detect the lie with keyboard_check_direct (real OS state,
-// ignoring window focus) and reset the runner's bookkeeping. This io_clear
-// only fires when the runner claims a modifier the OS reports up, so no
-// real input can be discarded; it logs every time.
-function vwa_input_unstick_modifiers()
+// a key pressed while switching windows reads "held" forever - its release
+// went to another window. A stale modifier silently breaks exact-modifier
+// chord matching (a pinned Alt; bit us session 4); a stale non-modifier is
+// worse: a repeating action (arrows) fires forever (session-7 review).
+// Detect the lie with keyboard_check_direct (real OS state, ignoring window
+// focus) and reset the runner's bookkeeping. This io_clear only fires when
+// the runner claims a key the OS reports up, so no real input can be
+// discarded; it logs every time.
+function vwa_input_unstick_keys()
 {
     var stale = false;
     if (keyboard_check(vk_shift) && !keyboard_check_direct(vk_lshift)
@@ -249,10 +254,22 @@ function vwa_input_unstick_modifiers()
     {
         stale = true;
     }
+    // keyboard_key is the runner's current held key (0 = none, and 0 during
+    // the freshly-booted "phantom hold" quirk, so > 0 skips both). The
+    // generic modifier codes are excluded: keyboard_check_direct is only
+    // verified against their left/right variants, which the checks above
+    // use.
+    if (!stale && keyboard_key > 0
+        && keyboard_key != vk_shift && keyboard_key != vk_control
+        && keyboard_key != vk_alt
+        && !keyboard_check_direct(keyboard_key))
+    {
+        stale = true;
+    }
     if (stale)
     {
         io_clear();
-        vwa_log("input: cleared stale modifier state (runner held a modifier the OS reports up)");
+        vwa_log("input: cleared stale key state (runner held a key the OS reports up)");
     }
 }
 
@@ -268,17 +285,21 @@ function vwa_input_consume_escape()
     keyboard_clear(vk_escape);
 }
 
-function vwa_input_dispatch()
+function vwa_input_dispatch(textOnly)
 {
     var live = vwa_live_categories();
 
     // Resolve shadowing first: per chord, the action whose category sits
     // earliest in the live list wins this frame (registration order breaks
-    // ties). Only then look at edge/repeat state, which is chord-level.
+    // ties). Only then look at edge/repeat state, which is per main key.
     var winners = {};
     for (var i = 0; i < array_length(global.vwaActionOrder); i++)
     {
         var a = variable_struct_get(global.vwaActions, global.vwaActionOrder[i]);
+        if (textOnly && !a.textSafe)
+        {
+            continue;
+        }
         var prio = vwa_array_index_of(live, a.category);
         if (prio < 0)
         {
@@ -301,15 +322,23 @@ function vwa_input_dispatch()
     for (var i = 0; i < array_length(cids); i++)
     {
         var a = variable_struct_get(winners, cids[i]).a;
-        var st = variable_struct_get(global.vwaChordState, cids[i]);
+        // Edge/repeat state is keyed by the MAIN key alone, not the full
+        // chord id: releasing a fired chord's modifier while the main key
+        // is still held must not mint a fresh edge for the modifier-less
+        // chord (Shift+Tab with Shift released first fired nav-next
+        // straight back; session-7 review). A different action landing on
+        // an already-held main key waits for a fresh press.
+        var skey = string(a.binding.vk);
+        var st = variable_struct_get(global.vwaChordState, skey);
         if (st == undefined)
         {
-            // Fresh chord (or one completed late by a modifier): fire once.
-            variable_struct_set(global.vwaChordState, cids[i],
-                { vk: a.binding.vk, downAt: now, lastFire: now });
+            // Fresh press of the main key: fire once.
+            variable_struct_set(global.vwaChordState, skey,
+                { vk: a.binding.vk, actionKey: a.actionKey, downAt: now, lastFire: now });
             vwa_action_invoke(a);
         }
-        else if (a.repeats && now - st.downAt >= global.vwaKeyDelayMs
+        else if (st.actionKey == a.actionKey
+            && a.repeats && now - st.downAt >= global.vwaKeyDelayMs
             && now - st.lastFire >= global.vwaKeyRateMs)
         {
             st.lastFire = now;
@@ -345,4 +374,9 @@ function vwa_register_global_actions()
         {
             vwa_speech_panic();
         });
+    // The speech controls survive text entry (never strand the user while
+    // typing): none of these chords can type a character into a field.
+    variable_struct_get(global.vwaActions, "repeat-last").textSafe = true;
+    variable_struct_get(global.vwaActions, "speech-stop").textSafe = true;
+    variable_struct_get(global.vwaActions, "panic-reset").textSafe = true;
 }

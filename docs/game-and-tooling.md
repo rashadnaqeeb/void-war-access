@@ -382,6 +382,53 @@ pass, 194 checks). Facts learned:
   oButton_menus Step_0 blocks every button NOT parented to the dialogue
   while one exists - mirrored in the button vtable.
 
+## Session 7 findings: review and hardening (verified 2026-07-08)
+
+A 30-agent high-effort code review over the whole tree produced 26 verified
+candidates; the 10 confirmed correctness issues were fixed and all five
+smokes re-ran green (198 checks). Facts learned:
+
+- `gml_Object_oGlobal_Other_3` is the game's Game End event (it autosaves and
+  calls steam_shutdown); it runs on quit AND on window close, at the menu and
+  in-run. `QueueAppend` onto an existing object event works exactly like the
+  Step appends. `vwa_shim_shutdown()` appended there gives the shim its
+  orderly teardown - verified live on a real quit: the mod log shows the
+  teardown line and the shim log shows the WndProc restore and the server
+  thread exiting.
+- The bg keepalive is OPT-IN as of this session: `g_bg_on` defaults to 0, so
+  a launch with no `vw_speech.cfg` (a shipped install, a hand-run
+  `-applaunch`) keeps the game's own pause-on-focus-loss - a blind player who
+  alt-tabs mid-combat must not have the fight keep running unheard.
+  run-game.ps1 writes `bg=1` (`-NoBg` writes `bg=0`), so dev loops are
+  unchanged.
+- Chord edge/repeat state is keyed by the MAIN key (`string(vk)`), not the
+  full chord id, and remembers the fired actionKey. The old chord-id keying
+  meant releasing Shift before Tab created a "fresh" modifier-less chord that
+  fired nav-next immediately (bit us in review; never shipped to a user). A
+  held main key never re-fires on a modifier change, and typematic repeat
+  requires the same action still winning.
+- Actions carry `textSafe` (default false; the three global speech controls
+  set it): while `global.textFieldInputEnabled` is true, dispatch and
+  `/input` run only text-safe actions, so speech stop/repeat/panic survive
+  typing (never strand the user mid-text-entry).
+- `vwa_input_unstick_keys` (renamed from `vwa_input_unstick_modifiers`) also
+  clears a stale NON-modifier key: `keyboard_key > 0` that
+  `keyboard_check_direct` denies. The generic modifier codes stay excluded
+  from that new check - direct is only verified against the left/right
+  variant codes, which the dedicated modifier checks use.
+- Dev `dump` depth is clamped to 0..16. Recursion depth is the only real
+  bound on a cyclic instance graph (dialogue -> button -> parentID ->
+  dialogue recurses one VM frame per node); the 40000-node budget alone let a
+  large depth overflow the GML VM stack, which is a hard process crash, not a
+  catchable GML error.
+- The dev server sets SO_SNDTIMEO (2s) alongside SO_RCVTIMEO: connections are
+  handled synchronously inside the single accept loop, so a client that
+  stopped draining (a killed curl mid-/gui/raw) used to block send() forever
+  and wedge every endpoint, including /health, until game restart.
+- The suppression probe restores the zeroed keybind and the suppression flag
+  on the throw path too (restore-and-rethrow). try/finally remains unverified
+  under the UTMT importer and is deliberately not used.
+
 ## Reference mods (pattern sources)
 
 - `..\factorio-access` - Lua mod, speech via stdout protocol to an external launcher. Patterns: MessageBuilder speech composition (crashes on hand-added spaces), scanner as streaming entity database, graph-based keyboard UI rebuilt per keypress, vary-early message wording, minimal punctuation, let-it-crash over defensive guards, tick-based offline test framework.

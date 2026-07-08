@@ -14,7 +14,7 @@ Early development. What works today:
 - The full settings menu: checkboxes ("label, toggle, checked/not checked" - Enter flips them and the new state is announced), the volume sliders (left/right arrows adjust in 5-point steps, the new value is announced), the window size and language dropdowns (Enter opens the list as its own screen landing on the current choice, Enter commits, Escape closes just the list), Configure Keybinds, and Back. F9 reads the focused control's tooltip.
 - The confirmation dialogue (for example when choosing a beta language): the message is read, arrows reach Confirm and Cancel.
 - The in-game pause menu (Resume, Hangar, Restart, Settings, Main Menu).
-- Speech hotkeys, available everywhere: F11 repeats the last spoken line, Ctrl stops speech, Shift+F11 resets the speech stack if it ever goes quiet.
+- Speech hotkeys, available everywhere - including while typing in a game text field: F11 repeats the last spoken line, Ctrl stops speech, Shift+F11 resets the speech stack if it ever goes quiet.
 
 In-run gameplay (combat, encounters, ship management) is not yet accessible.
 

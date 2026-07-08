@@ -1146,25 +1146,42 @@ function vwa_dev_suppression_probe(bindName)
     }
     variable_struct_set(global.keybinds, bindName, 0);
     global.vwaSuppressGameKeys = true;
-    var whileSuppressed = input_check(bindName) ? true : false;
-    global.vwaSuppressGameKeys = false;
-    var whileLive = input_check(bindName) ? true : false;
+    var whileSuppressed = false;
+    var whileLive = false;
     var clearedIo = false;
-    if (!whileLive)
+    // The restore below must run even when a probe read throws (a game
+    // update reshaping input_check, say): the mutated state is the game's
+    // real keybind plus the suppression flag, and an escaped throw lands in
+    // the dev pump's catch, which restores nothing - the game keyboard
+    // would stay dead until restart (session-7 review). No verified
+    // try/finally under the UTMT importer, so restore-and-rethrow.
+    try
     {
-        // Two known lies in the runner's key bookkeeping: freshly-booted io
-        // reports "a key is held" with no key named (keyboard_key 0) for
-        // minutes, and the bg keepalive swallows the focus-loss messages
-        // that clear key state, so a key whose release went to another
-        // window reads held forever (a stale Alt; bit us session 4). In
-        // both cases keyboard_check_direct (real OS state) disagrees, and
-        // io_clear resets the bookkeeping without discarding real input.
-        if (keyboard_key == 0 || !keyboard_check_direct(keyboard_key))
+        whileSuppressed = input_check(bindName) ? true : false;
+        global.vwaSuppressGameKeys = false;
+        whileLive = input_check(bindName) ? true : false;
+        if (!whileLive)
         {
-            io_clear();
-            clearedIo = true;
-            whileLive = input_check(bindName) ? true : false;
+            // Two known lies in the runner's key bookkeeping: freshly-booted io
+            // reports "a key is held" with no key named (keyboard_key 0) for
+            // minutes, and the bg keepalive swallows the focus-loss messages
+            // that clear key state, so a key whose release went to another
+            // window reads held forever (a stale Alt; bit us session 4). In
+            // both cases keyboard_check_direct (real OS state) disagrees, and
+            // io_clear resets the bookkeeping without discarding real input.
+            if (keyboard_key == 0 || !keyboard_check_direct(keyboard_key))
+            {
+                io_clear();
+                clearedIo = true;
+                whileLive = input_check(bindName) ? true : false;
+            }
         }
+    }
+    catch (probeErr)
+    {
+        variable_struct_set(global.keybinds, bindName, priorKey);
+        global.vwaSuppressGameKeys = priorFlag;
+        throw probeErr;
     }
     variable_struct_set(global.keybinds, bindName, priorKey);
     global.vwaSuppressGameKeys = priorFlag;
@@ -1308,7 +1325,7 @@ function vwa_dev_dismiss_start_popup()
 
 // Diagnostic: the runner's view of a key vs the OS's (keyboard_check_direct
 // ignores window focus). Disagreement = stale runner bookkeeping (see
-// vwa_input_unstick_modifiers).
+// vwa_input_unstick_keys).
 function vwa_dev_key_direct(vk)
 {
     return { vk: vk,
@@ -1371,6 +1388,12 @@ function vwa_dev_dispatch(cmd)
             {
                 dumpDepth = real(dToks[1].t);
             }
+            // Depth bounds the recursion; the node budget alone does not: a
+            // cyclic instance graph (dialogue -> button -> parentID ->
+            // dialogue) recurses one VM frame per node, and a huge depth
+            // overflows the GML stack - a hard process crash, not a
+            // catchable error (session-7 review).
+            dumpDepth = clamp(dumpDepth, 0, 16);
             global.vwaDumpBudget = 40000;
             return vwa_dump_json(vwa_resolve(dToks[0].t), dumpDepth);
         }

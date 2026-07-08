@@ -351,7 +351,77 @@ Work:
 
 Exit criteria: review findings addressed or explicitly rejected with rationale; all transcripts still pass; user smoke-tests the main menu and settings by ear.
 
-Status: not started.
+Status: agent verification COMPLETE (2026-07-08); user by-ear smoke of the
+main menu and settings pending.
+The review ran as a 30-agent workflow (four finder angles plus an independent
+verifier per finding, over the full committed tree): 26 verified candidates,
+10 reported as the top findings. All 10 were fixed the same session:
+(1) chord edge state was keyed by the full chord id, so releasing a fired
+chord's modifier while the main key stayed held minted a fresh edge -
+Shift+Tab with Shift released first fired nav-next straight back; state is
+now keyed by the main vk and remembers which action fired (a different action
+on a held key waits for a fresh press).
+(2) text-field mode killed ALL hotkeys including speech-stop and the panic
+reset; actions now carry `textSafe` (set on the three global speech controls,
+whose chords cannot type) and dispatch plus /input filter on it while
+`global.textFieldInputEnabled`.
+(3) the stale-key unstick covered only modifiers; a non-modifier key whose
+release went to another window under the bg keepalive repeated forever -
+`vwa_input_unstick_keys` (renamed) now also clears a runner-held
+`keyboard_key` that `keyboard_check_direct` denies.
+(4) announcement node keys were the bare title, so a duplicate title in game
+data would quarantine the whole popup via the graph's duplicate-key throw;
+the list index is now part of the key.
+(5) the shim's bg keepalive defaulted ON with no cfg, so any non-launcher
+launch (a shipped install) would run real-time combat unheard in the
+background; now opt-in (`g_bg_on` defaults 0, run-game.ps1 writes `bg=1`).
+(6) the dev server had no send timeout, so one client that stopped draining
+wedged every endpoint including /health until restart; SO_SNDTIMEO added.
+(7) the suppression probe restored the zeroed game keybind and the
+suppression flag only on the straight-line path; a throw mid-probe would have
+left the game keyboard dead - restore now also runs on the throw path
+(restore-and-rethrow; try/finally is unverified under the UTMT importer).
+(8) dump's caller-supplied depth is clamped to 0..16: a huge depth over a
+cyclic instance graph overflowed the GML VM stack, a hard process crash the
+pump's catch cannot see.
+(9) `vw_shutdown` was dead code in real runs; `vwa_shim_shutdown` is now
+appended to oGlobal's Game End event (runs on quit and window close), so the
+WndProc restore and server-thread stop actually execute - verified live in
+the shim and mod logs on a real quit.
+(10) `vw_key_delay`/`vw_key_rate` silently swallowed SystemParametersInfoW
+failure; both log before falling back.
+Rejected or deferred, with reasons (all review-verified, none correctness):
+shim tier-selection block duplicated between vw_init and vw_reset_speech,
+/cmd body copied three times, /speech serializing the ring under g_lock, the
+instance-summary JSON header built in three dev-only places, build-mod's
+script list repeated in its asserts - all cosmetic or dev-only cost, explicit
+code preferred; the five smoke scripts' duplicated helper blocks - they are
+the regression net itself, consolidation churn right after a hardening pass
+is the wrong trade, revisit alongside session 8; double rerender on the
+adjust-to-move fallthrough and the dropdown screen's triple instance scan -
+menus are tiny, no measurable cost; edge transition labels as dead plumbing -
+reserved for future announcer wording; vertical wrap wired twice - the main
+menu's ad-hoc buttonList cannot use the widget adapter; io_clear wiping all
+key state on unstick - documented trade-off, fires only on a detected runner
+lie and logs; the widgets_emit empty-row case - theoretical, every present
+family has a vtable and a new one surfaces in the raw-vs-mod diff; the
+WndProc install "race" - the install runs on the window's owning thread
+(ownerTid==myTid in the log), so the new proc cannot run before
+g_orig_wndproc is assigned; the input layer's direct keyDelay/keyRate shim
+reads - sanctioned by this plan's session 3, CLAUDE.md's invariant now names
+the sanctioned non-speech shim calls explicitly.
+Convention sweep: clean. Every vwa_speak call site passes a parts array of
+localized or game-live strings (dev text exempt); raw keyboard_check only in
+scrVwaInput plus dev key-state diagnostics; every catch logs or is a
+sanctioned watchdog; zero build warnings; 72 host-side protocol checks.
+All five smokes re-run green after the fixes (198 checks: drive 19, input 31,
+screens 45, mainmenu 33, settings 70), and the Game End teardown was
+additionally observed live on a real quit.
+User checks for Rashad (launch with `-Speech`): the session 5 and 6 by-ear
+lists still stand, plus two new behaviors from this session's fixes: the
+speech keys (Ctrl, F11, Shift+F11) keep working while a game text field is
+focused, and Shift+Tab must move exactly one control group backward even when
+Shift is released a beat before Tab.
 
 ## Session 8: parity audit against the references
 
