@@ -41,6 +41,7 @@ Without `-Speech`, the mod runs in capture-only mode: nothing is voiced, but eve
 ## Keys
 
 - Arrow keys: move through a menu (up/down wrap at the ends; left/right adjust sliders and move within horizontal rows).
+- Ctrl with Left/Right: adjust sliders in large steps.
 - Enter: activate the focused control (buttons click, checkboxes flip, dropdowns open, a dropdown entry commits).
 - Tab and Shift+Tab: cycle between control groups on screens that have them.
 - Home and End: jump to the first or last control of the current group.

@@ -113,9 +113,10 @@ other flag order, or the permission rule won't match.
 - User hotkeys (Global category, registered in `scrVwaInput`): Ctrl stop
   speech, Shift+F11 panic speech-stack reset. UI category (live only while
   a mod screen is focused, `scrVwaScreens`): arrows navigate (left/right
-  adjust sliders), Enter activates, Tab / Shift+Tab cycle control groups
-  with remembered positions, Home/End jump to the focused group's
-  first/last control, Escape fires nav-back (opt-in per-screen onBack;
+  adjust sliders; Ctrl+left/right large steps), Enter activates, Tab /
+  Shift+Tab cycle control groups with remembered positions, Home/End jump
+  to the focused group's first/last control, Escape fires nav-back
+  (opt-in per-screen onBack;
   consumed via keyboard_clear ONLY when a screen claims it - the dropdown
   child screen - otherwise the game's own Escape handling runs untouched).
   Actions carry a bindings LIST (any chord fires; WotR parity). Tooltips

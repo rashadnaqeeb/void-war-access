@@ -342,6 +342,20 @@ function vwa_register_nav_actions()
         {
             vwa_nav_move("right");
         });
+    // Ctrl+left/right: large adjust steps on the focused control (sliders
+    // step 0.2 instead of 0.05, vwa_widget_slider_adjust). No-op on a
+    // control with no onAdjust. Ctrl+up/down stay unbound - reserved for
+    // WotR-style region jumps if grid screens ever need them.
+    vwa_action_register("nav-left-large", "vwa--action-nav-left-large", "ui",
+        vwa_bind(vk_left, false, true, false), true, function()
+        {
+            vwa_nav_adjust_large(-1);
+        });
+    vwa_action_register("nav-right-large", "vwa--action-nav-right-large", "ui",
+        vwa_bind(vk_right, false, true, false), true, function()
+        {
+            vwa_nav_adjust_large(1);
+        });
     vwa_action_register("nav-activate", "vwa--action-nav-activate", "ui",
         vwa_bind(vk_enter, false, false, false), false, function()
         {
@@ -417,6 +431,19 @@ function vwa_nav_move(dir)
         }
     }
     vwa_graph_move(scr.graph, dir);
+}
+
+function vwa_nav_adjust_large(sign)
+{
+    var scr = global.vwaFocusedScreen;
+    if (scr == undefined)
+    {
+        return;
+    }
+    if (vwa_graph_adjust(scr.graph, sign, true))
+    {
+        vwa_nav_state_feedback(scr);
+    }
 }
 
 function vwa_nav_activate()

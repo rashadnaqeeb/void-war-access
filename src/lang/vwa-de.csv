@@ -7,6 +7,8 @@ vwa--action-nav-up,Nach oben navigieren
 vwa--action-nav-down,Nach unten navigieren
 vwa--action-nav-left,Nach links navigieren
 vwa--action-nav-right,Nach rechts navigieren
+vwa--action-nav-left-large,Großer Schritt abwärts
+vwa--action-nav-right-large,Großer Schritt aufwärts
 vwa--action-nav-activate,Aktivieren
 vwa--action-nav-next-stop,Nächste Steuerelementgruppe
 vwa--action-nav-prev-stop,Vorherige Steuerelementgruppe

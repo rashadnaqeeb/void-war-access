@@ -7,6 +7,8 @@ vwa--action-nav-up,Navegar hacia arriba
 vwa--action-nav-down,Navegar hacia abajo
 vwa--action-nav-left,Navegar a la izquierda
 vwa--action-nav-right,Navegar a la derecha
+vwa--action-nav-left-large,Paso grande hacia abajo
+vwa--action-nav-right-large,Paso grande hacia arriba
 vwa--action-nav-activate,Activar
 vwa--action-nav-next-stop,Siguiente grupo de controles
 vwa--action-nav-prev-stop,Grupo de controles anterior

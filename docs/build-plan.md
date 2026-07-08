@@ -509,10 +509,15 @@ with its last-spoken tracking, and read-current went with them, plus
 their five lang rows in all four languages. Global keys are now just
 Ctrl (stop speech) and Shift+F11 (panic); UI is arrows, Enter,
 Tab/Shift+Tab, Home/End, Escape. input-smoke and settings-smoke updated
-(inline-tooltip assertions replace the F9 checks); all five smokes green
-(196 checks). By-ear recheck: settings controls now read their tooltip
-after their state (e.g. "Fullscreen, toggle, not checked, Toggles
-fullscreen mode ON/OFF., 1 of 3").
+(inline-tooltip assertions replace the F9 checks). Second addendum, same
+day: Ctrl+Left/Right bound as large adjust steps (the graph adjust path's
+large flag, 0.2 per step on the volume sliders; no-op on non-adjustable
+controls; Ctrl+Up/Down stay unbound, reserved for WotR-style region jumps
+if grid screens need them). settings-smoke covers the 4x step and
+restore. All five smokes green (200 checks). By-ear recheck: settings
+controls read their tooltip after their state (e.g. "Fullscreen, toggle,
+not checked, Toggles fullscreen mode ON/OFF., 1 of 3"), and Ctrl+Right on
+Music Volume moves in steps of 20.
 
 ## After the foundation
 

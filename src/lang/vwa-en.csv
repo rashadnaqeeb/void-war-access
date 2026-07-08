@@ -7,6 +7,8 @@ vwa--action-nav-up,Navigate up
 vwa--action-nav-down,Navigate down
 vwa--action-nav-left,Navigate left
 vwa--action-nav-right,Navigate right
+vwa--action-nav-left-large,Large step down
+vwa--action-nav-right-large,Large step up
 vwa--action-nav-activate,Activate
 vwa--action-nav-next-stop,Next control group
 vwa--action-nav-prev-stop,Previous control group

@@ -272,7 +272,11 @@ After reviewing the bindings list, Rashad cut three keys as unnecessary:
   no longer applies; WotR has no repeat key either.
 
 Ctrl (stop speech) and Shift+F11 (panic reset) remain the only global
-keys; the UI category is arrows, Enter, Tab/Shift+Tab, Home/End, Escape.
+keys; the UI category is arrows, Enter, Tab/Shift+Tab, Home/End, Escape,
+plus Ctrl+Left/Right as large adjust steps (added right after the cut:
+the slider mirror's reserved large flag, 0.2 per step). Ctrl+Up/Down stay
+unbound - in WotR they are FlowSheet region jumps, which wait for grid
+screens (backlog item 5).
 
 ## Standing rule going forward
 
