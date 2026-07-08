@@ -1,0 +1,17 @@
+# Derived from data.win, regenerable via tools/dump-all.csx (huge)
+decompiled/
+
+# Build outputs (patched data.win and mirrored game support files)
+build/
+
+# Vendored binary tooling
+tools/utmt-cli/
+tools/utmt-cli.zip
+
+# Extracted game audio (derived)
+audio/
+
+# Logs and scratch
+*.log
+debug-*.txt
+screen.png
