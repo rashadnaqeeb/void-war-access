@@ -70,6 +70,12 @@ Check 'call returns a bool' ($call.result -is [bool]) $call.result
 $loc = Cmd 'call vwa_t vwa--boot'
 Check 'call vwa_t localized' ($loc.result -is [string] -and $loc.result.Length -gt 0) $loc.result
 
+# --- call a bound method by path (regression: script_execute_ext coerces a
+#     method to a wrong script index, so the dispatcher invokes methods
+#     directly - session 5; getLocalizedText idempotently refreshes labels) ---
+$mcall = Cmd 'call oMainMenuControls.getLocalizedText'
+Check 'method-path call runs and returns null' ($null -eq $mcall.result) ($mcall | ConvertTo-Json -Compress)
+
 # --- error handling: a bad command must not crash the pump ---
 $err = Cmd 'get global.doesNotExistXyz'
 Check 'missing global errors cleanly' ($err -like 'ERROR:*') $err

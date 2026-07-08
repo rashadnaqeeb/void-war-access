@@ -149,14 +149,18 @@ CheckSpeech 'uncovering re-announces the menu and restores focus' {
     Cmd 'call vwa_dev_test_screen none'
 } @('Test menu', 'GammaX, button, 3 of 5')
 
-# --- close: stack empties, ui category dies, nav actions refuse ---
-CheckSpeech 'menu off is silent' { Cmd 'call vwa_dev_test_menu off' } @()
+# --- close: focus falls to the real main-menu screen underneath (session
+#     5), which re-announces and keeps ui live. Its remembered landing
+#     varies with profile and prior smokes, so match shape, not text. ---
+$cur = SpeechNext
+Cmd 'call vwa_dev_test_menu off' | Out-Null
+$got = @(SpeechFrom $cur)
+Check 'menu off uncovers the main menu' (
+    $got.Count -eq 2 -and $got[1] -match ', button, \d+ of \d+$') ($got -join '|')
 $s = Invoke-RestMethod "$base/state" -TimeoutSec 8
-Check 'live categories back to global' (($s.liveCategories -join ',') -eq 'global') ($s.liveCategories -join ',')
-$r = Fire 'nav-down'
-Check 'nav action refused with no screen' ($r -like 'ERROR:*') $r
+Check 'ui stays live via the main menu' (($s.liveCategories -join ',') -eq 'ui,global') ($s.liveCategories -join ',')
 $m = Invoke-RestMethod "$base/gui/mod" -TimeoutSec 8
-Check 'gui.mod empty after close' ($null -eq $m.focused -and $m.nodes.Count -eq 0) ($m | ConvertTo-Json -Compress)
+Check 'gui.mod focus back on the main menu' ($m.focused -eq 'main-menu' -and $m.nodes.Count -ge 5) ($m.focused)
 Check 'pump alive at end' ((Cmd 'ping') -eq 'pong') 'no pong'
 
 Write-Host ""

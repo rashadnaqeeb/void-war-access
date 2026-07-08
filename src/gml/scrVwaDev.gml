@@ -614,6 +614,7 @@ function vwa_dev_call(nameTok, argToks)
         array_push(args, vwa_parse_literal(argToks[i].t, argToks[i].q));
     }
     var fn;
+    var isBoundMethod = false;
     if (string_pos(".", nameTok) > 0)
     {
         fn = vwa_resolve(nameTok);
@@ -621,6 +622,7 @@ function vwa_dev_call(nameTok, argToks)
         {
             throw (nameTok + " is not a method (got " + typeof(fn) + ")");
         }
+        isBoundMethod = true;
     }
     else
     {
@@ -630,7 +632,26 @@ function vwa_dev_call(nameTok, argToks)
         }
         fn = asset_get_index(nameTok);
     }
-    var result = script_execute_ext(fn, args);
+    var result;
+    if (isBoundMethod)
+    {
+        // script_execute_ext on a METHOD value does not call it: the method
+        // coerces to a number and some unrelated script index runs instead,
+        // silently (bit us session 5 - `call oMenuSettings.closeMenu`
+        // returned fresh ds handles and closed nothing). Methods must be
+        // invoked directly, which also preserves their bound self.
+        var argc = array_length(args);
+        if (argc == 0) { result = fn(); }
+        else if (argc == 1) { result = fn(args[0]); }
+        else if (argc == 2) { result = fn(args[0], args[1]); }
+        else if (argc == 3) { result = fn(args[0], args[1], args[2]); }
+        else if (argc == 4) { result = fn(args[0], args[1], args[2], args[3]); }
+        else { throw "method calls support at most 4 arguments"; }
+    }
+    else
+    {
+        result = script_execute_ext(fn, args);
+    }
     global.vwaDumpBudget = 5000;
     return "{\"result\":" + vwa_dump_json(result, 2) + "}";
 }
@@ -1242,6 +1263,33 @@ function vwa_dev_gui_mod()
         }
     }
     return out + "]}";
+}
+
+// Dismiss the game-start popup the exact way the game's own Draw_64
+// dismissal does (left click / Escape), including the once-per-profile
+// double-spawn quirk (the first-ever dismissal respawns the popup once,
+// gated by the SAVED global.gameStartPopupSpawned). Dev-only scaffolding:
+// scripted smokes cannot press Escape (this runner ignores synthetic keys,
+// bit us session 3); a human dismisses with the real key.
+function vwa_dev_dismiss_start_popup()
+{
+    if (!instance_exists(oGameStartMessage))
+    {
+        throw "no oGameStartMessage instance to dismiss";
+    }
+    var orig = instance_find(oGameStartMessage, 0);
+    var respawned = false;
+    if (!global.gameStartPopupSpawned)
+    {
+        instance_create_depth(0, 0, 0, oGameStartMessage);
+        global.gameStartPopupSpawned = true;
+        respawned = true;
+    }
+    with (orig)
+    {
+        instance_destroy();
+    }
+    return { dismissed: true, respawned: respawned };
 }
 
 // Diagnostic: the runner's view of a key vs the OS's (keyboard_check_direct

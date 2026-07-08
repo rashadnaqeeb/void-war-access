@@ -230,7 +230,38 @@ Verify (user): full boot flow by ear, from launcher to hearing "Main menu, Conti
 
 Exit criteria: user can reach and activate every main-menu entry without sight; transcript verified.
 
-Status: not started.
+Status: agent verification COMPLETE (2026-07-08); user by-ear verification pending.
+`scrVwaMenus` (ships in release) registers the session's screens: the main
+menu (immediate-mode build over the live `buttonList`, identity = entry
+struct ref + `localizedLabelName` skey so conditional entries never break
+focus; activation mirrors the game's click path - same overlay guards, same
+click sound, then the stored onClick; arrows wrap via two explicit edges;
+name reuses `global.label_mainMenu`), the announcements popup as a
+read-on-demand screen (titles as buttons, Enter speaks the body, exclusive;
+suppression not needed; dismissal stays the game's own Escape, and the
+double-spawn quirk turned out to be once per PROFILE - saved flag), and
+name-only exclusive placeholders for open game menus (settings/language via
+the game's own label globals, generic "Menu" via the one new vwa-- row),
+all gated on `!global.gameIsLoading` because menuToggle is nonzero
+throughout boot loading (bit us: a stray "Menu" in every boot transcript).
+`run-game.ps1 -WaitMainMenu` blocks until /gui/mod shows the screen;
+`scripts/mainmenu-smoke.ps1` (33 checks) is profile-agnostic (expected
+speech derives from /gui/mod) and covers wrap, walk-to-Settings, the
+placeholder announce/close-with-focus-restore via the game's stored
+closeMenu, popup open/read/dismiss with restore, raw-vs-mod label diff,
+and a no-stray-boot-speech assert. The big catch: `script_execute_ext` on
+a METHOD executes an unrelated script index instead of the method
+(silently!) - the dev driver's `call` now invokes methods directly, and
+session 2's "menus created via onClick don't survive" note was corrected
+(the onClick had never run). input-smoke and screens-smoke updated for the
+main menu keeping ui permanently live at the menu (the "ui dead" flip now
+uses an exclusive dev screen). First README.md written (user-facing).
+User checks for Rashad: launch with `-Speech`; boot should speak the boot
+line, then "Main Menu", then "Continue, button, 1 of N" (or New Game on a
+fresh profile); arrows navigate and wrap; Enter on Settings speaks
+"Settings", Escape returns and re-announces; Enter on Announcements lists
+titles, Enter reads a body, Escape (twice if it respawns once) returns;
+Exit quits the game.
 
 ## Session 6: generic widget adapter and the settings family
 

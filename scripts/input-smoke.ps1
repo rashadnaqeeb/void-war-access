@@ -60,8 +60,9 @@ Check 'input tick runs every frame' ($s2.ticks -gt $s1.ticks) "$($s1.ticks) -> $
 Check 'typematic delay sane' ($s2.keyDelayMs -ge 150 -and $s2.keyDelayMs -le 2000) $s2.keyDelayMs
 Check 'typematic rate sane' ($s2.keyRateMs -ge 10 -and $s2.keyRateMs -le 500) $s2.keyRateMs
 
-# --- baseline live set: empty stack = global only ---
-Check 'live categories = global' (($s2.liveCategories -join ',') -eq 'global') ($s2.liveCategories -join ',')
+# --- baseline live set at the main menu: the real main-menu screen
+#     (session 5) keeps ui live, plus the always-on global ---
+Check 'live categories = ui,global' (($s2.liveCategories -join ',') -eq 'ui,global') ($s2.liveCategories -join ',')
 $actionKeys = @($s2.actions | ForEach-Object { $_.key })
 Check 'starter actions registered' (
     $actionKeys -contains 'repeat-last' -and
@@ -92,17 +93,11 @@ $r = Fire 'no-such-action'
 Check 'unknown action errors' ($r -like 'ERROR:*') $r
 
 # --- test actions, liveness, shadowing flip ---
+# ui is live at the main menu (the real main-menu screen), so the "ui dead"
+# side of the flip comes from covering it with an EXCLUSIVE dev test screen
+# whose category set is combat only.
 Cmd 'call vwa_dev_register_test_actions' | Out-Null
-$r = Fire 'dev-shout-ui'
-Check 'ui action refused while ui not live' ($r -like 'ERROR:*') $r
 $s = GetState
-$conflictChords = @($s.conflicts | ForEach-Object { $_.chord })
-Check 'no F10 conflict while only global live' (-not ($conflictChords -contains '121')) ($s.conflicts | ConvertTo-Json -Compress)
-
-Cmd 'call vwa_dev_test_screen ui' | Out-Null
-$s = GetState
-Check 'test screen on stack' ($s.stack.Count -eq 1 -and $s.stack[0].name -eq 'vwa-test-screen') ($s.stack | ConvertTo-Json -Compress)
-Check 'live categories = ui,global' (($s.liveCategories -join ',') -eq 'ui,global') ($s.liveCategories -join ',')
 $f10 = @($s.conflicts | Where-Object { $_.chord -eq '121' })
 Check 'F10 chord conflict detected' ($f10.Count -eq 1) ($s.conflicts | ConvertTo-Json -Compress)
 Check 'ui shadows global on F10' ($f10[0].winner -eq 'dev-shout-ui' -and $f10[0].shadowed -contains 'dev-shout-global') ($f10 | ConvertTo-Json -Compress)
@@ -113,13 +108,23 @@ Check 'ui action fires while live' ($r -eq 'fired dev-shout-ui') $r
 $lines = @(SpeechFrom $cur)
 Check 'ui action spoke' (($lines -join '|') -match 'test shout ui') ($lines -join '|')
 
+Cmd 'call vwa_dev_test_screen combat!' | Out-Null
+$s = GetState
+$stackNames = @($s.stack | ForEach-Object { $_.name })
+Check 'exclusive test screen on stack' ($stackNames -contains 'vwa-test-screen') ($stackNames -join ',')
+Check 'exclusive modal kills ui below it' (($s.liveCategories -join ',') -eq 'combat,global') ($s.liveCategories -join ',')
+$conflictChords = @($s.conflicts | ForEach-Object { $_.chord })
+Check 'no F10 conflict while ui dead' (-not ($conflictChords -contains '121')) ($s.conflicts | ConvertTo-Json -Compress)
+$r = Fire 'dev-shout-ui'
+Check 'ui action refused while ui not live' ($r -like 'ERROR:*') $r
+$r = Fire 'dev-shout-global'
+Check 'global action fires under the modal' ($r -eq 'fired dev-shout-global') $r
+
 Cmd 'call vwa_dev_test_screen none' | Out-Null
 $s = GetState
-Check 'stack cleared flips winner back' (($s.liveCategories -join ',') -eq 'global') ($s.liveCategories -join ',')
+Check 'uncovering restores ui' (($s.liveCategories -join ',') -eq 'ui,global') ($s.liveCategories -join ',')
 $r = Fire 'dev-shout-ui'
-Check 'ui action refused again' ($r -like 'ERROR:*') $r
-$r = Fire 'dev-shout-global'
-Check 'global action fires with empty stack' ($r -eq 'fired dev-shout-global') $r
+Check 'ui action fires again' ($r -eq 'fired dev-shout-ui') $r
 
 # --- suppression: the game's own input_check goes quiet, then comes back ---
 # One-frame probe: rebinds open_doors to vk_nokey (held whenever no key is

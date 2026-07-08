@@ -9,6 +9,7 @@ if (vwa_shim_init())
 }
 vwa_input_init();
 vwa_screens_init();
+vwa_menus_init();
 if (global.vwaShimReady)
 {
     vwa_speak([vwa_t("vwa--boot")], false);

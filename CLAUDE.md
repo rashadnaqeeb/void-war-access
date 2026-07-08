@@ -30,8 +30,11 @@ mods: `../wotr-access` (UI architecture we are porting), `../tangledeep`
   as data, path-diff compose returning parts arrays; PURE),
   `scrVwaScreens.gml` (screen registry, per-frame poll-and-diff stack and
   focus sync driven from the input tick, navigator actions, once-per-frame
-  announce observe + live-part watch), and `scrVwaDev.gml` (dev-driver
-  eval-lite interpreter, dev builds only) each become a new global script;
+  announce observe + live-part watch), `scrVwaMenus.gml` (the real game
+  screens: main menu, announcements popup, name-only placeholders for open
+  game menus gated on `!global.gameIsLoading`), and `scrVwaDev.gml`
+  (dev-driver eval-lite interpreter, dev builds only) each become a new
+  global script;
   `*.append.gml` files append to the named code entry (`*.dev.append.gml`
   marks dev-only appends).
   build-mod also QueueFindReplace-patches the game's `scrKeybinds` so
@@ -79,7 +82,10 @@ other flag order, or the permission rule won't match.
   `dump <path> [depth]`, `instances <obj>`, `call <script|path> [args...]`,
   `gui.raw [obj]`, `gui.mod`, `screenshot`, `state`, `input <actionKey>`,
   `help`. Paths: `global.x`, `oObject.var` (first live instance), a numeric
-  id, chained with `.member` and `[n]`. A JSON reply is content-typed JSON;
+  id, chained with `.member` and `[n]`. `call` on a dotted path invokes the
+  bound method DIRECTLY, max 4 args - `script_execute_ext` on a method value
+  silently runs an unrelated script index (bit us session 5).
+  A JSON reply is content-typed JSON;
   errors are `ERROR:` text and never crash the pump. Never `var` a GML
   builtin name (`depth`, `x`, ...) in injected code - it is a hard compile
   error. Dev helpers via `call`: `vwa_dev_test_screen <cats|none>`
@@ -91,7 +97,9 @@ other flag order, or the permission rule won't match.
   (runner vs OS key state), `vwa_dev_suppression_probe <bind>` (one-frame
   suppression proof; self-heals stale runner key state, so retry only on
   `live:false` with `kbDirect:true` - a human really holding a key;
-  `keyboard_key_press` does NOT work in this runner).
+  `keyboard_key_press` does NOT work in this runner),
+  `vwa_dev_dismiss_start_popup` (the announcements popup's click/Escape
+  dismissal for scripted runs, honoring the saved double-spawn quirk).
 - User hotkeys (Global category, registered in `scrVwaInput`): F11 repeat
   last spoken, Ctrl stop speech, Shift+F11 panic speech-stack reset. UI
   category (live only while a mod screen is focused, `scrVwaScreens`):
@@ -99,9 +107,13 @@ other flag order, or the permission rule won't match.
   Shift+Tab cycle control groups with remembered positions.
 - Regression checks against a live game at the main menu:
   `scripts/drive-smoke.ps1` (dev driver), `scripts/input-smoke.ps1` (input
-  layer), and `scripts/screens-smoke.ps1` (framework core: exact speech
-  transcript over the synthetic test menu). Run all three after touching the
-  shim, the pump, `scrVwaInput`, or any framework script.
+  layer), `scripts/screens-smoke.ps1` (framework core: exact speech
+  transcript over the synthetic test menu), and `scripts/mainmenu-smoke.ps1`
+  (real screens: main menu, settings placeholder, announcements popup;
+  profile-agnostic - expected speech derives from /gui/mod). Run all four
+  after touching the shim, the pump, `scrVwaInput`, or any framework or
+  screen script. `tools/run-game.ps1 -WaitMainMenu` blocks until /gui/mod
+  shows the main-menu screen - use it before smoke runs.
 - Background-run works: the shim subclasses the game window's WndProc to swallow
   deactivation, so the autonomous loop runs unattended (drive over HTTP with the
   game backgrounded). The documented pause is a BOOT freeze - frozen until the

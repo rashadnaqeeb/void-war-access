@@ -34,6 +34,11 @@ group.QueueReplace("gml_GlobalScript_scrVwaAnnounce",
 group.QueueReplace("gml_GlobalScript_scrVwaScreens",
     File.ReadAllText(Path.Combine(gmlDir, "scrVwaScreens.gml")));
 
+// New global script: the real game screens (session 5) - main menu,
+// announcements popup, game-menu placeholders.
+group.QueueReplace("gml_GlobalScript_scrVwaMenus",
+    File.ReadAllText(Path.Combine(gmlDir, "scrVwaMenus.gml")));
+
 // Dev-driver eval-lite interpreter (dev builds only; the release build
 // script will omit this file and the dev pump append).
 group.QueueReplace("gml_GlobalScript_scrVwaDev",
@@ -89,6 +94,8 @@ if (Data.Code.ByName("gml_GlobalScript_scrVwaAnnounce") == null)
     throw new Exception("gml_GlobalScript_scrVwaAnnounce was not created by the import");
 if (Data.Code.ByName("gml_GlobalScript_scrVwaScreens") == null)
     throw new Exception("gml_GlobalScript_scrVwaScreens was not created by the import");
+if (Data.Code.ByName("gml_GlobalScript_scrVwaMenus") == null)
+    throw new Exception("gml_GlobalScript_scrVwaMenus was not created by the import");
 if (Data.Code.ByName("gml_GlobalScript_scrVwaDev") == null)
     throw new Exception("gml_GlobalScript_scrVwaDev was not created by the import");
 

@@ -16,6 +16,9 @@
 # -NoBuild   launch whatever is already in build\ (re-test the exact binary)
 # -NoBg      disable the shim's focus-pause keepalive (diagnostic / to test a
 #            release-parity launch)
+# -WaitMainMenu  after /health, keep waiting until /gui/mod shows the
+#            main-menu screen on the stack (the game has finished booting
+#            into rmMainMenu and the mod sees it)
 #
 # The game boot-freezes until its window gains focus once (runner-level,
 # verified), but Steam's -applaunch focuses it automatically, so /health
@@ -27,6 +30,7 @@ param(
     [switch]$Speech,
     [switch]$NoBuild,
     [switch]$NoBg,      # disable the focus-pause keepalive (diagnostic / release-parity)
+    [switch]$WaitMainMenu,
     [int]$HealthTimeoutSec = 300
 )
 
@@ -109,6 +113,31 @@ try {
         throw "no /health answer within ${HealthTimeoutSec}s (window never focused? shim failed? see build\vw_speech.log)"
     }
     Write-Host "run-game: HEALTHY backend=$($health.backend) speechOn=$($health.speechOn) spoken=$($health.spoken)"
+
+    # --- optionally wait for the main menu screen (boot reaches rmMainMenu) ---
+    if ($WaitMainMenu) {
+        Write-Host 'run-game: waiting for the main-menu screen...'
+        $deadline = (Get-Date).AddSeconds(180)
+        $onStack = $false
+        while ((Get-Date) -lt $deadline) {
+            if ($game.HasExited) {
+                throw "game exited while waiting for the main menu (code $($game.ExitCode))"
+            }
+            try {
+                $mod = Invoke-RestMethod "http://127.0.0.1:$port/gui/mod" -TimeoutSec 4
+                if (@($mod.stack | ForEach-Object { $_.key }) -contains 'main-menu') {
+                    $onStack = $true
+                    break
+                }
+            }
+            catch { }
+            Start-Sleep -Milliseconds 500
+        }
+        if (-not $onStack) {
+            throw 'main-menu screen never appeared on the stack within 180s (see the mod log)'
+        }
+        Write-Host "run-game: main menu active (focused screen: $($mod.focused))"
+    }
 
     # --- block until the game exits; the exit code is the task's result ---
     $game.WaitForExit()

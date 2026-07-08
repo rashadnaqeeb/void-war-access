@@ -124,10 +124,14 @@ learned:
   resolver probes the value and only errors when it is `undefined` AND the name
   doesn't exist.
 - `instance_create_depth` returns the new id immediately and runs Create
-  synchronously, but a menu created by calling its button's `onClick` out of the
-  normal flow does not survive to the next frame (e.g. `oMenuSettings` count is 0
-  a frame later; ids increment 2257 -> 2258 across calls, proving creation). The
-  real open/close flow is a session 5/6 reverse-engineering task, not a driver bug.
+  synchronously. CORRECTED in session 5: the session-2 observation that "a menu
+  created by calling its button's onClick out of the normal flow does not survive
+  to the next frame" was WRONG - the onClick never ran at all. `script_execute_ext`
+  on a METHOD value does not call the method: it silently coerces it to a number
+  and executes an unrelated script index (the incrementing 2257/2258 "ids" were
+  that script allocating ds handles). The dev driver's `call` now invokes bound
+  methods directly (`fn(args...)`, arity-capped); menus opened or closed through
+  stored callbacks behave exactly as in normal flow and survive fine.
 - The main menu at boot: `global.menuToggle == 0`, room `rmMainMenu`,
   `oMainMenuControls` buttonList = New Game, Achievements, Settings, Exit,
   Announcements (Continue/Tutorial/Archives/Credits are conditional on save and
@@ -251,6 +255,64 @@ boot). Facts learned:
   the action that moved focus - multiple moves in one frame speak once, on
   the final landing. The dev pump processes one command per frame, so any
   HTTP round-trip after a POST /input observes the settled state.
+
+## Session 5 findings: main menu and announcements (verified 2026-07-08)
+
+The first real screens (`scrVwaMenus`: main menu, announcements popup,
+name-only placeholders for open game menus), `-WaitMainMenu`, and
+`scripts/mainmenu-smoke.ps1` are built and verified live (all four smokes
+pass from a cold boot). Facts learned:
+
+- **`script_execute_ext` on a METHOD value does not call the method** (bit
+  us, and silently): the method coerces to a number and an unrelated script
+  index executes instead. Observed as `call oMenuSettings.closeMenu`
+  returning fresh incrementing ds-handle-like numbers (2257, 2258, ...) with
+  none of closeMenu's side effects. This also invalidated session 2's
+  "menus created via onClick don't survive a frame" observation - the
+  onClick never ran. The dev driver's `call` now invokes bound methods
+  directly (`fn(args...)`, arity-capped at 4), which also preserves the
+  method's bound self. Direct invocation through a local
+  (`var f = nd.onActivate; f();`) was never affected - only the
+  script_execute_ext path.
+- `global.menuToggle` is NONZERO during the whole boot loading phase; the
+  asset loader clears it (`gameMenu_setFlag(0)`) only when loading finishes.
+  Any screen keyed on menuToggle must also gate on
+  `!global.gameIsLoading` (set at the top of oInitGlobals Create, cleared
+  by oAssetLoader, reused by oGameLoader for save loads) or it will
+  announce over the loading screen (bit us: a stray "Menu" opened every
+  boot transcript).
+- Boot room order is rmPreload -> rmLoading -> rmSettingsPlacement (a
+  brief settings-measuring room holding an oMenuSettings instance whose
+  Create skips menu init there) -> rmMainMenu (oMenuSettings Step forwards
+  out of rmSettingsPlacement).
+- `localization_functionText_add(key, text)` does `variable_global_set`, so
+  `global.label_mainMenu`, `label_settings`, `label_language`,
+  `label_announcements` etc. hold the current language's text - the game's
+  own strings, reused as our screen names (no vwa-- row needed).
+- menuToggle values (gameMenu_to_str): 0 none, 1 crew, 2 cargo, 3 shop,
+  4 upgrade, 5 localMap, 6 sectorMap, 7 armament, 8 escape, 9 settings,
+  10 language, 11 shipListMenu, 12 shipSelect, 13 commanderSelect,
+  14 confirmDialogue, 15 configureKeybinds.
+- The game's menu keyboard handling is all raw `keyboard_check*`, so it is
+  unaffected by the scrKeybinds suppression lever: Escape at the bare main
+  menu OPENS settings (oMainMenuControls Step), Escape in settings closes
+  it (oMenuSettings Draw_64), Escape/click dismisses the announcements
+  popup (oGameStartMessage Draw_64). Arrows/mouse wheel scroll the popup
+  visually. The main menu itself has no keyboard support at all.
+- The announcements double-spawn quirk is once per PROFILE, not per boot:
+  `global.gameStartPopupSpawned` is saved (scrSaveGame) and the popup
+  auto-opens only while `gameStartMessages_lastDisplayedAnnouncementIndex`
+  (also saved) trails the newest announcement.
+- `oMainMenuControls.buttonList` structs are created once per room entry
+  (spawn_buttons in Room Start) and are stable across frames - good tier-1
+  refs. `buttonStr` re-localizes in place via getLocalizedText;
+  `localizedLabelName` ("label_newGame") is the stable identity key.
+  Activation guard mirrored from the draw handler: block when oCredits or
+  oGameStartMessage exists or gameMenu_is(9, 15, 14), click sound
+  `sfx_start(global.sfx_click2, 0, 1, 0, 0)`, then the stored onClick.
+- PowerShell 5.1 `Invoke-RestMethod` JSON-decodes a text/plain body when it
+  happens to parse as JSON, so a `/cmd get` of a string arrives already
+  unquoted in smoke scripts (CmdStr in mainmenu-smoke handles both).
 
 ## Reference mods (pattern sources)
 
