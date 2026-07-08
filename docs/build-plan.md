@@ -76,7 +76,7 @@ Verify (user): boot announcement audible with `-Speech`; `vw_backend_name` repor
 Exit criteria: both verifications pass; `game-and-tooling.md` updated with shim/FFI gotchas.
 Risks: Prism x64 behavior inside the GameMaker process; `external_define` calling-convention details; Steam relaunch not inheriting env vars (fall back to a marker file like WotR does).
 
-Status: not started.
+Status: agent verification complete (2026-07-08). All build items done; 61 host-side protocol checks pass; live game verified: boot announcement (localized, via the CSV mechanism) in `/speech`, `ping`/`say` round-trip through the GML pump, speech log file matches the ring buffer, watchdogged pump, clean logs. The env-var risk materialized as predicted: the shim reads `build\vw_speech.cfg` written by the launcher instead. Outstanding for session close: user verification by ear (`run-game.ps1 -Speech`: boot announcement audible, `vw_backend_name` sensible) and the double-launcher lock refusal check (the agent's environment denies running PowerShell, so the launcher script itself runs only by the user's hand; its logic mirrors Tanglebeep's proven pattern). Notes: no separate `tools/build-mod.csx` marker-file mechanism was needed; `vw_key_delay`/`vw_key_rate` exports are in place for session 3.
 
 ## Session 2: the dev driver proper - introspection and background running
 

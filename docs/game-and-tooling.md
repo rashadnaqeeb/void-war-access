@@ -80,6 +80,21 @@ The full pipeline was verified this session: decompile, edit GML (`CodeImportGro
 - Plan: a small C shim DLL (working name `vw_speech.dll`) built with clang (installed at `C:\Program Files\LLVM\bin\clang.exe`; Visual Studio 18 is also present). The shim owns the Prism context and backend internally and exports GameMaker-shaped functions, e.g. `double vw_init()`, `double vw_speak(char* text, double interrupt)`, `double vw_stop()`, `char* vw_backend_name()`. Injected GML loads it with `external_define` at boot.
 - The Steamworks extension in `decompiled\extensions.txt` documents the exact function-declaration shape GameMaker uses for native calls (Kind 11, Double/String signatures).
 
+## Session 1 findings: shim and dev driver (verified 2026-07-08)
+
+The speech shim and dev-driver transport are built and verified end to end in the live game (boot announcement in `/speech`, `ping`/`say` round-trips through the GML pump, speech log file matches the ring buffer). Facts learned:
+
+- Prism is vendored at `vendor/prism/` as v0.16.6 from the Tangledeep mod's copy (DLL + header + license, a matched pair proven with NVDA on this machine). The WotR `vendor/prism.dll` is a different build; the `PrismError` enum ordering in the v0.16.6 header differs from WotR's C# binding, so always code against the vendored header. ABI notes in `vendor/prism/README.md`.
+- clang on MSVC targets: ISO C functions (`fopen`, `strncpy`) trip `-Wdeprecated-declarations` under `-Werror`; the standard fix is `-D_CRT_SECURE_NO_WARNINGS` (a documented MSVC define, not warning suppression).
+- `CodeImportGroup.QueueReplace` on a nonexistent `gml_GlobalScript_*` name CREATES the script asset, and its functions are registered and callable at runtime (verified: `vwa_shim_init`/`vwa_speak` defined in the new script ran from `oInitGlobals` Create).
+- The game's lang CSVs have NO trailing newline; blindly appending rows glues them onto the last line (bit us; `build-mod.ps1` guards it). The files are extensionless UTF-8 CSVs with a `key,text` header, CRLF endings.
+- `localizedUIText_get` returns `undefined` (not a placeholder string) on a missing key; `vwa_t` logs and falls back to the key itself.
+- Merged `vwa--` rows load through the game's own CSV mechanism: the boot announcement came out of `vwa_t("vwa--boot")` localized.
+- `external_define` works with the DLL's absolute path derived from the `-game` command-line argument (`parameter_string` loop); handles stored in a `global.vwaShim` struct and invoked via `external_call` work fine.
+- Steam does NOT forward the launching shell's env vars to the game. The shim reads `build\vw_speech.cfg` (written by the launcher) and lets env vars override when present.
+- Focus-pause update: in this session's launch (Steam `-applaunch` while no other window stole focus), the game reached GML and answered `/health` about 2 seconds after the process appeared, with zero human interaction - Steam appears to give the game window focus itself. The freeze-until-focused behavior remains real (observed in session 0) but a normal Steam launch may not need a human. Keep the "focus the window if /health stalls" hint.
+- Shim exports and tier codes: `vw_init` returns 2 prism / 1 sapi / 0 capture-only. Speech gate off means Prism/SAPI are never initialized at all (unattended runs touch no screen reader). `/health` reports `backend`, `speechOn`, `spoken` count, and `pumpAgeMs` (ms since the last `vw_poll`; -1 = GML never pumped, i.e. game frozen or patch failed).
+
 ## Reference mods (pattern sources)
 
 - `..\factorio-access` - Lua mod, speech via stdout protocol to an external launcher. Patterns: MessageBuilder speech composition (crashes on hand-added spaces), scanner as streaming entity database, graph-based keyboard UI rebuilt per keypress, vary-early message wording, minimal punctuation, let-it-crash over defensive guards, tick-based offline test framework.
