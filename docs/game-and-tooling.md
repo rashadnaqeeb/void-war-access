@@ -93,6 +93,7 @@ The speech shim and dev-driver transport are built and verified end to end in th
 - `external_define` works with the DLL's absolute path derived from the `-game` command-line argument (`parameter_string` loop); handles stored in a `global.vwaShim` struct and invoked via `external_call` work fine.
 - Steam does NOT forward the launching shell's env vars to the game. The shim reads `build\vw_speech.cfg` (written by the launcher) and lets env vars override when present.
 - Focus-pause update: in this session's launch (Steam `-applaunch` while no other window stole focus), the game reached GML and answered `/health` about 2 seconds after the process appeared, with zero human interaction - Steam appears to give the game window focus itself. The freeze-until-focused behavior remains real (observed in session 0) but a normal Steam launch may not need a human. Keep the "focus the window if /health stalls" hint.
+- Prism's create_best selects JAWS on this machine (`prism:JAWS`); voiced output confirmed by ear by Rashad (2026-07-08).
 - Shim exports and tier codes: `vw_init` returns 2 prism / 1 sapi / 0 capture-only. Speech gate off means Prism/SAPI are never initialized at all (unattended runs touch no screen reader). `/health` reports `backend`, `speechOn`, `spoken` count, and `pumpAgeMs` (ms since the last `vw_poll`; -1 = GML never pumped, i.e. game frozen or patch failed).
 
 ## Reference mods (pattern sources)
