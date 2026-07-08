@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -NoProfile -File tools/*)",
+      "Bash(powershell -NoProfile -File scripts/*)",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File tools/*)",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File scripts/*)"
+    ]
+  }
+}

@@ -33,6 +33,12 @@ mods: `../wotr-access` (UI architecture we are porting), `../tangledeep`
 
 ## Build, run, verify
 
+Rashad has granted standing permission to run the project's PowerShell
+scripts; `.claude/settings.json` allows `powershell -NoProfile -File
+tools/*` and `scripts/*` (with or without `-ExecutionPolicy Bypass`). Invoke
+them exactly in that form from the repo root - no `cd ... &&` prefix and no
+other flag order, or the permission rule won't match.
+
 - `tools/build-shim.ps1` - build + RUN the shim's host-side tests, then the
   DLL. Zero-warning policy (`-Wall -Wextra -Werror`), never suppress.
 - `tools/build-mod.ps1` - shim + lang CSV merge + patched `build\data-test.win`
