@@ -141,7 +141,30 @@ Verify (user): repeat-last and stop hotkeys by ear; no gameplay key leaks throug
 Exit criteria: shadowing demonstrably resolves an intentionally-conflicting chord; suppression verified in-game; watchdog tested (inject a fault, confirm keys come back).
 Risks: keyboard polling nuances (`keyboard_check_direct` vs `keyboard_check`); Begin Step ordering relative to the game's own input reads.
 
-Status: not started.
+Status: agent verification COMPLETE (2026-07-08); user by-ear verification pending.
+`scrVwaInput` (ships in release) carries the registry
+(`vwa_action_register(key, labelKey, category, binding, repeats, handler)`),
+string categories ("global"/"ui"/"combat"/"targeting"/"dev" - enums avoided,
+cross-entry enum visibility is not guaranteed under the UTMT importer), the
+screen-stack stub, chord matching with exact modifiers (a modifier that IS
+the main key is exempt, so plain Ctrl binds), typematic repeat from the OS
+settings via the shim, per-chord shadowing (earliest live category wins,
+registration order tie-breaks), and the tick watchdog that clears
+`global.vwaSuppressGameKeys` on any error. Suppression is a build-time
+`QueueFindReplace` on scrKeybinds' three keyboard `input_check*` guards,
+with a post-import decompile assert in build-mod.csx because a no-match
+no-ops silently. Starter actions: repeat-last F11, speech-stop Ctrl,
+panic-reset Shift+F11 (`vw_reset_speech` shim export). `/state` and
+`POST /input` live; `scripts/input-smoke.ps1` (31 checks) covers liveness,
+shadowing flip, suppression (one-frame probe: rebind to vk_nokey; simulated
+keys never reach keyboard_check - see game-and-tooling), and the watchdog;
+drive-smoke still passes. The risk that materialized was neither predicted
+one: the runner's key bookkeeping reads "something held" for the first
+minute after boot (probe retries outwait it). Typematic repeat is
+machinery-verified only; physical-key feel is user verification here and
+arrow-repeat gets exercised for real in sessions 4-5. User checks for
+Rashad: launch with `-Speech`, F11 repeats the last line, Ctrl stops
+speech mid-sentence, Shift+F11 says "Speech reset complete" plus backend.
 
 ## Session 4: screens, control graph, announcer
 

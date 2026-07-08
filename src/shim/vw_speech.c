@@ -34,7 +34,7 @@
 #include "../../vendor/prism/prism.h"
 #include "vw_protocol.h"
 
-#define VW_SHIM_VERSION "0.1.0"
+#define VW_SHIM_VERSION "0.2.0"
 #define VW_DEFAULT_PORT 8772
 #define VW_CMD_TIMEOUT_MS 5000
 #define VW_EXPORT __declspec(dllexport)
@@ -357,6 +357,42 @@ static int load_sapi(void)
     return 1;
 }
 
+// Release every speech backend (Prism module included) so a reset can start
+// from nothing. Main thread only; dangling p_* pointers are nulled because
+// prism_err_str would otherwise call into an unloaded module.
+static void unload_speech_backends(void)
+{
+    if (g_prism_backend) {
+        p_backend_free(g_prism_backend);
+        g_prism_backend = NULL;
+    }
+    if (g_prism_ctx) {
+        p_shutdown(g_prism_ctx);
+        g_prism_ctx = NULL;
+    }
+    if (g_prism_mod) {
+        FreeLibrary(g_prism_mod);
+        g_prism_mod = NULL;
+        p_config_init = NULL;
+        p_init = NULL;
+        p_shutdown = NULL;
+        p_create_best = NULL;
+        p_backend_free = NULL;
+        p_backend_name = NULL;
+        p_backend_get_features = NULL;
+        p_backend_initialize = NULL;
+        p_backend_speak = NULL;
+        p_backend_output = NULL;
+        p_backend_stop = NULL;
+        p_error_string = NULL;
+        g_prism_features = 0;
+    }
+    if (g_sapi) {
+        ISpVoice_Release(g_sapi);
+        g_sapi = NULL;
+    }
+}
+
 static WCHAR *utf8_to_wide(const char *s)
 {
     int n = MultiByteToWideChar(CP_UTF8, 0, s, -1, NULL, 0);
@@ -446,9 +482,13 @@ static void http_respond_text(SOCKET s, const char *status, const char *body)
 
 static void handle_health(SOCKET s)
 {
+    char backend[sizeof g_backend_desc];
     EnterCriticalSection(&g_lock);
     unsigned long long spoken = (unsigned long long)g_ring.total;
     ULONGLONG last_poll = g_last_poll_tick;
+    // vw_reset_speech rewrites g_backend_desc under g_lock; copy it out here
+    // so this thread never reads a half-written buffer.
+    memcpy(backend, g_backend_desc, sizeof backend);
     LeaveCriticalSection(&g_lock);
     long long pump_age = last_poll ? (long long)(GetTickCount64() - last_poll) : -1;
 
@@ -457,7 +497,7 @@ static void handle_health(SOCKET s)
     vwp_buf_appendf(&b,
                     "{\"status\":\"ok\",\"version\":\"%s\",\"backend\":\"",
                     VW_SHIM_VERSION);
-    vwp_json_escape(&b, g_backend_desc);
+    vwp_json_escape(&b, backend);
     vwp_buf_appendf(&b,
                     "\",\"speechOn\":%s,\"spoken\":%llu,\"pumpAgeMs\":%lld,\"port\":%d,"
                     "\"bgKeepalive\":%s}",
@@ -548,6 +588,27 @@ static void handle_cmd(SOCKET s, const char *body, size_t body_len)
     free(cmd);
 }
 
+// POST /input: fire a registered input action by key through the GML input
+// layer's dispatch path (which validates category liveness). Sugar over the
+// "input <actionKey>" eval-lite command.
+static void handle_input(SOCKET s, const char *body, size_t body_len)
+{
+    if (body_len == 0) {
+        http_respond_text(s, "400 Bad Request", "empty action key");
+        return;
+    }
+    char *cmd = malloc(body_len + 7);
+    if (!cmd) {
+        http_respond_text(s, "500 Internal Server Error", "out of memory");
+        return;
+    }
+    memcpy(cmd, "input ", 6);
+    memcpy(cmd + 6, body, body_len);
+    cmd[body_len + 6] = '\0';
+    handle_gml(s, cmd);
+    free(cmd);
+}
+
 static void handle_connection(SOCKET s)
 {
     DWORD timeout = 2000;
@@ -593,6 +654,10 @@ static void handle_connection(SOCKET s)
         }
         else if (strcmp(req.method, "GET") == 0 && strcmp(req.path, "/screenshot") == 0)
             handle_gml(s, "screenshot");
+        else if (strcmp(req.method, "GET") == 0 && strcmp(req.path, "/state") == 0)
+            handle_gml(s, "state"); // input layer: live categories, actions, shadowing
+        else if (strcmp(req.method, "POST") == 0 && strcmp(req.path, "/input") == 0)
+            handle_input(s, req.body, req.body_len);
         else
             http_respond_text(s, "404 Not Found", "unknown endpoint");
     } else if (req.bad && got > 0) {
@@ -774,6 +839,34 @@ VW_EXPORT const char *vw_backend_name(void)
     return g_backend_desc;
 }
 
+// The panic action: tear down and re-create the speech backends without
+// touching the ring, the server, or the command slot. Main thread only, like
+// every speech call. Holds g_lock across the reload because the HTTP thread
+// reads g_backend_desc for /health. Returns the new tier (2/1/0) or -2.
+VW_EXPORT double vw_reset_speech(void)
+{
+    if (!g_inited)
+        return -2;
+    vw_logf("reset: speech stack reset requested");
+    EnterCriticalSection(&g_lock);
+    unload_speech_backends();
+    double tier = 0;
+    if (g_speech_on) {
+        if (load_prism())
+            tier = 2;
+        else if (load_sapi())
+            tier = 1;
+        else
+            snprintf(g_backend_desc, sizeof g_backend_desc, "none (all backends failed)");
+    } else {
+        snprintf(g_backend_desc, sizeof g_backend_desc, "off (capture only)");
+    }
+    LeaveCriticalSection(&g_lock);
+    g_init_result = tier;
+    vw_logf("reset: done, backend=%s tier=%d", g_backend_desc, (int)tier);
+    return tier;
+}
+
 // One pump round: returns the pending dev command, or "" when idle.
 VW_EXPORT const char *vw_poll(void)
 {
@@ -845,18 +938,7 @@ VW_EXPORT double vw_shutdown(void)
         g_server_thread = NULL;
         WSACleanup();
     }
-    if (g_prism_backend) {
-        p_backend_free(g_prism_backend);
-        g_prism_backend = NULL;
-    }
-    if (g_prism_ctx) {
-        p_shutdown(g_prism_ctx);
-        g_prism_ctx = NULL;
-    }
-    if (g_sapi) {
-        ISpVoice_Release(g_sapi);
-        g_sapi = NULL;
-    }
+    unload_speech_backends();
     vw_logf("shutdown: done");
     return 1;
 }

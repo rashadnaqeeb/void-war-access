@@ -162,6 +162,52 @@ learned:
   plain text). `/gui/raw` and `/screenshot` are GET sugar that submit
   `gui.raw`/`screenshot` through the same one-command-per-frame pump.
 
+## Session 3 findings: input layer (verified 2026-07-08)
+
+The input layer (`scrVwaInput`), the scrKeybinds suppression patch, `/state`,
+`POST /input`, and the `vw_reset_speech` shim export are built and verified
+live (31-check input-smoke plus the 18-check drive-smoke both pass from a
+cold boot). Facts learned:
+
+- `CodeImportGroup.QueueFindReplace(entry, search, replace)` exists in UTMT
+  0.9.1.1 and works for surgical patches (used to add
+  `global.vwaSuppressGameKeys` to the three keyboard `input_check*` guards).
+  It NO-OPS SILENTLY when the search text does not match, so build-mod.csx
+  decompiles the entry after `Import()` and asserts the patch text is
+  present. Decompiling inside a CLI csx works exactly as in dump-all.csx:
+  `new Underanalyzer.Decompiler.DecompileContext(new GlobalDecompileContext(Data),
+  code, Data.ToolInfo.DecompilerSettings).DecompileToString()`.
+- Two `QueueAppend` calls on the same code entry apply in queue order
+  (verified live: the input tick and the dev pump both appended to
+  `gml_Object_oInputManager_Step_1` and both run).
+- Anonymous `function() {...}` expressions compile fine through the UTMT
+  importer (action handlers use them), as do struct literals holding them.
+- `keyboard_key_press`/`keyboard_key_release` DO NOT WORK in this runner:
+  the simulated key never appears in `keyboard_check`, not even in the same
+  frame (bit us; the suppression probe uses a different signal). Verify any
+  input-simulation idea against the live game before building on it.
+- `keyboard_check(vk_nokey)` (keycode 0) is true while no key is held, and a
+  game keybind set to 0 passes `input_check`'s guard - that is the
+  suppression probe's key-down signal: rebind `open_doors` to 0, read
+  `input_check` with the flag on and off, restore, all in one frame
+  (`vwa_dev_suppression_probe`).
+- Freshly-booted runner io reports "a key is held" with no key named
+  (vk_nokey false, vk_anykey false, keyboard_key 0) for roughly the first
+  minute after launch, then settles on its own. `io_clear()` does NOT fix
+  it. input-smoke outwaits it (12 x 5s retries on the probe); anything else
+  that needs real key state right after boot must do the same.
+- The keepalive trade-off is real in practice: with the game backgrounded,
+  key state keeps updating, so a human typing anywhere on the machine can
+  make "no key held" false during unattended runs (the probe reports
+  `kbKey` to tell that apart from a real break).
+- `variable_struct_remove`, `string(array)` (for error text), and
+  `current_time`-based repeat timing all compile and behave as documented.
+- Shim: `vw_reset_speech` tears down and re-creates the speech backends
+  (Prism module unloaded and reloaded) without touching the ring, server, or
+  command slot; it holds the state lock because `/health` reads the backend
+  string from the HTTP thread. `/state` and `POST /input <actionKey>` are
+  shim-side sugar submitting `state` / `input <key>` through the pump.
+
 ## Reference mods (pattern sources)
 
 - `..\factorio-access` - Lua mod, speech via stdout protocol to an external launcher. Patterns: MessageBuilder speech composition (crashes on hand-added spaces), scanner as streaming entity database, graph-based keyboard UI rebuilt per keypress, vary-early message wording, minimal punctuation, let-it-crash over defensive guards, tick-based offline test framework.

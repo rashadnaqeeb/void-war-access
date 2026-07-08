@@ -44,8 +44,9 @@ int main(int argc, char **argv)
     fn_d_void vw_shutdown = (fn_d_void)(void *)GetProcAddress(mod, "vw_shutdown");
     fn_d_void vw_key_delay = (fn_d_void)(void *)GetProcAddress(mod, "vw_key_delay");
     fn_d_void vw_key_rate = (fn_d_void)(void *)GetProcAddress(mod, "vw_key_rate");
+    fn_d_void vw_reset_speech = (fn_d_void)(void *)GetProcAddress(mod, "vw_reset_speech");
     if (!vw_init || !vw_speak || !vw_poll || !vw_reply || !vw_backend_name ||
-        !vw_shutdown || !vw_key_delay || !vw_key_rate) {
+        !vw_shutdown || !vw_key_delay || !vw_key_rate || !vw_reset_speech) {
         fprintf(stderr, "missing export\n");
         return 1;
     }

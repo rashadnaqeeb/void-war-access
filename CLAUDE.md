@@ -21,10 +21,15 @@ mods: `../wotr-access` (UI architecture we are porting), `../tangledeep`
   queue. Pure protocol logic lives in `vw_protocol.c` (no OS deps) and is
   unit-tested host-side (`src/shim/tests/`).
 - `src/gml/` - GML source fragments assembled into the game by build-mod.
-  `scrVwaCore.gml` (speech chokepoint, logging, shim binding) and
-  `scrVwaDev.gml` (dev-driver eval-lite interpreter, dev builds only) each
-  become a new global script; `*.append.gml` files append to the named code
-  entry.
+  `scrVwaCore.gml` (speech chokepoint, logging, shim binding),
+  `scrVwaInput.gml` (input layer: actions, categories, shadowing, typematic
+  repeat, suppression watchdog; the one sanctioned home of raw
+  `keyboard_check`), and `scrVwaDev.gml` (dev-driver eval-lite interpreter,
+  dev builds only) each become a new global script; `*.append.gml` files
+  append to the named code entry (`*.dev.append.gml` marks dev-only appends).
+  build-mod also QueueFindReplace-patches the game's `scrKeybinds` so
+  `input_check*` honor `global.vwaSuppressGameKeys`, with a post-import
+  decompile assert (find-replace no-ops silently on no match).
 - `src/lang/` - mod strings as `vwa--`-prefixed CSV rows, merged into the
   game's own lang CSVs at build time (all mod speech is localized).
 - `vendor/prism/` - Prism 0.16.6 + header + license; ABI notes in its README.
@@ -56,14 +61,27 @@ other flag order, or the permission rule won't match.
 - Dev driver: `http://127.0.0.1:8772` - `GET /health` (also reports
   `bgKeepalive`), `GET /speech?since=N` (monotonic cursor; how you observe TTS
   you can't hear), `GET /gui/raw[?obj=oThing]` (game-truth UI dump),
-  `GET /screenshot` (PNG to the save dir), `POST /cmd`. The `/cmd` eval-lite
-  vocabulary (in `scrVwaDev`, dev builds only): `ping`, `say <text>`, `room`,
-  `get <path>`, `set <path> <value>`, `dump <path> [depth]`, `instances <obj>`,
-  `call <script|path> [args...]`, `gui.raw [obj]`, `screenshot`, `help`. Paths:
+  `GET /screenshot` (PNG to the save dir), `GET /state` (input layer: live
+  categories, actions, shadowing), `POST /input` (body = action key; fires
+  through real dispatch, refused when its category isn't live), `POST /cmd`.
+  The `/cmd` eval-lite vocabulary (in `scrVwaDev`, dev builds only): `ping`,
+  `say <text>`, `room`, `get <path>`, `set <path> <value>`,
+  `dump <path> [depth]`, `instances <obj>`, `call <script|path> [args...]`,
+  `gui.raw [obj]`, `screenshot`, `state`, `input <actionKey>`, `help`. Paths:
   `global.x`, `oObject.var` (first live instance), a numeric id, chained with
   `.member` and `[n]`. A JSON reply is content-typed JSON; errors are `ERROR:`
   text and never crash the pump. Never `var` a GML builtin name (`depth`, `x`,
-  ...) in injected code - it is a hard compile error.
+  ...) in injected code - it is a hard compile error. Input-layer dev helpers
+  via `call`: `vwa_dev_test_screen <cats|none>` (stub screen stack),
+  `vwa_dev_register_test_actions`, `vwa_dev_arm_input_fault` (watchdog test),
+  `vwa_dev_suppression_probe <bind>` (one-frame suppression proof; retry on
+  `live:false` - runner key state reads "held" for ~1 min after boot, and
+  `keyboard_key_press` does NOT work in this runner).
+- User hotkeys (Global category, registered in `scrVwaInput`): F11 repeat
+  last spoken, Ctrl stop speech, Shift+F11 panic speech-stack reset.
+- Regression checks against a live game at the main menu:
+  `scripts/drive-smoke.ps1` (dev driver) and `scripts/input-smoke.ps1`
+  (input layer). Run both after touching the shim, the pump, or `scrVwaInput`.
 - Background-run works: the shim subclasses the game window's WndProc to swallow
   deactivation, so the autonomous loop runs unattended (drive over HTTP with the
   game backgrounded). The documented pause is a BOOT freeze - frozen until the
@@ -80,7 +98,8 @@ other flag order, or the permission rule won't match.
 - **No silent failures.** Every guarded failure path logs. Prefer
   let-it-crash over defensive guards where a value isn't expected to be
   missing. Sanctioned swallow-and-log spots only: the dev pump watchdog and
-  (later) input suppression.
+  the input tick watchdog (which clears `global.vwaSuppressGameKeys` so a
+  mod bug can never leave the game's keyboard dead).
 - **One speech chokepoint.** All speech flows through `vwa_speak(parts,
   interrupt)`; parts is an array (strings or `{text:...}` structs); joining
   happens only there. No direct shim calls from feature code.
@@ -89,7 +108,8 @@ other flag order, or the permission rule won't match.
 - **Never cache game state.** Re-query at speak time; stale speech is worse
   than none.
 - **Never strand the user.** Prism -> SAPI fallback in the shim; no DLL at
-  all still writes the speech log. Speech-stack panic reset arrives session 3.
+  all still writes the speech log. Shift+F11 panic-resets the speech stack
+  (`vwa_speech_panic` -> `vw_reset_speech`).
 - **Activation calls the game's own stored callbacks** (`onClick` etc.),
   never a reimplementation. The dev driver drives real code paths, never OS
   synthetic input.

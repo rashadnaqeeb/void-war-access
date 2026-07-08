@@ -1,2 +1,7 @@
 key,text
 vwa--boot,Void War Access geladen.
+vwa--action-repeat-last,Letzte Ansage wiederholen
+vwa--action-stop-speech,Sprachausgabe stoppen
+vwa--action-panic-reset,Sprachausgabe zurücksetzen
+vwa--nothing-to-repeat,Nichts zu wiederholen
+vwa--speech-reset,Sprachausgabe zurückgesetzt

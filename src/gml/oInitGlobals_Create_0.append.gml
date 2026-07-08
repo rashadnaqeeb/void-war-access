@@ -6,5 +6,9 @@ global.vwaShimReady = false;
 if (vwa_shim_init())
 {
     global.vwaShimReady = true;
+}
+vwa_input_init();
+if (global.vwaShimReady)
+{
     vwa_speak([vwa_t("vwa--boot")], false);
 }

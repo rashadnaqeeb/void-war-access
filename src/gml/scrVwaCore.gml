@@ -81,6 +81,7 @@ function vwa_shim_init()
             reply: external_define(dllPath, "vw_reply", dll_cdecl, ty_real, 1, ty_string),
             keyDelay: external_define(dllPath, "vw_key_delay", dll_cdecl, ty_real, 0),
             keyRate: external_define(dllPath, "vw_key_rate", dll_cdecl, ty_real, 0),
+            resetSpeech: external_define(dllPath, "vw_reset_speech", dll_cdecl, ty_real, 0),
             shutdownShim: external_define(dllPath, "vw_shutdown", dll_cdecl, ty_real, 0)
         };
         var tier = external_call(shim.init);
@@ -133,6 +134,8 @@ function vwa_speak(parts, interrupt)
         return;
     }
 
+    global.vwaLastSpoken = text; // for the repeat-last action (scrVwaInput)
+
     var f = file_text_open_append("vwa-speech.log");
     file_text_write_string(f, text);
     file_text_writeln(f);
@@ -146,4 +149,46 @@ function vwa_speak(parts, interrupt)
             vwa_log("ERROR: vw_speak returned " + string(rc) + " for: " + text);
         }
     }
+}
+
+// Speech-stack controls live here so feature code never touches the shim
+// directly (the same rule as the vwa_speak chokepoint).
+
+function vwa_stop_speech()
+{
+    if (global.vwaShim == undefined)
+    {
+        vwa_log("stop: no shim loaded; nothing to stop");
+        return;
+    }
+    var rc = external_call(global.vwaShim.stopSpeech);
+    if (rc < 0)
+    {
+        vwa_log("ERROR: vw_stop returned " + string(rc));
+    }
+}
+
+// The panic action: never strand the user. If the shim never loaded, retry
+// the full load; otherwise tear down and re-create the speech backends.
+// Always speaks (and therefore logs) a confirmation so the user knows the
+// panic key did something even when only the file capture is left.
+function vwa_speech_panic()
+{
+    vwa_log("panic: speech stack reset requested");
+    if (global.vwaShim == undefined)
+    {
+        if (vwa_shim_init())
+        {
+            global.vwaShimReady = true;
+        }
+    }
+    else
+    {
+        var tier = external_call(global.vwaShim.resetSpeech);
+        vwa_log("panic: shim reset, tier " + string(tier));
+    }
+    var backend = (global.vwaShim != undefined)
+        ? string(external_call(global.vwaShim.backendName))
+        : "no shim (file capture only)";
+    vwa_speak([vwa_t("vwa--speech-reset"), backend], true);
 }

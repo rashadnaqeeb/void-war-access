@@ -12,6 +12,7 @@
 //   get <path> / set <path> <value> / dump <path> [depth]
 //   instances <objectName> / call <scriptOrPath> [args...]
 //   gui.raw [objectName] / screenshot
+//   state (input layer dump) / input <actionKey> (fire an action)
 //
 // Paths: global.name, objectName.var (first live instance), or a numeric
 // instance id; segments join with '.' and arrays index with [n], e.g.
@@ -723,6 +724,246 @@ function vwa_dev_gui_raw(objName)
     return out + "}}";
 }
 
+// ---- input layer introspection (session 3) ----
+
+// GET /state: suppression, screen-stack stub, live categories, every
+// registered action, and per-chord shadowing resolution. labelKey is
+// reported raw (not localized) so dev test actions need no CSV rows.
+function vwa_dev_state_json()
+{
+    var live = vwa_live_categories();
+    var out = "{\"suppressGameKeys\":" + (global.vwaSuppressGameKeys ? "true" : "false")
+        + ",\"textFieldInput\":" + (global.textFieldInputEnabled ? "true" : "false")
+        + ",\"watchdogTripped\":" + (global.vwaInputWatchdogTripped ? "true" : "false")
+        + ",\"ticks\":" + vwa_json_num(global.vwaInputTicks)
+        + ",\"keyDelayMs\":" + vwa_json_num(global.vwaKeyDelayMs)
+        + ",\"keyRateMs\":" + vwa_json_num(global.vwaKeyRateMs);
+
+    out += ",\"stack\":[";
+    for (var i = 0; i < array_length(global.vwaScreenStack); i++)
+    {
+        var scr = global.vwaScreenStack[i];
+        if (i > 0)
+        {
+            out += ",";
+        }
+        out += "{\"name\":" + vwa_json_str(scr.name) + ",\"categories\":[";
+        for (var j = 0; j < array_length(scr.categories); j++)
+        {
+            if (j > 0)
+            {
+                out += ",";
+            }
+            out += vwa_json_str(scr.categories[j]);
+        }
+        out += "]}";
+    }
+
+    out += "],\"liveCategories\":[";
+    for (var i = 0; i < array_length(live); i++)
+    {
+        if (i > 0)
+        {
+            out += ",";
+        }
+        out += vwa_json_str(live[i]);
+    }
+
+    out += "],\"actions\":[";
+    for (var i = 0; i < array_length(global.vwaActionOrder); i++)
+    {
+        var a = variable_struct_get(global.vwaActions, global.vwaActionOrder[i]);
+        if (i > 0)
+        {
+            out += ",";
+        }
+        out += "{\"key\":" + vwa_json_str(a.actionKey)
+            + ",\"labelKey\":" + vwa_json_str(a.labelKey)
+            + ",\"category\":" + vwa_json_str(a.category)
+            + ",\"binding\":{\"vk\":" + vwa_json_num(a.binding.vk)
+            + ",\"shift\":" + (a.binding.shift ? "true" : "false")
+            + ",\"ctrl\":" + (a.binding.ctrl ? "true" : "false")
+            + ",\"alt\":" + (a.binding.alt ? "true" : "false") + "}"
+            + ",\"repeats\":" + (a.repeats ? "true" : "false")
+            + ",\"live\":" + (vwa_array_index_of(live, a.category) >= 0 ? "true" : "false")
+            + "}";
+    }
+
+    // Shadowing: chords carried by more than one LIVE action, with the
+    // winner dispatch would pick this frame.
+    out += "],\"conflicts\":[";
+    var groups = {};
+    var chordIds = [];
+    for (var i = 0; i < array_length(global.vwaActionOrder); i++)
+    {
+        var a = variable_struct_get(global.vwaActions, global.vwaActionOrder[i]);
+        var prio = vwa_array_index_of(live, a.category);
+        if (prio < 0)
+        {
+            continue;
+        }
+        var cid = vwa_chord_id(a.binding);
+        var g = variable_struct_get(groups, cid);
+        if (g == undefined)
+        {
+            g = [];
+            variable_struct_set(groups, cid, g);
+            array_push(chordIds, cid);
+        }
+        array_push(g, { key: a.actionKey, prio: prio });
+    }
+    var first = true;
+    for (var i = 0; i < array_length(chordIds); i++)
+    {
+        var g = variable_struct_get(groups, chordIds[i]);
+        if (array_length(g) < 2)
+        {
+            continue;
+        }
+        var win = 0;
+        for (var j = 1; j < array_length(g); j++)
+        {
+            if (g[j].prio < g[win].prio)
+            {
+                win = j;
+            }
+        }
+        if (!first)
+        {
+            out += ",";
+        }
+        first = false;
+        out += "{\"chord\":" + vwa_json_str(chordIds[i])
+            + ",\"winner\":" + vwa_json_str(g[win].key) + ",\"shadowed\":[";
+        var shFirst = true;
+        for (var j = 0; j < array_length(g); j++)
+        {
+            if (j == win)
+            {
+                continue;
+            }
+            if (!shFirst)
+            {
+                out += ",";
+            }
+            shFirst = false;
+            out += vwa_json_str(g[j].key);
+        }
+        out += "]}";
+    }
+    return out + "]}";
+}
+
+// ---- input layer dev helpers (invoked via the call command) ----
+
+// Stub screen-stack control until the real screen layer (session 4).
+// spec: comma-separated category list for one test screen, or "none".
+function vwa_dev_test_screen(spec)
+{
+    if (spec == "none" || spec == "")
+    {
+        global.vwaScreenStack = [];
+        return "stack cleared";
+    }
+    var cats = [];
+    var cur = "";
+    for (var i = 1; i <= string_length(spec); i++)
+    {
+        var c = string_char_at(spec, i);
+        if (c == ",")
+        {
+            if (cur != "")
+            {
+                array_push(cats, cur);
+            }
+            cur = "";
+        }
+        else
+        {
+            cur += c;
+        }
+    }
+    if (cur != "")
+    {
+        array_push(cats, cur);
+    }
+    global.vwaScreenStack = [{ name: "vwa-test-screen", categories: cats }];
+    return "test screen pushed with " + string(array_length(cats)) + " categories";
+}
+
+// An intentionally-conflicting chord pair (F10 in global and ui) plus a
+// repeating action (F9, dev) for typematic checks. Spoken text here is dev
+// text, exempt from localization.
+function vwa_dev_register_test_actions()
+{
+    global.vwaDevRepeatCount = 0;
+    vwa_action_register("dev-shout-global", "dev", "global",
+        vwa_bind(vk_f10, false, false, false), false, function()
+        {
+            vwa_speak(["test shout global"], true);
+        });
+    vwa_action_register("dev-shout-ui", "dev", "ui",
+        vwa_bind(vk_f10, false, false, false), false, function()
+        {
+            vwa_speak(["test shout ui"], true);
+        });
+    vwa_action_register("dev-repeat-tick", "dev", "dev",
+        vwa_bind(vk_f9, false, false, false), true, function()
+        {
+            global.vwaDevRepeatCount += 1;
+        });
+    return "test actions registered";
+}
+
+// Arm a one-shot fault inside vwa_input_tick to prove the watchdog clears
+// the suppression flag (the keys-come-back guarantee).
+function vwa_dev_arm_input_fault()
+{
+    global.vwaInputFault = true;
+    return "fault armed";
+}
+
+// Prove the suppression lever against the game's real input_check, all in
+// one frame with every touched state restored. keyboard_key_press cannot
+// provide the key-down signal (bit us: simulated keys never reach
+// keyboard_check in this runner, even same-frame), so the bind is swapped
+// to vk_nokey (0), which keyboard_check reports as held whenever NO key is
+// down - always true on an unattended machine.
+function vwa_dev_suppression_probe(bindName)
+{
+    var priorFlag = global.vwaSuppressGameKeys;
+    var priorKey = variable_struct_get(global.keybinds, bindName);
+    if (priorKey == undefined)
+    {
+        throw ("no such game keybind: " + bindName);
+    }
+    variable_struct_set(global.keybinds, bindName, 0);
+    global.vwaSuppressGameKeys = true;
+    var whileSuppressed = input_check(bindName) ? true : false;
+    global.vwaSuppressGameKeys = false;
+    var whileLive = input_check(bindName) ? true : false;
+    var clearedIo = false;
+    if (!whileLive && keyboard_key == 0)
+    {
+        // Freshly-booted runner io can report "a key is held" with no key
+        // named (vk_nokey false, vk_anykey false, keyboard_key 0) for
+        // minutes; io_clear resets the bookkeeping. Only reached in that
+        // inconsistent state, so no real user input can be discarded.
+        io_clear();
+        clearedIo = true;
+        whileLive = input_check(bindName) ? true : false;
+    }
+    variable_struct_set(global.keybinds, bindName, priorKey);
+    global.vwaSuppressGameKeys = priorFlag;
+    // kbKey: what the runner thinks is held. The keepalive keeps key state
+    // updating while backgrounded, so a human typing anywhere on the machine
+    // makes vk_nokey read false; callers should retry on live=false and use
+    // kbKey to tell "user was typing" from a real break.
+    // Returned via the call command, whose dumper serializes the struct.
+    return { suppressed: whileSuppressed, live: whileLive,
+             kbKey: keyboard_key, ioCleared: clearedIo };
+}
+
 function vwa_dev_screenshot()
 {
     // Relative paths land in the save dir; game_save_id is its absolute path.
@@ -822,11 +1063,22 @@ function vwa_dev_dispatch(cmd)
         case "screenshot":
             return vwa_dev_screenshot();
 
+        case "state":
+            return vwa_dev_state_json();
+
+        case "input":
+            if (rest == "")
+            {
+                throw "input needs an action key";
+            }
+            return vwa_input_fire(rest);
+
         case "help":
             return "commands: ping | say <text> | room | get <path> | "
                 + "set <path> <value> | dump <path> [depth] | "
                 + "instances <objectName> | call <scriptOrPath> [args...] | "
-                + "gui.raw [objectName] | screenshot | help";
+                + "gui.raw [objectName] | screenshot | state | "
+                + "input <actionKey> | help";
 
         default:
             return "unknown command: " + word + " (try help)";
