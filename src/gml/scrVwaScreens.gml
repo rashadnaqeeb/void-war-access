@@ -45,6 +45,14 @@ function vwa_screens_init()
         groupText: function()
         {
             return vwa_t("vwa--group-generic");
+        },
+        submenuItemsText: function(k)
+        {
+            if (k == 1)
+            {
+                return vwa_t("vwa--submenu-item-one");
+            }
+            return string_replace(vwa_t("vwa--submenu-items"), "{k}", string(k));
         }
     };
     vwa_register_nav_actions();
@@ -67,6 +75,8 @@ function vwa_control_types_init()
             vwa_part_fn("role", function() { return vwa_t("vwa--role-combo"); }, false)] },
         option: { order: stdOrder, common: [
             vwa_part_fn("role", function() { return vwa_t("vwa--role-option"); }, false)] },
+        submenu: { order: stdOrder, common: [
+            vwa_part_fn("role", function() { return vwa_t("vwa--role-submenu"); }, false)] },
         label: { order: stdOrder, common: [] }
     };
 }
@@ -451,6 +461,18 @@ function vwa_nav_activate()
     if (scr == undefined)
     {
         return;
+    }
+    // Enter on a submenu header enters it, same as right arrow (a header's
+    // action IS entering; an empty one is a silent edge, like any list
+    // end - its "0 items" already told the player why).
+    if (vwa_graph_rerender(scr.graph))
+    {
+        var nd = vwa_graph_node(scr.graph);
+        if (nd != undefined && vwa_opt(nd, "isSubmenu", false))
+        {
+            vwa_graph_move(scr.graph, "right");
+            return;
+        }
     }
     if (!vwa_graph_activate(scr.graph))
     {

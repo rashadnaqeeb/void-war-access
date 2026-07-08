@@ -30,3 +30,6 @@ vwa--screen-confirm,Bestätigung
 vwa--screen-pause,Pausenmenü
 vwa--group-generic,Gruppe
 vwa--role-option,Option
+vwa--role-submenu,Untermenü
+vwa--submenu-items,{k} Einträge
+vwa--submenu-item-one,1 Eintrag

@@ -145,9 +145,11 @@ function vwa_ann_live_parts(nd, types)
 }
 
 // A node's own readout as resolved strings: effective parts (non-empty
-// ones), plus the auto-stamped "n of m" when the node has siblings and the
-// hooks provide the wording. hooks: {posText: fn(i, n) -> string,
-// groupText: fn() -> string (the generic word for an unnamed row group)}.
+// ones), then a submenu header's child count, then the auto-stamped
+// "n of m" when the node has siblings and the hooks provide the wording.
+// hooks: {posText: fn(i, n) -> string, groupText: fn() -> string (the
+// generic word for an unnamed row group), submenuItemsText: fn(k) ->
+// string (a header's "k items")}.
 function vwa_ann_leaf(nd, types, hooks)
 {
     var out = [];
@@ -171,6 +173,19 @@ function vwa_ann_leaf(nd, types, hooks)
         if (t != "")
         {
             array_push(out, t);
+        }
+    }
+    // A submenu header speaks its child count - what right arrow commits
+    // the player to - including "0 items" (an empty submenu must be audible
+    // truth, not a silently dead right arrow).
+    if (vwa_opt(nd, "isSubmenu", false) && hooks != undefined
+        && vwa_opt(hooks, "submenuItemsText", undefined) != undefined)
+    {
+        var ifn = hooks.submenuItemsText;
+        var it = ifn(vwa_opt(nd, "childCount", 0));
+        if (it != "")
+        {
+            array_push(out, it);
         }
     }
     if (nd.posCount > 1 && hooks != undefined && hooks.posText != undefined

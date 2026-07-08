@@ -6,9 +6,13 @@
 # entry (contexts outermost first), sibling moves, auto "n of m", live-part
 # re-speak (toggle/slider), Tab-stop cycling with remembered positions,
 # no-action feedback, focus recovery (survivor fallback and tier-1
-# reference follow), and silence where nothing should speak. Also checks
-# /gui/mod. Assumes a launcher (run-game.ps1) is already up at the main
-# menu; drives over HTTP only. Exits nonzero on any failed check.
+# reference follow), silence where nothing should speak, and the submenu
+# model (vwa_dev_test_submenu): header discovery with item counts, enter by
+# right arrow and Enter, a focused slider keeping left/right for itself,
+# boundary dive, left/up exits, header subtree skip, and nested bottom-exit
+# recursion.
+# Also checks /gui/mod. Assumes a launcher (run-game.ps1) is already up at
+# the main menu; drives over HTTP only. Exits nonzero on any failed check.
 #
 # Usage: powershell -NoProfile -File scripts\screens-smoke.ps1
 
@@ -151,6 +155,52 @@ $s = Invoke-RestMethod "$base/state" -TimeoutSec 8
 Check 'exclusive modal blocks ui below it' (($s.liveCategories -join ',') -eq 'combat,global') ($s.liveCategories -join ',')
 CheckSpeech 'uncovering re-announces the menu and restores focus' {
     Cmd 'call vwa_dev_test_screen none'
+} @('Test menu', 'GammaX, button, 3 of 6')
+
+# --- submenus (session 8): the synthetic submenu screen covers the test
+#     menu. Level 0 is Intro / Audio / Video / Outro (4 vertical entries);
+#     Audio holds Master (slider) + Music, Video holds Fullscreen + the
+#     nested Advanced (Gamma + Delta) as its LAST child. ---
+CheckSpeech 'submenu screen opens' {
+    $r = Cmd 'call vwa_dev_test_submenu on'
+    Check 'submenu test on reply' ($r.result -eq 'submenu test screen on') ($r | ConvertTo-Json -Compress)
+} @('Submenu test', 'Intro, button, 1 of 4')
+CheckSpeech 'down discovers the Audio header with its count' { Fire 'nav-down' } @('Audio, submenu, 2 items, 2 of 4')
+CheckSpeech 'right enters, landing on the first child' { Fire 'nav-right' } @('Master, slider, 5, 1 of 2')
+CheckSpeech 'left on a slider adjusts instead of exiting' { Fire 'nav-left' } @('4')
+CheckSpeech 'down to Music' { Fire 'nav-down' } @('Music, button, 2 of 2')
+CheckSpeech 'down off the bottom dives into the next submenu' { Fire 'nav-down' } @('Video, submenu, 2 items, 3 of 4, Fullscreen, toggle, off, 1 of 2')
+CheckSpeech 'left exits to the enclosing header' { Fire 'nav-left' } @('Video, submenu, 2 items, 3 of 4')
+CheckSpeech 'Enter on a header enters like right arrow' { Fire 'nav-activate' } @('Fullscreen, toggle, off, 1 of 2')
+CheckSpeech 'up from the first child lands on the header' { Fire 'nav-up' } @('Video, submenu, 2 items, 3 of 4')
+CheckSpeech 'up at header level shows the sibling header' { Fire 'nav-up' } @('Audio, submenu, 2 items, 2 of 4')
+CheckSpeech 'down from a header skips its subtree' { Fire 'nav-down' } @('Video, submenu, 2 items, 3 of 4')
+CheckSpeech 'left on a top-level header stays silent' { Fire 'nav-left' } @()
+CheckSpeech 're-enter Video' { Fire 'nav-right' } @('Fullscreen, toggle, off, 1 of 2')
+CheckSpeech 'down discovers the nested Advanced header' { Fire 'nav-down' } @('Advanced, submenu, 2 items, 2 of 2')
+CheckSpeech 'right enters the nested submenu' { Fire 'nav-right' } @('Gamma, button, 1 of 2')
+CheckSpeech 'down to Delta' { Fire 'nav-down' } @('Delta, button, 2 of 2')
+CheckSpeech 'bottom exit recurses through both levels to Outro' { Fire 'nav-down' } @('Outro, button, 4 of 4')
+CheckSpeech 'up from a plain sibling shows the Video header' { Fire 'nav-up' } @('Video, submenu, 2 items, 3 of 4')
+
+$m = Invoke-RestMethod "$base/gui/mod" -TimeoutSec 8
+Check 'gui.mod submenu screen focused' ($m.focused -eq 'vwa-test-submenu') $m.focused
+Check 'gui.mod submenu node count' ($m.nodes.Count -eq 10) $m.nodes.Count
+$audio = $m.nodes | Where-Object { $_.skey -eq 'sm:audio' }
+Check 'gui.mod header typed submenu' ($audio.type -eq 'submenu') $audio.type
+Check 'gui.mod header right enters first child' ($audio.edges.right -eq 'master') ($audio.edges | ConvertTo-Json -Compress)
+$master = $m.nodes | Where-Object { $_.skey -eq 'master' }
+Check 'gui.mod first child up and left go to the header' (
+    $master.edges.up -eq 'sm:audio' -and $master.edges.left -eq 'sm:audio') ($master.edges | ConvertTo-Json -Compress)
+$music = $m.nodes | Where-Object { $_.skey -eq 'music' }
+Check 'gui.mod last child dives into the sibling submenu' ($music.edges.down -eq 'fullscreen') ($music.edges | ConvertTo-Json -Compress)
+$delta = $m.nodes | Where-Object { $_.skey -eq 'delta' }
+Check 'gui.mod nested bottom exit recurses to Outro' ($delta.edges.down -eq 'outro') ($delta.edges | ConvertTo-Json -Compress)
+$gamma = $m.nodes | Where-Object { $_.skey -eq 'gamma' }
+Check 'gui.mod nested parent chain' (($gamma.parents -join ',') -eq 'sm:video,sm:adv') ($gamma.parents -join ',')
+
+CheckSpeech 'submenu screen off restores the test menu' {
+    Cmd 'call vwa_dev_test_submenu off'
 } @('Test menu', 'GammaX, button, 3 of 6')
 
 # --- close: focus falls to the real main-menu screen underneath (session

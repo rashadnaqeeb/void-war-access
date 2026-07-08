@@ -80,8 +80,8 @@ Greenfield project: committing to `main` is fine. Future work lives in
   (action registry with bindings LISTS, categories, shadowing, typematic
   repeat, suppression watchdog, stale-key unstick; the ONE sanctioned home
   of raw `keyboard_check`), `scrVwaGraph` (control graph: two-tier node
-  identity, menu/raw builder, row groups, Tab stops, focus reconciliation;
-  PURE - no game or global refs), `scrVwaAnnounce` (parts as data, control
+  identity, menu/raw builder, row groups, submenus, Tab stops, focus
+  reconciliation; PURE - no game or global refs), `scrVwaAnnounce` (parts as data, control
   types, path-diff compose; PURE), `scrVwaScreens` (screen registry,
   poll-and-diff stack, navigator actions, once-per-frame announce observe +
   live-part watch, synchronous state feedback), `scrVwaMenus` (the real
@@ -150,7 +150,8 @@ literals (`[1, "two words"]`, `{a: 1, b: [2]}`) alongside scalars; bare
 words are strings. Errors return as `ERROR:` text and never crash the pump.
 
 Dev helpers via `call`: `vwa_dev_test_screen <cats|none>` (trailing `!` =
-exclusive), `vwa_dev_test_menu <on|off>`, `vwa_dev_menu_focus <skey>`,
+exclusive), `vwa_dev_test_menu <on|off>`, `vwa_dev_test_submenu <on|off>`,
+`vwa_dev_menu_focus <skey>`,
 `vwa_dev_menu_rename <old> <new>`, `vwa_dev_register_test_actions`,
 `vwa_dev_arm_input_fault`, `vwa_dev_key_direct <vk>`,
 `vwa_dev_suppression_probe <bind>` (retry only on `live:false` with
@@ -163,7 +164,11 @@ the main menu).
 Global (always live, textSafe - they survive game text fields): **Ctrl**
 stop speech, **Shift+F11** panic speech-stack reset. UI (live while a mod
 screen is focused): **arrows** navigate (left/right adjust sliders 0.01;
-**Ctrl+left/right** large steps 0.1), **Enter** activates, **Tab/Shift+Tab**
+**Ctrl+left/right** large steps 0.1; on a submenu header, right/Enter enter
+and down skips the subtree; inside one, left exits to the header wherever
+the control leaves left unclaimed, up from the first child is the header,
+down past the last child flows onward - diving into a sibling submenu's
+first child), **Enter** activates, **Tab/Shift+Tab**
 cycle control groups with remembered positions, **Home/End** jump to the
 group's first/last control, **Escape** nav-back (consumed ONLY when a screen
 claims it via onBack - the dropdown child screen - otherwise the game's own
@@ -227,4 +232,11 @@ row IS a group: one entry in the vertical "n of m", members keep their
 in-row "x of k" - the two numbering axes never blur. Input categories are
 strings, not enums. The textSafe speech keys stay live while the game's
 text-field mode is active. The dev driver serializes game-touching calls
-(a second in-flight command gets an explicit 429).
+(a second in-flight command gets an explicit 429). Submenus (Rashad's
+model): sibling moves land ON headers (discovery: the role word cues right
+arrow), down from a header skips the subtree, bottom-of-children flows
+into the NEXT submenu's first child (title announces via path diff), and
+left/right belong to the focused control whenever it claims them (slider
+adjust, in-row movement, a future table's columns) - left-to-exit exists
+only where left is unclaimed. Precedence, not an exception. Headers speak
+their child count, including "0 items".

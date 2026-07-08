@@ -9,11 +9,26 @@
 // Announcement-part helpers and composition live in scrVwaAnnounce.
 //
 // Deliberate simplifications, for now:
-// - No expandable tree groups and no regions; nothing in the Void War
-//   foundation screens needs them yet.
+// - No regions; nothing in the Void War foundation screens needs them yet.
 // - No menu/raw mode-boundary stitching: a Tab stop that mixes menu rows
 //   with raw nodes leaves the seam unwired. Revisit if a real screen mixes
 //   modes.
+//
+// Submenus (menu mode): vwa_gb_begin_submenu adds a FOCUSABLE header node
+// and nests everything declared until vwa_gb_end_submenu under it. The
+// player-facing model (Rashad's design, session 8):
+// - Sibling moves show headers: arrowing up/down at a level lands ON a
+//   submenu's header (the discovery moment - the role word says right arrow
+//   will enter), and down from a header skips its whole subtree.
+// - Right (or Enter, in scrVwaScreens) enters, landing on the first child.
+// - Content flows out at the bottom: down from the last child continues to
+//   the enclosing submenu's next sibling, DIVING into a sibling submenu's
+//   first child (the crossed levels announce via path diff), recursing
+//   outward when the submenu is last at its level.
+// - Up from the first child lands on the header (the submenu's own top).
+// - Left exits to the nearest enclosing header wherever the control leaves
+//   left unclaimed (row members past the first keep their in-row left, and
+//   the screens layer gives sliders' onAdjust priority before any edge).
 //
 // Directions are the strings "up" / "down" / "left" / "right" (enums are
 // avoided; cross-entry enum visibility is not guaranteed under the UTMT
@@ -83,8 +98,23 @@ function vwa_gb_new()
         startKey: undefined,
         stopKey: "stop#0",
         stopAuto: 1,
-        parents: []        // context node stack (non-focusable)
+        parents: [],       // context/header node stack
+        submenus: []       // open submenu header nodes (validation + nesting)
     };
+}
+
+// The nearest enclosing submenu header's key ("" = top level). Contexts on
+// the parent stack are announcement-only and stay transparent to wiring.
+function vwa_gb_cur_menu_key(b)
+{
+    for (var i = array_length(b.parents) - 1; i >= 0; i--)
+    {
+        if (vwa_opt(b.parents[i], "isSubmenu", false))
+        {
+            return b.parents[i].nid.skey;
+        }
+    }
+    return "";
 }
 
 // def fields: parts (required, non-empty array from scrVwaAnnounce helpers),
@@ -129,6 +159,10 @@ function vwa_gb_begin_stop(b, stopName)
     {
         throw "graph: cannot begin a stop inside an open row";
     }
+    if (array_length(b.submenus) > 0)
+    {
+        throw "graph: cannot begin a stop inside an open submenu";
+    }
     b.stopKey = (stopName == "") ? ("stop#" + string(b.stopAuto)) : stopName;
     b.stopAuto += 1;
 }
@@ -162,6 +196,62 @@ function vwa_gb_pop_context(b)
     {
         throw "graph: no context to pop";
     }
+    if (vwa_opt(b.parents[array_length(b.parents) - 1], "isSubmenu", false))
+    {
+        throw "graph: pop_context would pop a submenu - call vwa_gb_end_submenu";
+    }
+    array_pop(b.parents);
+}
+
+// Open a submenu: a focusable header node (its own single-item row at the
+// current level) that everything until vwa_gb_end_submenu nests under. def
+// takes parts (and optionally typeKey, default "submenu"); activation and
+// adjustment stay the navigator's (Enter/right enter the submenu), so
+// onActivate/onAdjust here are mod bugs. Headers cannot open inside a row.
+function vwa_gb_begin_submenu(b, nodeId, def)
+{
+    if (b.curRow != undefined)
+    {
+        throw "graph: cannot begin a submenu inside an open row";
+    }
+    if (vwa_opt(def, "onActivate", undefined) != undefined
+        || vwa_opt(def, "onAdjust", undefined) != undefined)
+    {
+        throw ("graph: submenu header " + string(nodeId.skey)
+            + " cannot take onActivate/onAdjust");
+    }
+    var menuKey = vwa_gb_cur_menu_key(b);
+    var nd = vwa_gb_make_node(b, nodeId, def);
+    if (nd.typeKey == undefined)
+    {
+        nd.typeKey = "submenu";
+    }
+    nd.isSubmenu = true;
+    nd.childCount = 0;
+    array_push(b.rows, { items: [nd], rowKey: undefined, stopKey: b.stopKey,
+                         menuKey: menuKey, hdr: nd });
+    array_push(b.parents, nd);
+    array_push(b.submenus, nd);
+    return nd.nid.skey;
+}
+
+function vwa_gb_end_submenu(b)
+{
+    if (b.curRow != undefined)
+    {
+        throw "graph: cannot end a submenu with an open row";
+    }
+    if (array_length(b.submenus) == 0)
+    {
+        throw "graph: no submenu to end";
+    }
+    var hdr = array_pop(b.submenus);
+    var parentCnt = array_length(b.parents);
+    if (parentCnt == 0 || b.parents[parentCnt - 1] != hdr)
+    {
+        throw ("graph: unclosed context inside submenu "
+            + string(hdr.nid.skey) + " - pop contexts before ending it");
+    }
     array_pop(b.parents);
 }
 
@@ -176,7 +266,7 @@ function vwa_gb_start_row(b, rowKey, groupLabel)
         throw "graph: cannot start a row while another is open";
     }
     b.curRow = { items: [], rowKey: rowKey, stopKey: b.stopKey,
-                 groupLabel: groupLabel };
+                 menuKey: vwa_gb_cur_menu_key(b), groupLabel: groupLabel };
 }
 
 function vwa_gb_end_row(b)
@@ -204,7 +294,8 @@ function vwa_gb_add(b, nodeId, def)
     }
     else
     {
-        array_push(b.rows, { items: [nd], rowKey: undefined, stopKey: b.stopKey });
+        array_push(b.rows, { items: [nd], rowKey: undefined, stopKey: b.stopKey,
+                             menuKey: vwa_gb_cur_menu_key(b) });
     }
 }
 
@@ -237,6 +328,12 @@ function vwa_gb_build(b)
     {
         throw "graph: unclosed row - call vwa_gb_end_row";
     }
+    if (array_length(b.submenus) > 0)
+    {
+        throw ("graph: unclosed submenu "
+            + string(b.submenus[array_length(b.submenus) - 1].nid.skey)
+            + " - call vwa_gb_end_submenu");
+    }
     if (array_length(b.declared) == 0)
     {
         return undefined;
@@ -250,6 +347,7 @@ function vwa_gb_build(b)
 
     vwa_gb_synth_groups(b);
     vwa_gb_wire_rows(b);
+    vwa_gb_wire_submenus(b);
 
     for (var i = 0; i < array_length(b.rawEdges); i++)
     {
@@ -276,23 +374,28 @@ function vwa_gb_build(b)
     return rndr;
 }
 
-// Left/right within a row; up/down between consecutive rows of the same Tab
-// stop (arrows never cross a stop). Shared non-undefined row keys preserve
-// the column; otherwise vertical moves land on the first item.
+// Left/right within a row; up/down between consecutive rows of the same
+// LEVEL - a Tab stop's rows sharing an enclosing submenu (arrows never
+// cross a stop, and a submenu's children chain among themselves; contexts
+// stay transparent). A submenu's header row sits in its OWN level, so
+// sibling moves at that level land on the header and skip the subtree.
+// Shared non-undefined row keys preserve the column; otherwise vertical
+// moves land on the first item.
 function vwa_gb_wire_rows(b)
 {
-    // Group rows by stop key, keeping first-appearance order.
+    // Group rows by stop key + submenu level, keeping first-appearance order.
     var stopKeys = [];
     var byStop = {};
     for (var i = 0; i < array_length(b.rows); i++)
     {
         var row = b.rows[i];
-        var lst = variable_struct_get(byStop, row.stopKey);
+        var lk = row.stopKey + "\n" + row.menuKey;
+        var lst = variable_struct_get(byStop, lk);
         if (lst == undefined)
         {
             lst = [];
-            variable_struct_set(byStop, row.stopKey, lst);
-            array_push(stopKeys, row.stopKey);
+            variable_struct_set(byStop, lk, lst);
+            array_push(stopKeys, lk);
         }
         array_push(lst, row);
     }
@@ -339,6 +442,133 @@ function vwa_gb_vertical_target(fromRow, toRow, pos)
         return toRow.items[pos].nid.skey;
     }
     return toRow.items[0].nid.skey;
+}
+
+// The submenu edges, over the per-level chains wire_rows built:
+// - header right -> its first child row's landing
+// - first child row's members: up -> the header (the submenu's own top)
+// - last child row's members: down -> where content flows out (below)
+// - any node in a submenu whose left is still unclaimed: left -> the
+//   nearest enclosing header (row members past the first keep in-row left)
+// Also stamps header childCount (the submenu's vertical entry count) for
+// the announcer's "n items".
+function vwa_gb_wire_submenus(b)
+{
+    var hdrRows = {};   // header skey -> its row
+    for (var i = 0; i < array_length(b.rows); i++)
+    {
+        var hr = vwa_opt(b.rows[i], "hdr", undefined);
+        if (hr != undefined)
+        {
+            variable_struct_set(hdrRows, hr.nid.skey, b.rows[i]);
+        }
+    }
+
+    for (var i = 0; i < array_length(b.rows); i++)
+    {
+        var hdrRow = b.rows[i];
+        var hdr = vwa_opt(hdrRow, "hdr", undefined);
+        if (hdr == undefined)
+        {
+            continue;
+        }
+        var childRows = vwa_gb_level_rows(b, hdrRow.stopKey, hdr.nid.skey);
+        hdr.childCount = array_length(childRows);
+        if (hdr.childCount == 0)
+        {
+            continue; // an empty submenu: the count says so, right is an edge
+        }
+        variable_struct_set(hdr.trans, "right",
+            { to: childRows[0].items[0].nid.skey, label: undefined });
+        var firstRow = childRows[0];
+        for (var p = 0; p < array_length(firstRow.items); p++)
+        {
+            variable_struct_set(firstRow.items[p].trans, "up",
+                { to: hdr.nid.skey, label: undefined });
+        }
+        var exitKey = vwa_gb_exit_target(b, hdrRows, hdrRow);
+        if (exitKey != undefined)
+        {
+            var lastRow = childRows[array_length(childRows) - 1];
+            for (var p = 0; p < array_length(lastRow.items); p++)
+            {
+                variable_struct_set(lastRow.items[p].trans, "down",
+                    { to: exitKey, label: undefined });
+            }
+        }
+    }
+
+    for (var i = 0; i < array_length(b.rows); i++)
+    {
+        var row = b.rows[i];
+        if (row.menuKey == "")
+        {
+            continue;
+        }
+        for (var p = 0; p < array_length(row.items); p++)
+        {
+            if (variable_struct_get(row.items[p].trans, "left") == undefined)
+            {
+                variable_struct_set(row.items[p].trans, "left",
+                    { to: row.menuKey, label: undefined });
+            }
+        }
+    }
+}
+
+// The rows forming one level: a Tab stop's rows sharing an enclosing
+// submenu ("" = top), in declaration order.
+function vwa_gb_level_rows(b, stopKey, menuKey)
+{
+    var out = [];
+    for (var i = 0; i < array_length(b.rows); i++)
+    {
+        if (b.rows[i].stopKey == stopKey && b.rows[i].menuKey == menuKey)
+        {
+            array_push(out, b.rows[i]);
+        }
+    }
+    return out;
+}
+
+// Where content flows when down walks off the bottom of hdrRow's submenu:
+// the next sibling row at the header's own level - diving into a sibling
+// submenu's first child (its header announces as a crossed path level) -
+// recursing outward when the submenu is last at its level. undefined = the
+// stop's true bottom (a silent edge, like any list end).
+function vwa_gb_exit_target(b, hdrRows, hdrRow)
+{
+    var level = vwa_gb_level_rows(b, hdrRow.stopKey, hdrRow.menuKey);
+    var idx = -1;
+    for (var i = 0; i < array_length(level); i++)
+    {
+        if (level[i] == hdrRow)
+        {
+            idx = i;
+            break;
+        }
+    }
+    if (idx >= 0 && idx < array_length(level) - 1)
+    {
+        var nxt = level[idx + 1];
+        var nxtHdr = vwa_opt(nxt, "hdr", undefined);
+        if (nxtHdr != undefined)
+        {
+            var dive = vwa_gb_level_rows(b, nxt.stopKey, nxtHdr.nid.skey);
+            if (array_length(dive) > 0)
+            {
+                return dive[0].items[0].nid.skey;
+            }
+            return nxtHdr.nid.skey; // empty sibling submenu: land on it
+        }
+        return nxt.items[0].nid.skey;
+    }
+    if (hdrRow.menuKey == "")
+    {
+        return undefined;
+    }
+    return vwa_gb_exit_target(b, hdrRows,
+        variable_struct_get(hdrRows, hdrRow.menuKey));
 }
 
 // A multi-item row IS a group: synthesize a non-focusable context node that

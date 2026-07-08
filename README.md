@@ -14,6 +14,7 @@ Early development. What works today:
 - The full settings menu: checkboxes ("label, toggle, checked/not checked" - Enter flips them and the new state is announced), the volume sliders (left/right arrows adjust in 1-point steps, Ctrl with left/right in 10-point steps, the new value is announced), the window size and language dropdowns (Enter opens the list as its own screen landing on the current choice, Enter commits, Escape closes just the list), Configure Keybinds, and Back. A control's tooltip is read as part of its announcement. Side-by-side controls (the fullscreen/borderless/windowed trio) form a group: it counts as one item in the vertical list, arriving on it announces "group" and its list position, and left/right move within it ("1 of 3").
 - The confirmation dialogue (for example when choosing a beta language): the message is read, arrows reach Confirm and Cancel.
 - The in-game pause menu (Resume, Hangar, Restart, Settings, Main Menu).
+- Submenus (used by upcoming mod screens such as the mod's own settings): a collapsible section presented as an element in the list, announced as "label, submenu, k items, n of m". Right arrow or Enter enters it, landing on its first item; left arrow returns to its header (on controls that don't use left/right themselves, like sliders or row members); up from the first item also lands on the header; down from the header skips the whole section; walking down past its last item continues into whatever follows, entering the next submenu directly with its title announced. Submenus nest.
 - Speech hotkeys, available everywhere - including while typing in a game text field: Ctrl stops speech, Shift+F11 resets the speech stack if it ever goes quiet.
 
 In-run gameplay (combat, encounters, ship management) is not yet accessible.
@@ -40,9 +41,9 @@ Without `-Speech`, the mod runs in capture-only mode: nothing is voiced, but eve
 
 ## Keys
 
-- Arrow keys: move through a menu (up/down wrap at the ends; left/right adjust sliders and move within horizontal rows).
+- Arrow keys: move through a menu (up/down wrap at the ends; left/right adjust sliders and move within horizontal rows). On a submenu header, Right enters; inside a submenu, Left returns to the header when the focused control doesn't claim left/right itself.
 - Ctrl with Left/Right: adjust sliders in large steps.
-- Enter: activate the focused control (buttons click, checkboxes flip, dropdowns open, a dropdown entry commits).
+- Enter: activate the focused control (buttons click, checkboxes flip, dropdowns open, a dropdown entry commits, a submenu opens).
 - Tab and Shift+Tab: cycle between control groups on screens that have them.
 - Home and End: jump to the first or last control of the current group.
 - Escape: close popups and menus (the game's own handling). With a dropdown list open, Escape closes just the list and stays in the menu.
