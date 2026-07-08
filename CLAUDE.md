@@ -45,9 +45,12 @@ other flag order, or the permission rule won't match.
   via UTMT CLI (about a minute). Original `data.win` is never modified.
 - `tools/run-game.ps1` - the iteration loop. Run as a BACKGROUND task; it
   rebuilds, launches through Steam, polls `/health`, and blocks until game
-  exit. Cancelling the task kills the game. It refuses to start while another
-  launcher is alive (lock file). `-Speech` voices output; default is
-  capture-only so unattended runs don't drive the screen reader.
+  exit. It refuses to start while another launcher is alive (lock file).
+  `-Speech` voices output; default is capture-only so unattended runs don't
+  drive the screen reader. To stop a run, `taskkill //F //IM "Void War.exe"`
+  (the launcher wakes and cleans up). Cancelling the background task instead
+  ORPHANS the game (it is Steam's child, and a hard cancel skips finally) -
+  self-healing on the next launcher run, but prefer taskkill.
 - Dev driver: `http://127.0.0.1:8772` - `GET /health`, `GET /speech?since=N`
   (monotonic cursor; how you observe TTS you can't hear), `POST /cmd` (body:
   `ping` or `say <text>`; eval-lite arrives session 2).

@@ -1,9 +1,15 @@
 # run-game.ps1 - build, launch, and babysit the modded game.
 #
 # Run this as a BACKGROUND task: it blocks until the game exits, so a crash
-# wakes the agent with the exit code. Cancelling the task kills the game (the
-# finally block) - that is the one true way to stop a run. Never start a
-# second launcher while one is alive; the lock below refuses it.
+# wakes the agent. Never start a second launcher while one is alive; the lock
+# below refuses it.
+#
+# Stopping a run (bit us): the game is Steam's child, not ours, and a hard
+# task-cancel kills this script without running its finally - so cancelling
+# ORPHANS the game and leaves a stale lock. Both are self-healing: the next
+# launcher run clears the stale lock and kills the orphan (verified). To stop
+# without relaunching, taskkill "Void War.exe" - the launcher then wakes,
+# reports the exit, and releases the lock cleanly.
 #
 # -Speech    voice output through the screen reader (default: capture-only,
 #            so unattended runs don't drive the user's screen reader)
@@ -100,8 +106,16 @@ try {
 
     # --- block until the game exits; the exit code is the task's result ---
     $game.WaitForExit()
-    Write-Host "run-game: game exited with code $($game.ExitCode)"
-    exit $game.ExitCode
+    # ExitCode is unreadable for processes we didn't spawn (Steam spawned it)
+    # unless the handle allows it; treat unreadable as 0-with-a-note.
+    $code = $null
+    try { $code = $game.ExitCode } catch { }
+    if ($null -eq $code) {
+        Write-Host 'run-game: game exited (exit code unreadable - not our child process)'
+        exit 0
+    }
+    Write-Host "run-game: game exited with code $code"
+    exit $code
 }
 finally {
     if ($game -and -not $game.HasExited) {
