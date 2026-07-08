@@ -174,8 +174,12 @@ group's first/last control, **Escape** nav-back (consumed ONLY when a screen
 claims it via onBack - the dropdown child screen - otherwise the game's own
 Escape runs untouched). Tooltips have NO key: a widget's tooltipStr is an
 announcement part, read inline with the control. Actions carry a bindings
-LIST (any chord fires). Ctrl+Up/Down are reserved for future grid-screen
-region jumps.
+LIST (any chord fires). **Ctrl+Up/Down** jump by submenu, landing exactly
+where the plain arrow at the enclosing submenu's boundary lands: down =
+down-at-its-last-item (flow out, dive included), up = up-at-its-first-item
+(the enclosing header; repeat climbs out). A top-level header mirrors the
+plain arrows; plain top-level nodes are silent edges. Grid screens will
+reuse the chord for region jumps.
 
 ## Hard rules (the audit command checks these)
 
@@ -239,4 +243,6 @@ into the NEXT submenu's first child (title announces via path diff), and
 left/right belong to the focused control whenever it claims them (slider
 adjust, in-row movement, a future table's columns) - left-to-exit exists
 only where left is unclaimed. Precedence, not an exception. Headers speak
-their child count, including "0 items".
+their child count, including "0 items". Ctrl+Down is down-at-the-last-item
+of the enclosing submenu and Ctrl+Up is up-at-the-first-item (the header) -
+the jump chords never land anywhere a boundary arrow could not.

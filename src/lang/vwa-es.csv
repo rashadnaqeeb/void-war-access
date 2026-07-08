@@ -31,5 +31,7 @@ vwa--screen-pause,Menú de pausa
 vwa--group-generic,grupo
 vwa--role-option,opción
 vwa--role-submenu,submenú
+vwa--action-nav-jump-up,Ir al título del submenú
+vwa--action-nav-jump-down,Saltar el submenú
 vwa--submenu-items,{k} elementos
 vwa--submenu-item-one,1 elemento

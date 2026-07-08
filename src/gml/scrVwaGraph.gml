@@ -29,6 +29,12 @@
 // - Left exits to the nearest enclosing header wherever the control leaves
 //   left unclaimed (row members past the first keep their in-row left, and
 //   the screens layer gives sliders' onAdjust priority before any edge).
+// - Ctrl+up/down (the "jump-up"/"jump-down" pseudo-directions, bound in
+//   scrVwaScreens) land exactly where the plain arrow at the enclosing
+//   submenu's boundary lands: jump-up on the enclosing header (up at the
+//   first item), jump-down on the flow-out target (down at the last item).
+//   A top-level header mirrors its own plain chain so the chord keeps
+//   walking headers; plain top-level nodes have no jump edges.
 //
 // Directions are the strings "up" / "down" / "left" / "right" (enums are
 // avoided; cross-entry enum visibility is not guaranteed under the UTMT
@@ -511,6 +517,50 @@ function vwa_gb_wire_submenus(b)
             {
                 variable_struct_set(row.items[p].trans, "left",
                     { to: row.menuKey, label: undefined });
+            }
+        }
+    }
+
+    // Ctrl+up/down jump pseudo-edges. Inside a submenu, both land exactly
+    // where the plain arrow at the submenu's boundary lands (Rashad's
+    // rule): jump-up on the enclosing header, jump-down on the enclosing
+    // submenu's flow-out target - absent at the stop's true bottom, a
+    // silent edge like any list end. A TOP-LEVEL header mirrors its own
+    // plain chain edges (as wired by wire_rows; raw-edge overrides applied
+    // later do not follow) so the chord keeps walking headers instead of
+    // dying on one. Plain top-level nodes get no jump edges.
+    for (var i = 0; i < array_length(b.rows); i++)
+    {
+        var row = b.rows[i];
+        if (row.menuKey != "")
+        {
+            var jumpOut = vwa_gb_exit_target(b, hdrRows,
+                variable_struct_get(hdrRows, row.menuKey));
+            for (var p = 0; p < array_length(row.items); p++)
+            {
+                variable_struct_set(row.items[p].trans, "jump-up",
+                    { to: row.menuKey, label: undefined });
+                if (jumpOut != undefined)
+                {
+                    variable_struct_set(row.items[p].trans, "jump-down",
+                        { to: jumpOut, label: undefined });
+                }
+            }
+        }
+        else if (vwa_opt(row, "hdr", undefined) != undefined)
+        {
+            var hnd = row.hdr;
+            var upT = variable_struct_get(hnd.trans, "up");
+            if (upT != undefined)
+            {
+                variable_struct_set(hnd.trans, "jump-up",
+                    { to: upT.to, label: undefined });
+            }
+            var dnT = variable_struct_get(hnd.trans, "down");
+            if (dnT != undefined)
+            {
+                variable_struct_set(hnd.trans, "jump-down",
+                    { to: dnT.to, label: undefined });
             }
         }
     }

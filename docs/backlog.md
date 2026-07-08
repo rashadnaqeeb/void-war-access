@@ -26,9 +26,9 @@ verified facts live in CLAUDE.md.
    input layer doesn't have yet.
 3. Secondary action (Backspace vtable slot) - nothing to bind until
    vendor/loot-style screens.
-4. Grid screens: regions with Ctrl+Up/Down region jumps (reserved) and a
-   table emitter (rows/columns, column-header announcements) - for
-   cargo/crew.
+4. Grid screens: regions with Ctrl+Up/Down region jumps (the chord already
+   does submenu jumps; grids reuse it) and a table emitter (rows/columns,
+   column-header announcements) - for cargo/crew.
 5. Review buffers: scrub named text lists (event log, status) independent
    of focus.
 7. Settings model: persisted typed settings tree, per-kind/per-type

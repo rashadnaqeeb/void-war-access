@@ -9,8 +9,8 @@
 # reference follow), silence where nothing should speak, and the submenu
 # model (vwa_dev_test_submenu): header discovery with item counts, enter by
 # right arrow and Enter, a focused slider keeping left/right for itself,
-# boundary dive, left/up exits, header subtree skip, and nested bottom-exit
-# recursion.
+# boundary dive, left/up exits, header subtree skip, nested bottom-exit
+# recursion, and the Ctrl+up/down jumps (boundary-arrow equivalents).
 # Also checks /gui/mod. Assumes a launcher (run-game.ps1) is already up at
 # the main menu; drives over HTTP only. Exits nonzero on any failed check.
 #
@@ -183,6 +183,21 @@ CheckSpeech 'down to Delta' { Fire 'nav-down' } @('Delta, button, 2 of 2')
 CheckSpeech 'bottom exit recurses through both levels to Outro' { Fire 'nav-down' } @('Outro, button, 4 of 4')
 CheckSpeech 'up from a plain sibling shows the Video header' { Fire 'nav-up' } @('Video, submenu, 2 items, 3 of 4')
 
+# --- Ctrl+up/down submenu jumps: both land exactly where the plain arrow
+#     at the enclosing submenu's boundary lands. ---
+CheckSpeech 'Ctrl+Up on a top-level header acts like plain up' { Fire 'nav-jump-up' } @('Audio, submenu, 2 items, 2 of 4')
+CheckSpeech 're-enter Audio for the jump checks' { Fire 'nav-right' } @('Master, slider, 4, 1 of 2')
+CheckSpeech 'Ctrl+Down exits like bottom flow, diving into Video' { Fire 'nav-jump-down' } @('Video, submenu, 2 items, 3 of 4, Fullscreen, toggle, off, 1 of 2')
+CheckSpeech 'down to the nested header for the climb' { Fire 'nav-down' } @('Advanced, submenu, 2 items, 2 of 2')
+CheckSpeech 'enter the nested submenu for the climb' { Fire 'nav-right' } @('Gamma, button, 1 of 2')
+CheckSpeech 'Ctrl+Up jumps to the nested header' { Fire 'nav-jump-up' } @('Advanced, submenu, 2 items, 2 of 2')
+CheckSpeech 'Ctrl+Up from a nested header climbs one level out' { Fire 'nav-jump-up' } @('Video, submenu, 2 items, 3 of 4')
+CheckSpeech 'back inside Video' { Fire 'nav-right' } @('Fullscreen, toggle, off, 1 of 2')
+CheckSpeech 'down to the nested header for the escape' { Fire 'nav-down' } @('Advanced, submenu, 2 items, 2 of 2')
+CheckSpeech 'Ctrl+Down from a nested header escapes the enclosing submenu' { Fire 'nav-jump-down' } @('Outro, button, 4 of 4')
+CheckSpeech 'Ctrl+Down on a plain top-level element is silent' { Fire 'nav-jump-down' } @()
+CheckSpeech 'Ctrl+Up on a plain top-level element is silent' { Fire 'nav-jump-up' } @()
+
 $m = Invoke-RestMethod "$base/gui/mod" -TimeoutSec 8
 Check 'gui.mod submenu screen focused' ($m.focused -eq 'vwa-test-submenu') $m.focused
 Check 'gui.mod submenu node count' ($m.nodes.Count -eq 10) $m.nodes.Count
@@ -198,6 +213,8 @@ $delta = $m.nodes | Where-Object { $_.skey -eq 'delta' }
 Check 'gui.mod nested bottom exit recurses to Outro' ($delta.edges.down -eq 'outro') ($delta.edges | ConvertTo-Json -Compress)
 $gamma = $m.nodes | Where-Object { $_.skey -eq 'gamma' }
 Check 'gui.mod nested parent chain' (($gamma.parents -join ',') -eq 'sm:video,sm:adv') ($gamma.parents -join ',')
+Check 'gui.mod jump edges: header up, enclosing exit down' (
+    $gamma.edges.'jump-up' -eq 'sm:adv' -and $gamma.edges.'jump-down' -eq 'outro') ($gamma.edges | ConvertTo-Json -Compress)
 
 CheckSpeech 'submenu screen off restores the test menu' {
     Cmd 'call vwa_dev_test_submenu off'

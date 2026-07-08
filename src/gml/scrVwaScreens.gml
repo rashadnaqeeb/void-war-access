@@ -353,8 +353,6 @@ function vwa_register_nav_actions()
         });
     // Ctrl+left/right: large adjust steps on the focused control
     // (vwa_widget_slider_adjust). No-op on a control with no onAdjust.
-    // Ctrl+up/down stay unbound - reserved for region jumps if grid
-    // screens ever need them.
     vwa_action_register("nav-left-large", "vwa--action-nav-left-large", "ui",
         vwa_bind(vk_left, false, true, false), true, function()
         {
@@ -364,6 +362,20 @@ function vwa_register_nav_actions()
         vwa_bind(vk_right, false, true, false), true, function()
         {
             vwa_nav_adjust_large(1);
+        });
+    // Ctrl+up/down: submenu jumps, riding the graph's jump pseudo-edges
+    // (grid screens will reuse the chord for region jumps). Both land
+    // exactly where the plain arrow at the enclosing submenu's boundary
+    // lands; see the submenu block in scrVwaGraph's header.
+    vwa_action_register("nav-jump-up", "vwa--action-nav-jump-up", "ui",
+        vwa_bind(vk_up, false, true, false), true, function()
+        {
+            vwa_nav_move("jump-up");
+        });
+    vwa_action_register("nav-jump-down", "vwa--action-nav-jump-down", "ui",
+        vwa_bind(vk_down, false, true, false), true, function()
+        {
+            vwa_nav_move("jump-down");
         });
     vwa_action_register("nav-activate", "vwa--action-nav-activate", "ui",
         vwa_bind(vk_enter, false, false, false), false, function()
