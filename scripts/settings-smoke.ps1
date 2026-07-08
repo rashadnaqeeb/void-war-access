@@ -223,17 +223,21 @@ $ddIdxAfter = Cmd 'get oSettings_windowSize.dropdown_currSelectedIndex'
 Check 'selection index unchanged' ($ddIdxAfter -eq $ddIdxBefore) "$ddIdxBefore -> $ddIdxAfter"
 Check 'toggleDropdown cleared' ((Cmd 'get oSettings_windowSize.toggleDropdown') -eq $false) 'still open'
 
-# --- tooltip on demand. Focusing into the window-mode trio crosses into
-#     its row group: the entry announces the localized generic group word
-#     plus the group's vertical position (row 2 of the 14 vertical entries),
-#     then the member with its in-row "1 of 3". ---
+# --- tooltips read inline as a part of the control announcement (no
+#     tooltip key; a control without a tooltip appends nothing). Focusing
+#     into the window-mode trio crosses into its row group: the entry
+#     announces the localized generic group word plus the group's vertical
+#     position (row 2 of the 14 vertical entries), then the member with its
+#     in-row "1 of 3" - and its tooltip text, since /gui/mod parts and the
+#     announcer share vwa_ann_leaf. ---
 $grpWord = (Cmd 'call vwa_t vwa--group-generic').result
 $fsTip = CmdStr 'get oSettings_checkbox_fullscreen.tooltipStr'
 CheckSpeech 'focus the fullscreen checkbox' { FocusNode 'menu-settings' 'oSettings_checkbox_fullscreen' } @("$grpWord, 2 of 14, $(NodeLine $fs)")
-CheckSpeech 'F9 reads the tooltip' { Fire 'nav-tooltip' } @($fsTip)
-$noTip = (Cmd 'call vwa_t vwa--no-tooltip').result
-CheckSpeech 'focus the back button' { FocusNode 'menu-settings' 'bm:label_back' } @(NodeLine (NodeByKey $s 'bm:label_back'))
-CheckSpeech 'F9 with no tooltip says so' { Fire 'nav-tooltip' } @($noTip)
+Check 'checkbox announcement carries its tooltip inline' (
+    (NodeLine $fs) -like "*$fsTip*") (NodeLine $fs)
+CheckSpeech 'focus the back button (no tooltip, none appended)' { FocusNode 'menu-settings' 'bm:label_back' } @(NodeLine (NodeByKey $s 'bm:label_back'))
+Check 'no-tooltip button appends nothing' (
+    @((NodeByKey $s 'bm:label_back').parts).Count -eq 3) ((NodeByKey $s 'bm:label_back').parts -join ' / ')
 
 # --- confirmation dialogue via the beta-language flow, then cancel ---
 $langBefore = Cmd 'get global.currLanguage'

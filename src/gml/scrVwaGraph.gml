@@ -90,7 +90,7 @@ function vwa_gb_new()
 }
 
 // def fields: parts (required, non-empty array from scrVwaAnnounce helpers),
-// typeKey (control type name, optional), onActivate / onAdjust / onTooltip
+// typeKey (control type name, optional), onActivate / onAdjust
 // (optional bound methods; onAdjust takes (sign, large)).
 function vwa_gb_make_node(b, nodeId, def)
 {
@@ -111,7 +111,6 @@ function vwa_gb_make_node(b, nodeId, def)
         typeKey: vwa_opt(def, "typeKey", undefined),
         onActivate: vwa_opt(def, "onActivate", undefined),
         onAdjust: vwa_opt(def, "onAdjust", undefined),
-        onTooltip: vwa_opt(def, "onTooltip", undefined),
         parent: (parentCnt > 0) ? b.parents[parentCnt - 1] : undefined,
         focusable: true,
         stopKey: b.stopKey,
@@ -149,7 +148,6 @@ function vwa_gb_push_context(b, label)
         typeKey: undefined,
         onActivate: undefined,
         onAdjust: undefined,
-        onTooltip: undefined,
         parent: (parentCnt > 0) ? b.parents[parentCnt - 1] : undefined,
         focusable: false,
         stopKey: b.stopKey,
@@ -369,7 +367,6 @@ function vwa_gb_synth_groups(b)
             typeKey: undefined,
             onActivate: undefined,
             onAdjust: undefined,
-            onTooltip: undefined,
             parent: first.parent,
             focusable: false,
             isGroup: true,
@@ -855,19 +852,3 @@ function vwa_graph_adjust(gr, sign, large)
     return true;
 }
 
-// Run the focused control's tooltip behavior. False = it has none.
-function vwa_graph_tooltip(gr)
-{
-    if (!vwa_graph_rerender(gr))
-    {
-        return false;
-    }
-    var nd = vwa_graph_node(gr);
-    if (nd == undefined || nd.onTooltip == undefined)
-    {
-        return false;
-    }
-    var fn = nd.onTooltip;
-    fn();
-    return true;
-}

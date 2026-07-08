@@ -1,9 +1,7 @@
 key,text
 vwa--boot,Void War Access cargado.
-vwa--action-repeat-last,Repetir lo último hablado
 vwa--action-stop-speech,Detener la voz
 vwa--action-panic-reset,Reiniciar la voz
-vwa--nothing-to-repeat,Nada que repetir
 vwa--speech-reset,Voz reiniciada
 vwa--action-nav-up,Navegar hacia arriba
 vwa--action-nav-down,Navegar hacia abajo
@@ -26,10 +24,7 @@ vwa--state-unchecked,no marcado
 vwa--state-selected,seleccionado
 vwa--state-disabled,no disponible
 vwa--action-nav-back,Atrás
-vwa--action-nav-tooltip,Leer descripción
-vwa--no-tooltip,Sin descripción
 vwa--screen-confirm,Confirmación
 vwa--screen-pause,Menú de pausa
 vwa--group-generic,grupo
 vwa--role-option,opción
-vwa--action-nav-read-current,Leer el control actual

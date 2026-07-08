@@ -47,10 +47,9 @@ is invisible to the user, so correctness findings outrank style findings.
 
 **Interrupt policy:**
 - Interrupt only on: genuine focus movement within a screen, direct
-  user-caused state feedback (`vwa_nav_state_feedback`), and the explicit
-  say-it-now keys (F10 read-current, F11 repeat-last, panic
-  confirmation). Screen names, initial landings, and live-part watch
-  changes never interrupt. Flag any other `vwa_speak(_, true)`.
+  user-caused state feedback (`vwa_nav_state_feedback`), and the panic
+  reset's confirmation. Screen names, initial landings, and live-part
+  watch changes never interrupt. Flag any other `vwa_speak(_, true)`.
 
 **Hooks never speak:**
 - Patched game events (`*.append.gml`) set state or enqueue; speech

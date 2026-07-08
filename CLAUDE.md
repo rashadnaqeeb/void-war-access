@@ -110,18 +110,19 @@ other flag order, or the permission rule won't match.
   dismissal for scripted runs, honoring the saved double-spawn quirk),
   `vwa_dev_spawn <objName>` (spawn by object name; oMenuPause verified safe
   at the main menu - pause_game no-ops with no run live).
-- User hotkeys (Global category, registered in `scrVwaInput`): F11 repeat
-  last spoken, Ctrl stop speech, Shift+F11 panic speech-stack reset. UI
-  category (live only while a mod screen is focused, `scrVwaScreens`):
-  arrows navigate (left/right adjust sliders), Enter activates, Tab /
-  Shift+Tab cycle control groups with remembered positions, Home/End jump
-  to the focused group's first/last control, F9 reads the focused
-  control's tooltip, F10 re-reads the focused control in full (fresh
-  composition, unlike F11's verbatim replay), Escape fires nav-back
-  (opt-in per-screen onBack; consumed via keyboard_clear ONLY when a
-  screen claims it - the dropdown child screen - otherwise the game's own
-  Escape handling runs untouched). Actions carry a bindings LIST (any
-  chord fires; WotR parity).
+- User hotkeys (Global category, registered in `scrVwaInput`): Ctrl stop
+  speech, Shift+F11 panic speech-stack reset. UI category (live only while
+  a mod screen is focused, `scrVwaScreens`): arrows navigate (left/right
+  adjust sliders), Enter activates, Tab / Shift+Tab cycle control groups
+  with remembered positions, Home/End jump to the focused group's
+  first/last control, Escape fires nav-back (opt-in per-screen onBack;
+  consumed via keyboard_clear ONLY when a screen claims it - the dropdown
+  child screen - otherwise the game's own Escape handling runs untouched).
+  Actions carry a bindings LIST (any chord fires; WotR parity). Tooltips
+  have NO key: a widget's tooltipStr is an announcement part, read inline
+  with the control (Void War tooltips are flat strings - verified, no
+  layered/nested tooltips anywhere - so inline covers the whole surface,
+  unlike WotR's Pathfinder drill-in reader).
 - Regression checks against a live game at the main menu:
   `scripts/drive-smoke.ps1` (dev driver), `scripts/input-smoke.ps1` (input
   layer), `scripts/screens-smoke.ps1` (framework core: exact speech
@@ -181,8 +182,8 @@ other flag order, or the permission rule won't match.
 - **Never interrupt speech by default**; interrupt only on genuine focus
   movement, on direct user-caused state feedback (the value a held key
   just changed - `vwa_nav_state_feedback`, WotR StateText parity: queued
-  values would read behind a held slider key), and on the explicit
-  say-it-now keys (F10 read-current, F11 repeat-last, panic confirmation).
+  values would read behind a held slider key), and on the panic reset's
+  confirmation.
 - **All user-facing hotkeys go through the input layer** (session 3+); no raw
   `keyboard_check` in feature code.
 - GameMaker externals take/return ONLY doubles and null-terminated strings.

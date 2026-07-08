@@ -317,7 +317,8 @@ pass from a cold boot). Facts learned:
 ## Session 6 findings: settings-family widgets (verified 2026-07-08)
 
 The generic widget adapter, the real settings/pause/confirmation/dropdown
-screens, nav-back (Escape) and nav-tooltip (F9), and
+screens, nav-back (Escape) and nav-tooltip (F9; replaced in session 8 -
+tooltips are now an inline announcement part with no key), and
 `scripts/settings-smoke.ps1` are built and verified live (all five smokes
 pass, 194 checks). Facts learned:
 
@@ -433,6 +434,15 @@ smokes re-ran green (198 checks). Facts learned:
   placeholders ([FACTION], [hullName], [unlockDescription]) the game replaces
   before display, so speech needs no markup stripper (WotR needs one for
   TMP tags; we do not).
+- The game's tooltips are FLAT (verified 2026-07-08 in the decompile):
+  draw_label / draw_label_ext render a tooltipStr as one 9-slice text
+  panel; oUITooltipSection stacks text sections into a single hover panel
+  and enableDoubleTooltip draws two panels side by side - visual
+  composition only, with no links, nesting, or hover-within-a-tooltip
+  anywhere. Rashad's call (session 8): tooltips are therefore an inline
+  announcement part on any widget carrying a tooltipStr (nothing appended
+  when absent), and the F9 tooltip key was removed - WotR needed a
+  drill-in reader only because Pathfinder tooltips are layered documents.
 - GameMaker maps both Return and numpad Enter to vk_enter (13), so one
   binding covers both activate keys (WotR needs an explicit KeypadEnter
   second binding; platform detail, noted session 8).

@@ -498,22 +498,21 @@ function vwa_widget_add(bd, inst)
     return undefined;
 }
 
-// Tooltip-on-demand (F9): speak the widget's live tooltipStr. oButton
-// defaults tooltipStr to the NUMBER 0, so the string check does both jobs.
-function vwa_widget_tooltip_fn(inst)
+// The widget's tooltip as an announcement part: read inline with the
+// control whenever the game gives the widget a tooltipStr, silent when it
+// has none. Void War tooltips are flat strings (verified: draw_label
+// 9-slice panels; sections/double panels are visual composition only, no
+// links or nesting), so inline reading covers the whole tooltip surface -
+// unlike WotR's layered Pathfinder tooltips, which needed a drill-in
+// reader. oButton defaults tooltipStr to the NUMBER 0, so the string
+// check does both jobs.
+function vwa_widget_tooltip_part(inst)
 {
-    return method({ inst: inst }, function()
+    return vwa_part_fn("tooltip", method({ inst: inst }, function()
     {
         var tt = self.inst.tooltipStr;
-        if (is_string(tt) && tt != "")
-        {
-            vwa_speak([tt], false);
-        }
-        else
-        {
-            vwa_speak([vwa_t("vwa--no-tooltip")], false);
-        }
-    });
+        return (is_string(tt) && tt != "") ? tt : "";
+    }), false);
 }
 
 // oSettings_checkbox: label in rightText, state in toggled. Activation
@@ -534,7 +533,8 @@ function vwa_widget_add_checkbox(bd, inst)
             {
                 return self.inst.toggled ? vwa_t("vwa--state-checked")
                     : vwa_t("vwa--state-unchecked");
-            }), true)
+            }), true),
+            vwa_widget_tooltip_part(inst)
         ],
         onActivate: method({ inst: inst }, function()
         {
@@ -554,8 +554,7 @@ function vwa_widget_add_checkbox(bd, inst)
             sfx_start_ext(global.sfx_settingsCheckbox, 0, 1, 0, 0, 1);
             var fn = cb.onClick;
             fn();
-        }),
-        onTooltip: vwa_widget_tooltip_fn(inst)
+        })
     });
     return skey;
 }
@@ -651,13 +650,13 @@ function vwa_widget_add_slider(bd, inst)
             vwa_part_fn("value", method({ inst: inst }, function()
             {
                 return self.inst.rightLabel;
-            }), true)
+            }), true),
+            vwa_widget_tooltip_part(inst)
         ],
         onAdjust: method({ inst: inst }, function(sign, large)
         {
             vwa_widget_slider_adjust(self.inst, sign, large);
-        }),
-        onTooltip: vwa_widget_tooltip_fn(inst)
+        })
     });
     return skey;
 }
@@ -709,7 +708,8 @@ function vwa_widget_add_combo(bd, inst)
                 var el = self.inst;
                 return (el.centerTextOverride != "") ? el.centerTextOverride
                     : el.centerText;
-            }), true)
+            }), true),
+            vwa_widget_tooltip_part(inst)
         ],
         onActivate: method({ inst: inst }, function()
         {
@@ -722,8 +722,7 @@ function vwa_widget_add_combo(bd, inst)
             }
             sfx_start(global.sfx_click, 0, 1, 0, 0);
             el.toggleDropdown = true;
-        }),
-        onTooltip: vwa_widget_tooltip_fn(inst)
+        })
     });
     return skey;
 }
@@ -743,8 +742,8 @@ function vwa_widget_add_element_label(bd, inst)
             }
             return (el.centerTextOverride != "") ? el.centerTextOverride
                 : el.centerText;
-        }), false)],
-        onTooltip: vwa_widget_tooltip_fn(inst)
+        }), false),
+            vwa_widget_tooltip_part(inst)]
     });
     return skey;
 }
@@ -774,7 +773,8 @@ function vwa_widget_add_obutton(bd, inst)
                 }
                 var act = bt.buttonActive;
                 return act() ? "" : vwa_t("vwa--state-disabled");
-            }), true)
+            }), true),
+            vwa_widget_tooltip_part(inst)
         ],
         onActivate: method({ inst: inst }, function()
         {
@@ -816,8 +816,7 @@ function vwa_widget_add_obutton(bd, inst)
             {
                 bt.triggerButton = true;
             }
-        }),
-        onTooltip: vwa_widget_tooltip_fn(inst)
+        })
     });
     return skey;
 }

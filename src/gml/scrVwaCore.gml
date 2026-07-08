@@ -134,8 +134,6 @@ function vwa_speak(parts, interrupt)
         return;
     }
 
-    global.vwaLastSpoken = text; // for the repeat-last action (scrVwaInput)
-
     var f = file_text_open_append("vwa-speech.log");
     file_text_write_string(f, text);
     file_text_writeln(f);

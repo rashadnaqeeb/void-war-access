@@ -1,9 +1,7 @@
 key,text
 vwa--boot,Void War Access chargé.
-vwa--action-repeat-last,Répéter la dernière annonce
 vwa--action-stop-speech,Arrêter la parole
 vwa--action-panic-reset,Réinitialiser la parole
-vwa--nothing-to-repeat,Rien à répéter
 vwa--speech-reset,Parole réinitialisée
 vwa--action-nav-up,Naviguer vers le haut
 vwa--action-nav-down,Naviguer vers le bas
@@ -26,10 +24,7 @@ vwa--state-unchecked,non coché
 vwa--state-selected,sélectionné
 vwa--state-disabled,indisponible
 vwa--action-nav-back,Retour
-vwa--action-nav-tooltip,Lire l'infobulle
-vwa--no-tooltip,Pas d'infobulle
 vwa--screen-confirm,Confirmation
 vwa--screen-pause,Menu pause
 vwa--group-generic,groupe
 vwa--role-option,option
-vwa--action-nav-read-current,Lire le contrôle actuel

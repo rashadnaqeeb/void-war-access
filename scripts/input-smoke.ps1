@@ -65,17 +65,10 @@ Check 'typematic rate sane' ($s2.keyRateMs -ge 10 -and $s2.keyRateMs -le 500) $s
 Check 'live categories = ui,global' (($s2.liveCategories -join ',') -eq 'ui,global') ($s2.liveCategories -join ',')
 $actionKeys = @($s2.actions | ForEach-Object { $_.key })
 Check 'starter actions registered' (
-    $actionKeys -contains 'repeat-last' -and
     $actionKeys -contains 'speech-stop' -and
     $actionKeys -contains 'panic-reset') ($actionKeys -join ',')
 
 # --- starter actions fire through /input and land in /speech ---
-$cur = SpeechNext
-$r = Fire 'repeat-last'
-Check '/input repeat-last fired' ($r -eq 'fired repeat-last') $r
-$lines = @(SpeechFrom $cur)
-Check 'repeat-last spoke' ($lines.Count -ge 1) ($lines -join '|')
-
 $r = Fire 'speech-stop'
 Check '/input speech-stop fired' ($r -eq 'fired speech-stop') $r
 

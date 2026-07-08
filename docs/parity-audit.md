@@ -251,6 +251,29 @@ foundation" plus this audit)
 - Localization QA pass over de/es/fr once strings settle (the vwa-- rows
   are machine-authored so far).
 
+## Post-audit simplification (same day, Rashad's direction)
+
+After reviewing the bindings list, Rashad cut three keys as unnecessary:
+
+- F9 tooltip-on-demand is GONE; tooltips are now an inline announcement
+  part. Any widget with a game tooltipStr speaks it as part of its normal
+  announcement (after state, before position); widgets without one append
+  nothing. This diverges from WotR deliberately: Pathfinder tooltips are
+  layered documents needing a drill-in reader, while Void War tooltips are
+  verified flat strings (draw_label panels; sections/double panels are
+  visual composition, no links or nesting), so inline reading covers the
+  entire surface. The graph's onTooltip plumbing was removed with it.
+  Backlog items 2 (drill-in reader) and 10 (inline tooltip part) are
+  RESOLVED by this design; a per-part verbosity toggle (item 8) remains
+  the future lever if inline tooltips get chatty.
+- F10 read-current-control: removed (added this session, cut same day).
+- F11 repeat-last: removed, along with the last-spoken tracking in the
+  chokepoint. The speech-parity note that we "exceed the reference" here
+  no longer applies; WotR has no repeat key either.
+
+Ctrl (stop speech) and Shift+F11 (panic reset) remain the only global
+keys; the UI category is arrows, Enter, Tab/Shift+Tab, Home/End, Escape.
+
 ## Standing rule going forward
 
 `.claude/commands/audit.md` (created this session) encodes the project's

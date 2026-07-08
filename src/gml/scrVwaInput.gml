@@ -26,10 +26,6 @@ function vwa_input_init()
     global.vwaInputFault = false;           // armed by the dev driver to test the watchdog
     global.vwaInputWatchdogTripped = false; // sticky until cleared; /state reports it
     global.vwaInputTicks = 0;
-    if (!variable_global_exists("vwaLastSpoken"))
-    {
-        global.vwaLastSpoken = "";
-    }
 
     // OS typematic settings via the shim; defaults when the shim is absent.
     global.vwaKeyDelayMs = 500;
@@ -360,18 +356,6 @@ function vwa_input_dispatch(textOnly)
 // the high F-keys are free. Rebinding UI arrives with the settings work.
 function vwa_register_global_actions()
 {
-    vwa_action_register("repeat-last", "vwa--action-repeat-last", "global",
-        vwa_bind(vk_f11, false, false, false), false, function()
-        {
-            if (global.vwaLastSpoken == "")
-            {
-                vwa_speak([vwa_t("vwa--nothing-to-repeat")], true);
-            }
-            else
-            {
-                vwa_speak([global.vwaLastSpoken], true);
-            }
-        });
     vwa_action_register("speech-stop", "vwa--action-stop-speech", "global",
         vwa_bind(vk_control, false, false, false), false, function()
         {
@@ -383,8 +367,7 @@ function vwa_register_global_actions()
             vwa_speech_panic();
         });
     // The speech controls survive text entry (never strand the user while
-    // typing): none of these chords can type a character into a field.
-    variable_struct_get(global.vwaActions, "repeat-last").textSafe = true;
+    // typing): neither chord can type a character into a field.
     variable_struct_get(global.vwaActions, "speech-stop").textSafe = true;
     variable_struct_get(global.vwaActions, "panic-reset").textSafe = true;
 }

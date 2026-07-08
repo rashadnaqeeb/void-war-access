@@ -500,6 +500,19 @@ F10 re-reads the focused control in full; holding Tab cycles groups
 repeatedly; holding right on Music Volume reads values AT the slider's
 position (no lag/queue); the window-mode trio now says "group" instead of
 "Radio group"; dropdown entries say "option" before "selected".
+Session-8 addendum (same day, Rashad's binding review): F9, F10, and F11
+removed. Tooltips became an inline announcement part on every widget
+carrying a game tooltipStr (verified flat - no layered tooltips anywhere
+in the game, unlike WotR's Pathfinder; see game-and-tooling), replacing
+tooltip-on-demand outright; the graph's onTooltip plumbing, repeat-last
+with its last-spoken tracking, and read-current went with them, plus
+their five lang rows in all four languages. Global keys are now just
+Ctrl (stop speech) and Shift+F11 (panic); UI is arrows, Enter,
+Tab/Shift+Tab, Home/End, Escape. input-smoke and settings-smoke updated
+(inline-tooltip assertions replace the F9 checks); all five smokes green
+(196 checks). By-ear recheck: settings controls now read their tooltip
+after their state (e.g. "Fullscreen, toggle, not checked, Toggles
+fullscreen mode ON/OFF., 1 of 3").
 
 ## After the foundation
 

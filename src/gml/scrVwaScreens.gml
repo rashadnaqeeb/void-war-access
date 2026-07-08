@@ -381,22 +381,6 @@ function vwa_register_nav_actions()
         {
             vwa_nav_back();
         });
-    // Tooltip on demand: F9 reads the focused control's tooltip. F-keys
-    // avoid every key the game binds (see vwa_register_global_actions).
-    vwa_action_register("nav-tooltip", "vwa--action-nav-tooltip", "ui",
-        vwa_bind(vk_f9, false, false, false), false, function()
-        {
-            vwa_nav_tooltip();
-        });
-    // Read the focused control in full on demand (WotR AnnounceCurrent):
-    // the whole path - contexts outermost-first, then the control with all
-    // its parts - composed fresh from live state, unlike F11 which replays
-    // the last spoken line verbatim.
-    vwa_action_register("nav-read-current", "vwa--action-nav-read-current", "ui",
-        vwa_bind(vk_f10, false, false, false), false, function()
-        {
-            vwa_nav_read_current();
-        });
 }
 
 function vwa_nav_back()
@@ -414,19 +398,6 @@ function vwa_nav_back()
     if (fn())
     {
         vwa_input_consume_escape();
-    }
-}
-
-function vwa_nav_tooltip()
-{
-    var scr = global.vwaFocusedScreen;
-    if (scr == undefined)
-    {
-        return;
-    }
-    if (!vwa_graph_tooltip(scr.graph))
-    {
-        vwa_speak([vwa_t("vwa--no-tooltip")], false);
     }
 }
 
@@ -503,30 +474,6 @@ function vwa_nav_state_feedback(scr)
     }
     global.vwaNavLiveCache = fresh;
     spoken.node = nd;
-}
-
-function vwa_nav_read_current()
-{
-    var scr = global.vwaFocusedScreen;
-    if (scr == undefined)
-    {
-        return;
-    }
-    if (!vwa_graph_rerender(scr.graph))
-    {
-        return;
-    }
-    var nd = vwa_graph_node(scr.graph);
-    if (nd == undefined)
-    {
-        return;
-    }
-    var parts = vwa_ann_compose(undefined, nd, global.vwaControlTypes,
-        global.vwaAnnHooks, undefined);
-    if (array_length(parts) > 0)
-    {
-        vwa_speak(parts, true);
-    }
 }
 
 function vwa_nav_move_ends(dirNum)
