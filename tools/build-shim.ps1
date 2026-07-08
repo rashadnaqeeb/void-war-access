@@ -21,7 +21,7 @@ if ($LASTEXITCODE -ne 0) { throw 'protocol unit tests FAILED' }
 Write-Host 'build-shim: vw_speech.dll...'
 & $clang @flags -shared -o "$repo\build\vw_speech.dll" `
     "$repo\src\shim\vw_speech.c" "$repo\src\shim\vw_protocol.c" `
-    -lws2_32 -lole32 -luser32
+    -lws2_32 -luser32
 if ($LASTEXITCODE -ne 0) { throw 'shim build failed' }
 
 Write-Host 'build-shim: host smoke driver...'

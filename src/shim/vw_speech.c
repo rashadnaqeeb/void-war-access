@@ -2,13 +2,15 @@
 //
 // GameMaker can only pass doubles and null-terminated strings across
 // external_call, so this DLL owns everything pointer-shaped: the Prism
-// speech context/backend (with a SAPI COM fallback), the speech ring buffer
+// speech context/backend (Prism's own registry covers SAPI, so there is no
+// separate fallback tier - with no usable Prism the shim is capture-only
+// and the GML side still writes the speech log), the speech ring buffer
 // the dev driver reads, and the loopback HTTP server thread.
 //
 // Threading model: GML calls every vw_* export from the game's main thread.
 // The HTTP server runs on one background thread and talks to the main thread
 // only through g_ring and g_cmd under g_lock (commands wait on g_cmd_cv).
-// Prism/SAPI calls happen exclusively on the main thread. The log has its own
+// Prism calls happen exclusively on the main thread. The log has its own
 // innermost lock and is safe to call from anywhere.
 //
 // String returns to GameMaker point at static buffers, valid until the next
@@ -23,9 +25,6 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
-
-#define COBJMACROS
-#include <sapi.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -105,13 +104,6 @@ static vw_fn_backend_speak p_backend_speak;
 static vw_fn_backend_output p_backend_output;
 static vw_fn_backend_stop p_backend_stop;
 static vw_fn_error_string p_error_string;
-
-// SAPI fallback
-static const CLSID VW_CLSID_SpVoice =
-    {0x96749377, 0x3391, 0x11D2, {0x9E, 0xE3, 0x00, 0xC0, 0x4F, 0x79, 0x73, 0x96}};
-static const IID VW_IID_ISpVoice =
-    {0x6C44DF74, 0x72B9, 0x4992, {0xA1, 0xEC, 0xEF, 0x99, 0x6E, 0x04, 0x22, 0xD4}};
-static ISpVoice *g_sapi = NULL;
 
 // ---- logging (no silent failures: every guarded path reports here) ----
 
@@ -341,28 +333,9 @@ static int load_prism(void)
     return 1;
 }
 
-static int load_sapi(void)
-{
-    HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
-    if (FAILED(hr) && hr != RPC_E_CHANGED_MODE) {
-        vw_logf("sapi: CoInitializeEx failed (0x%08lx)", (unsigned long)hr);
-        return 0;
-    }
-    hr = CoCreateInstance(&VW_CLSID_SpVoice, NULL, CLSCTX_ALL, &VW_IID_ISpVoice,
-                          (void **)&g_sapi);
-    if (FAILED(hr)) {
-        vw_logf("sapi: CoCreateInstance(SpVoice) failed (0x%08lx)", (unsigned long)hr);
-        g_sapi = NULL;
-        return 0;
-    }
-    snprintf(g_backend_desc, sizeof g_backend_desc, "sapi");
-    vw_logf("sapi: fallback voice created");
-    return 1;
-}
-
-// Release every speech backend (Prism module included) so a reset can start
-// from nothing. Main thread only; dangling p_* pointers are nulled because
-// prism_err_str would otherwise call into an unloaded module.
+// Release the Prism backend and module so a reset can start from nothing.
+// Main thread only; dangling p_* pointers are nulled because prism_err_str
+// would otherwise call into an unloaded module.
 static void unload_speech_backends(void)
 {
     if (g_prism_backend) {
@@ -390,21 +363,6 @@ static void unload_speech_backends(void)
         p_error_string = NULL;
         g_prism_features = 0;
     }
-    if (g_sapi) {
-        ISpVoice_Release(g_sapi);
-        g_sapi = NULL;
-    }
-}
-
-static WCHAR *utf8_to_wide(const char *s)
-{
-    int n = MultiByteToWideChar(CP_UTF8, 0, s, -1, NULL, 0);
-    if (n <= 0)
-        return NULL;
-    WCHAR *w = malloc((size_t)n * sizeof(WCHAR));
-    if (w)
-        MultiByteToWideChar(CP_UTF8, 0, s, -1, w, n);
-    return w;
 }
 
 // Speak on the active backend. Returns 1 voiced, 0 not voiced (gate off /
@@ -429,21 +387,6 @@ static int backend_speak(const char *text, int interrupt)
             return 1;
         vw_logf("prism: speak failed: %s", prism_err_str(e));
         return -1;
-    }
-    if (g_sapi) {
-        WCHAR *w = utf8_to_wide(text);
-        if (!w) {
-            vw_logf("sapi: utf8 conversion failed");
-            return -1;
-        }
-        DWORD flags = SPF_ASYNC | (interrupt ? SPF_PURGEBEFORESPEAK : 0);
-        HRESULT hr = ISpVoice_Speak(g_sapi, w, flags, NULL);
-        free(w);
-        if (FAILED(hr)) {
-            vw_logf("sapi: Speak failed (0x%08lx)", (unsigned long)hr);
-            return -1;
-        }
-        return 1;
     }
     return 0;
 }
@@ -760,7 +703,8 @@ static void locate_dll_dir(void)
         g_dll_dir[0] = '\0';
 }
 
-// Returns the speech tier: 2 prism, 1 sapi, 0 capture-only. Idempotent.
+// Returns the speech tier: 2 prism, 0 capture-only (Prism's own registry
+// covers SAPI, so there is no separate fallback tier). Idempotent.
 VW_EXPORT double vw_init(void)
 {
     if (g_inited)
@@ -783,10 +727,8 @@ VW_EXPORT double vw_init(void)
     if (g_speech_on) {
         if (load_prism())
             tier = 2;
-        else if (load_sapi())
-            tier = 1;
         else
-            snprintf(g_backend_desc, sizeof g_backend_desc, "none (all backends failed)");
+            snprintf(g_backend_desc, sizeof g_backend_desc, "none (prism failed)");
     } else {
         snprintf(g_backend_desc, sizeof g_backend_desc, "off (capture only)");
     }
@@ -833,14 +775,6 @@ VW_EXPORT double vw_stop(void)
         }
         return 1;
     }
-    if (g_sapi) {
-        HRESULT hr = ISpVoice_Speak(g_sapi, L"", SPF_ASYNC | SPF_PURGEBEFORESPEAK, NULL);
-        if (FAILED(hr)) {
-            vw_logf("sapi: purge failed (0x%08lx)", (unsigned long)hr);
-            return -1;
-        }
-        return 1;
-    }
     return 0;
 }
 
@@ -849,10 +783,10 @@ VW_EXPORT const char *vw_backend_name(void)
     return g_backend_desc;
 }
 
-// The panic action: tear down and re-create the speech backends without
+// The panic action: tear down and re-create the Prism stack without
 // touching the ring, the server, or the command slot. Main thread only, like
 // every speech call. Holds g_lock across the reload because the HTTP thread
-// reads g_backend_desc for /health. Returns the new tier (2/1/0) or -2.
+// reads g_backend_desc for /health. Returns the new tier (2/0) or -2.
 VW_EXPORT double vw_reset_speech(void)
 {
     if (!g_inited)
@@ -864,10 +798,8 @@ VW_EXPORT double vw_reset_speech(void)
     if (g_speech_on) {
         if (load_prism())
             tier = 2;
-        else if (load_sapi())
-            tier = 1;
         else
-            snprintf(g_backend_desc, sizeof g_backend_desc, "none (all backends failed)");
+            snprintf(g_backend_desc, sizeof g_backend_desc, "none (prism failed)");
     } else {
         snprintf(g_backend_desc, sizeof g_backend_desc, "off (capture only)");
     }

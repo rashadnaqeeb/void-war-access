@@ -1,6 +1,6 @@
 # Void War Access
 
-A screen-reader accessibility mod for [Void War](https://store.steampowered.com/app/2853590/) (Steam, Windows). Speech is the primary interface: menus are navigated by keyboard and every control is announced through your screen reader (JAWS and NVDA via Prism, with SAPI as fallback).
+A screen-reader accessibility mod for [Void War](https://store.steampowered.com/app/2853590/) (Steam, Windows). Speech is the primary interface: menus are navigated by keyboard and every control is announced through your screen reader (JAWS, NVDA, or Windows SAPI voices, via Prism).
 
 The mod never modifies the game's own files. It builds a patched copy of the game data and launches it through Steam; removing the mod is deleting a folder.
 
@@ -11,10 +11,10 @@ Early development. What works today:
 - Boot to the main menu and hear it announced.
 - Navigate the main menu with the arrow keys (wrapping top to bottom), hear each entry as "label, button, n of m", and activate entries with Enter.
 - The announcements popup (patch notes): entries are listed by title, Enter reads an announcement's body, Escape dismisses it (the game's own key). Quirk inherited from the game: the very first dismissal on a profile makes the popup reappear once - press Escape again.
-- The full settings menu: checkboxes ("label, toggle, checked/not checked" - Enter flips them and the new state is announced), the volume sliders (left/right arrows adjust in 5-point steps, the new value is announced), the window size and language dropdowns (Enter opens the list as its own screen landing on the current choice, Enter commits, Escape closes just the list), Configure Keybinds, and Back. F9 reads the focused control's tooltip. Side-by-side controls (the fullscreen/borderless/windowed trio) form a group: it counts as one item in the vertical list, arriving on it announces "Radio group" and its list position, and left/right move within it ("1 of 3").
+- The full settings menu: checkboxes ("label, toggle, checked/not checked" - Enter flips them and the new state is announced), the volume sliders (left/right arrows adjust in 1-point steps, Ctrl with left/right in 10-point steps, the new value is announced), the window size and language dropdowns (Enter opens the list as its own screen landing on the current choice, Enter commits, Escape closes just the list), Configure Keybinds, and Back. A control's tooltip is read as part of its announcement. Side-by-side controls (the fullscreen/borderless/windowed trio) form a group: it counts as one item in the vertical list, arriving on it announces "group" and its list position, and left/right move within it ("1 of 3").
 - The confirmation dialogue (for example when choosing a beta language): the message is read, arrows reach Confirm and Cancel.
 - The in-game pause menu (Resume, Hangar, Restart, Settings, Main Menu).
-- Speech hotkeys, available everywhere - including while typing in a game text field: F11 repeats the last spoken line, Ctrl stops speech, Shift+F11 resets the speech stack if it ever goes quiet.
+- Speech hotkeys, available everywhere - including while typing in a game text field: Ctrl stops speech, Shift+F11 resets the speech stack if it ever goes quiet.
 
 In-run gameplay (combat, encounters, ship management) is not yet accessible.
 
@@ -22,7 +22,7 @@ In-run gameplay (combat, encounters, ship management) is not yet accessible.
 
 - Windows, 64-bit.
 - Void War installed through Steam.
-- A running screen reader (JAWS or NVDA), or Windows SAPI voices as fallback.
+- A running screen reader (JAWS or NVDA), or Windows SAPI voices - Prism picks the best available.
 - To build from source: clang (LLVM) and .NET 8.
 
 ## Build and run
