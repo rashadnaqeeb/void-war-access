@@ -663,14 +663,16 @@ function vwa_widget_add_slider(bd, inst)
 
 // The volume sliders' only pointer-free adjustment path is the mouse-wheel
 // handler, whose body reads live mouse state, so this mirrors its exact
-// effect per slider object: the same 0.05 increment, the same clamp, the
-// same update call (master_volume_mouseWheelControls in scrSoundFunctions;
-// oSettings_volume_music Create). Large steps (Ctrl+arrow, reserved) use
-// 0.2. A slider without a mirror logs loudly: extending this dispatch is
-// the documented generic-builder exception for new sliders.
+// effect per slider object: the same clamp and the same update call
+// (mouseWheelToSlide in oSettings_volume_music Create). The increments are
+// OUR keyboard granularity, Rashad's choice: 0.01 per arrow step and 0.1
+// per Ctrl+arrow large step (the game's wheel uses 0.05; the effect path
+// is what's mirrored, not the wheel's coarseness). A slider without a
+// mirror logs loudly: extending this dispatch is the documented
+// generic-builder exception for new sliders.
 function vwa_widget_slider_adjust(inst, sign, large)
 {
-    var inc = large ? 0.2 : 0.05;
+    var inc = large ? 0.1 : 0.01;
     var objIdx = inst.object_index;
     if (objIdx == oSettings_volume_music)
     {

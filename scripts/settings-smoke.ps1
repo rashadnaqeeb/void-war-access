@@ -175,15 +175,15 @@ CheckSpeech 'left restores the value, speaking it' { Fire 'nav-left' } @($labelB
 $volAfter = Cmd 'get global.currVolume_BGM'
 Check 'volume global restored' ([math]::Abs($volAfter - $volBefore) -lt 0.001) "$volBefore -> $volAfter"
 
-# --- large step (Ctrl+Left/Right): 0.2 instead of 0.05, still on the
-#     music slider. Assumes volume <= 80 so the up-step doesn't clamp
+# --- large step (Ctrl+Left/Right): 0.1 instead of 0.01, still on the
+#     music slider. Assumes volume <= 90 so the up-step doesn't clamp
 #     (the small-step check above already assumes it isn't at max). ---
 $cur = SpeechNext
 Fire 'nav-right-large' | Out-Null
 Start-Sleep -Milliseconds 350
 $got = @((Invoke-RestMethod "$base/speech?since=$cur" -TimeoutSec 5).lines)
 $labelBig = CmdStr 'get oSettings_volume_music.rightLabel'
-Check 'large step is 4x the small step' (([int]$labelBig - [int]$labelBefore) -eq 20) "$labelBefore -> $labelBig"
+Check 'large step is 10x the small step' (([int]$labelBig - [int]$labelBefore) -eq 10) "$labelBefore -> $labelBig"
 Check 'large-step value spoke alone' (($got -join '|') -eq $labelBig) "expected '$labelBig', got '$($got -join '|')'"
 CheckSpeech 'large step left restores the value' { Fire 'nav-left-large' } @($labelBefore)
 $volAfterBig = Cmd 'get global.currVolume_BGM'

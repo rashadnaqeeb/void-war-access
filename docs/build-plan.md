@@ -511,13 +511,16 @@ Ctrl (stop speech) and Shift+F11 (panic); UI is arrows, Enter,
 Tab/Shift+Tab, Home/End, Escape. input-smoke and settings-smoke updated
 (inline-tooltip assertions replace the F9 checks). Second addendum, same
 day: Ctrl+Left/Right bound as large adjust steps (the graph adjust path's
-large flag, 0.2 per step on the volume sliders; no-op on non-adjustable
+large flag; no-op on non-adjustable
 controls; Ctrl+Up/Down stay unbound, reserved for WotR-style region jumps
 if grid screens need them). settings-smoke covers the 4x step and
 restore. All five smokes green (200 checks). By-ear recheck: settings
 controls read their tooltip after their state (e.g. "Fullscreen, toggle,
 not checked, Toggles fullscreen mode ON/OFF., 1 of 3"), and Ctrl+Right on
-Music Volume moves in steps of 20.
+Music Volume moves in steps of 10. Third addendum: keyboard slider
+granularity set per Rashad to 0.01 per arrow step and 0.1 per Ctrl+arrow
+step (the session-6 mirror had copied the game wheel's 0.05; the mirror
+preserves the wheel path's clamp and update calls, not its coarseness).
 
 ## After the foundation
 
