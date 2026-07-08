@@ -20,13 +20,12 @@ Greenfield project: committing to `main` is fine.
   `tools\dump-all.csx`). **Look game facts up there or live via the dev
   driver, never from memory.**
 - **Game UI architecture:** no focus concept, no menu keyboard support.
-  `global.menuToggle` names the open menu (8 pause, 9 settings, 14
-  confirmation, 15 keybinds; 10 is a dead language menu). Widget labels are
-  plain instance variables; ad-hoc screens (main menu) expose label/callback
-  structs; all gameplay key reads flow through `input_check*` in
-  `scrKeybinds` (build-mod patches those to honor
-  `global.vwaSuppressGameKeys`, with a post-import decompile assert - a
-  find-replace no-match no-ops silently).
+  `global.menuToggle` names the open menu (verified value list in
+  scrVwaMenus' header). Widget labels are plain instance variables; ad-hoc
+  screens (main menu) expose label/callback structs; all gameplay key reads
+  flow through `input_check*` in `scrKeybinds` (build-mod patches those to
+  honor `global.vwaSuppressGameKeys`, with a post-import decompile assert -
+  a find-replace no-match no-ops silently).
 - **Game text is markup-free** (bracket tokens are pre-substitution
   placeholders) and **tooltips are flat strings** (draw_label panels; no
   links or nesting), so speech needs no stripper and no drill-in reader.
@@ -74,22 +73,18 @@ Greenfield project: committing to `main` is fine.
 
 ## Layout
 
-- `src/gml/` - GML source fragments assembled by build-mod. One script each:
-  `scrVwaCore` (speech chokepoint, logging, shim binding), `scrVwaInput`
-  (action registry with bindings LISTS, categories, shadowing, typematic
-  repeat, suppression watchdog, stale-key unstick; the ONE sanctioned home
-  of raw `keyboard_check`), `scrVwaGraph` (control graph: two-tier node
-  identity, menu/raw builder, row groups, submenus, Tab stops, focus
-  reconciliation; PURE - no game or global refs), `scrVwaAnnounce` (parts as data, control
-  types, path-diff compose; PURE), `scrVwaSearch` (type-ahead matcher:
-  tiered matching, diacritic folding, result stepping; PURE - fixtures run
-  through the dev driver), `scrVwaScreens` (screen registry,
-  poll-and-diff stack, navigator actions, type-ahead glue, once-per-frame
-  announce observe + live-part watch, synchronous state feedback), `scrVwaMenus` (the real
-  screens: main menu, announcements popup, the generic widget adapter and
-  the settings family; all gated on `!global.gameIsLoading`), `scrVwaDev`
-  (eval-lite interpreter, dev builds only). `*.append.gml` appends to the
-  named code entry (`*.dev.append.gml` = dev-only).
+- `src/gml/` - GML source fragments assembled by build-mod, one script each;
+  every script's header is the authoritative spec of its module - read it
+  before touching the module. `scrVwaCore` (speech chokepoint, logging,
+  shim binding), `scrVwaInput` (action registry, typematic repeat,
+  suppression; the ONE sanctioned home of raw `keyboard_check`),
+  `scrVwaGraph` (control graph, builder, navigation engine; PURE),
+  `scrVwaAnnounce` (announcement parts, path-diff compose; PURE),
+  `scrVwaSearch` (type-ahead matcher; PURE), `scrVwaScreens` (screen
+  registry and stack, navigator, type-ahead glue), `scrVwaMenus` (the real
+  game screens + the generic widget adapter), `scrVwaDev` (dev driver,
+  dev builds only). `*.append.gml` appends to the named code entry
+  (`*.dev.append.gml` = dev-only).
 - `src/lang/` - mod strings as `vwa--` CSV rows, merged into the game's lang
   CSVs at build time.
 - `tools/` - build + launch scripts, UTMT CLI, decompile scripts.
@@ -103,7 +98,6 @@ scripts; invoke them exactly as `powershell -NoProfile -File tools/*` or
 any other form won't match the permission rule.
 
 - `tools/build-shim.ps1` - host-side protocol tests, then the DLL.
-  Zero-warning policy (`-Wall -Wextra -Werror`), never suppress.
 - `tools/build-mod.ps1` - shim + lang merge + patched `build\data-test.win`
   (about a minute).
 - `tools/run-game.ps1` - THE iteration loop. Run as a BACKGROUND task; it
@@ -120,8 +114,8 @@ any other form won't match the permission rule.
   run-game writes by default) so a shipped install never runs combat unheard.
 - **Smokes** (against a live game at the main menu): `scripts/drive-smoke`,
   `input-smoke`, `screens-smoke`, `mainmenu-smoke`, `settings-smoke`,
-  `typeahead-smoke` -
-  profile-agnostic where possible (expected speech derives from /gui/mod).
+  `typeahead-smoke` - profile-agnostic where possible (expected speech
+  derives from /gui/mod).
   **Run all six after touching the shim, the pump, scrVwaInput, or any
   framework or screen script.**
 - **Logs:** shim -> `build\vw_speech.log`; GML -> `%AppData%\Roaming\
@@ -167,30 +161,20 @@ the main menu).
 
 Global (always live, textSafe - they survive game text fields): **Ctrl**
 stop speech, **Shift+F11** panic speech-stack reset. UI (live while a mod
-screen is focused): **arrows** navigate (left/right adjust sliders 0.01;
-**Ctrl+left/right** large steps 0.1; on a submenu header, right/Enter enter
-and down skips the subtree; inside one, left exits to the header wherever
-the control leaves left unclaimed, up from the first child is the header,
-down past the last child flows onward - diving into a sibling submenu's
-first child), **Enter** activates, **Tab/Shift+Tab**
-cycle control groups with remembered positions, **Home/End** jump to the
-group's first/last control, **Escape** nav-back (consumed ONLY when an
-active search clears or a screen claims it via onBack - the dropdown child
-screen - otherwise the game's own Escape runs untouched). Tooltips have NO key: a widget's tooltipStr is an
-announcement part, read inline with the control. Actions carry a bindings
-LIST (any chord fires). **Letters** (and space once a buffer exists) run
-type-ahead search over the focused Tab stop: focus follows the best match,
-re-announcing per keystroke; while active, up/down step results, Home/End
-jump to the first/last result, Escape clears (consumed), any other nav key
-clears silently and acts normally; a no-match speaks the buffer back.
-Matching lives in scrVwaSearch (tiered; see its header); screens can opt
-out via `allowsTypeahead: false` (none do yet - reserve it for screens
-whose letters are hotkeys). **Ctrl+Up/Down** jump by submenu, landing exactly
-where the plain arrow at the enclosing submenu's boundary lands: down =
-down-at-its-last-item (flow out, dive included), up = up-at-its-first-item
-(the enclosing header; repeat climbs out). A top-level header mirrors the
-plain arrows; plain top-level nodes are silent edges. Grid screens will
-reuse the chord for region jumps.
+screen is focused): **arrows** navigate (left/right adjust sliders first),
+**Enter** activates, **Tab/Shift+Tab** cycle control groups, **Home/End**
+jump to the group's first/last control, **Ctrl+left/right** large slider
+steps, **Ctrl+up/down** submenu jumps (grid screens will reuse the chord
+for region jumps), **letters** (and space once a buffer exists) type-ahead
+search over the focused Tab stop, **Escape** nav-back (consumed ONLY when
+an active search clears or a screen claims it via onBack; otherwise the
+game's own Escape runs untouched). Tooltips have NO key: a widget's
+tooltipStr is an announcement part, read inline with the control. Actions
+carry a bindings LIST (any chord fires); screens can opt out of type-ahead
+via `allowsTypeahead: false` (reserve it for screens whose letters are
+hotkeys). The behavior models live in the script headers: submenus and
+jump edges in scrVwaGraph, type-ahead matching in scrVwaSearch, the
+type-ahead key handling in scrVwaScreens.
 
 ## Hard rules (the audit command checks these)
 
