@@ -45,7 +45,10 @@ function vwa_input_init()
         + "ms, rate " + string(global.vwaKeyRateMs) + "ms)");
 }
 
-// binding: struct from vwa_bind(). repeats: typematic repeat while held.
+// binding: struct from vwa_bind(), or an array of them - any listed chord
+// fires the action (WotR actions carry a binding LIST; ours stores one the
+// same way so a second key can be added without reshaping the registry).
+// repeats: typematic repeat while held.
 // handler: a zero-argument function; handlers speak via vwa_speak only.
 function vwa_action_register(actionKey, labelKey, category, binding, repeats, handler)
 {
@@ -61,7 +64,7 @@ function vwa_action_register(actionKey, labelKey, category, binding, repeats, ha
     variable_struct_set(a, "actionKey", actionKey);
     variable_struct_set(a, "labelKey", labelKey);
     variable_struct_set(a, "category", category);
-    variable_struct_set(a, "binding", binding);
+    variable_struct_set(a, "bindings", is_array(binding) ? binding : [binding]);
     variable_struct_set(a, "repeats", repeats);
     variable_struct_set(a, "handler", handler);
     // textSafe: still dispatches while the game's text-field input is
@@ -305,15 +308,19 @@ function vwa_input_dispatch(textOnly)
         {
             continue;
         }
-        if (!vwa_chord_down(a.binding))
+        for (var bi = 0; bi < array_length(a.bindings); bi++)
         {
-            continue;
-        }
-        var cid = vwa_chord_id(a.binding);
-        var w = variable_struct_get(winners, cid);
-        if (w == undefined || prio < w.prio)
-        {
-            variable_struct_set(winners, cid, { a: a, prio: prio });
+            var bnd = a.bindings[bi];
+            if (!vwa_chord_down(bnd))
+            {
+                continue;
+            }
+            var cid = vwa_chord_id(bnd);
+            var w = variable_struct_get(winners, cid);
+            if (w == undefined || prio < w.prio)
+            {
+                variable_struct_set(winners, cid, { a: a, prio: prio, bnd: bnd });
+            }
         }
     }
 
@@ -321,20 +328,21 @@ function vwa_input_dispatch(textOnly)
     var cids = variable_struct_get_names(winners);
     for (var i = 0; i < array_length(cids); i++)
     {
-        var a = variable_struct_get(winners, cids[i]).a;
+        var w = variable_struct_get(winners, cids[i]);
+        var a = w.a;
         // Edge/repeat state is keyed by the MAIN key alone, not the full
         // chord id: releasing a fired chord's modifier while the main key
         // is still held must not mint a fresh edge for the modifier-less
         // chord (Shift+Tab with Shift released first fired nav-next
         // straight back; session-7 review). A different action landing on
         // an already-held main key waits for a fresh press.
-        var skey = string(a.binding.vk);
+        var skey = string(w.bnd.vk);
         var st = variable_struct_get(global.vwaChordState, skey);
         if (st == undefined)
         {
             // Fresh press of the main key: fire once.
             variable_struct_set(global.vwaChordState, skey,
-                { vk: a.binding.vk, actionKey: a.actionKey, downAt: now, lastFire: now });
+                { vk: w.bnd.vk, actionKey: a.actionKey, downAt: now, lastFire: now });
             vwa_action_invoke(a);
         }
         else if (st.actionKey == a.actionKey

@@ -98,9 +98,9 @@ Check 'unknown action errors' ($r -like 'ERROR:*') $r
 # whose category set is combat only.
 Cmd 'call vwa_dev_register_test_actions' | Out-Null
 $s = GetState
-$f10 = @($s.conflicts | Where-Object { $_.chord -eq '121' })
-Check 'F10 chord conflict detected' ($f10.Count -eq 1) ($s.conflicts | ConvertTo-Json -Compress)
-Check 'ui shadows global on F10' ($f10[0].winner -eq 'dev-shout-ui' -and $f10[0].shadowed -contains 'dev-shout-global') ($f10 | ConvertTo-Json -Compress)
+$f8 = @($s.conflicts | Where-Object { $_.chord -eq '119' })
+Check 'F8 chord conflict detected' ($f8.Count -eq 1) ($s.conflicts | ConvertTo-Json -Compress)
+Check 'ui shadows global on F8' ($f8[0].winner -eq 'dev-shout-ui' -and $f8[0].shadowed -contains 'dev-shout-global') ($f8 | ConvertTo-Json -Compress)
 
 $cur = SpeechNext
 $r = Fire 'dev-shout-ui'
@@ -114,7 +114,7 @@ $stackNames = @($s.stack | ForEach-Object { $_.name })
 Check 'exclusive test screen on stack' ($stackNames -contains 'vwa-test-screen') ($stackNames -join ',')
 Check 'exclusive modal kills ui below it' (($s.liveCategories -join ',') -eq 'combat,global') ($s.liveCategories -join ',')
 $conflictChords = @($s.conflicts | ForEach-Object { $_.chord })
-Check 'no F10 conflict while ui dead' (-not ($conflictChords -contains '121')) ($s.conflicts | ConvertTo-Json -Compress)
+Check 'no F8 conflict while ui dead' (-not ($conflictChords -contains '119')) ($s.conflicts | ConvertTo-Json -Compress)
 $r = Fire 'dev-shout-ui'
 Check 'ui action refused while ui not live' ($r -like 'ERROR:*') $r
 $r = Fire 'dev-shout-global'

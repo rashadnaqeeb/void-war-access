@@ -12,6 +12,8 @@ vwa--action-nav-right,Navigate right
 vwa--action-nav-activate,Activate
 vwa--action-nav-next-stop,Next control group
 vwa--action-nav-prev-stop,Previous control group
+vwa--action-nav-home,Jump to first control
+vwa--action-nav-end,Jump to last control
 vwa--pos-of,{n} of {m}
 vwa--no-action,No action
 vwa--role-button,button
@@ -28,4 +30,6 @@ vwa--action-nav-tooltip,Read tooltip
 vwa--no-tooltip,No tooltip
 vwa--screen-confirm,Confirmation
 vwa--screen-pause,Pause Menu
-vwa--group-radio,Radio group
+vwa--group-generic,group
+vwa--role-option,option
+vwa--action-nav-read-current,Read current control

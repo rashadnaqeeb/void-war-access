@@ -428,12 +428,23 @@ smokes re-ran green (198 checks). Facts learned:
 - The suppression probe restores the zeroed keybind and the suppression flag
   on the throw path too (restore-and-rethrow). try/finally remains unverified
   under the UTMT importer and is deliberately not used.
+- The game's text carries NO inline rich-text markup (verified 2026-07-08
+  against the shipped lang files): the only bracket tokens are substitution
+  placeholders ([FACTION], [hullName], [unlockDescription]) the game replaces
+  before display, so speech needs no markup stripper (WotR needs one for
+  TMP tags; we do not).
+- GameMaker maps both Return and numpad Enter to vk_enter (13), so one
+  binding covers both activate keys (WotR needs an explicit KeypadEnter
+  second binding; platform detail, noted session 8).
 - Row groups (same-day addendum from Rashad's by-ear pass): a multi-item row
   in the graph synthesizes a non-focusable group context (`grp:` + first
   member's skey, stable across rebuilds) that owns the row's vertical
   position; vertical "n of m" stamping is per ROW, so groups count as one
   landing point. Unnamed groups speak the localized generic word through the
-  announcer hooks (hooks.groupText -> vwa--group-radio), keeping scrVwaGraph
+  announcer hooks (hooks.groupText -> vwa--group-generic; renamed from
+  vwa--group-radio in session 8 - the same word also labels button rows like
+  the confirmation dialogue's Confirm/Cancel, so it is the neutral "group"
+  now), keeping scrVwaGraph
   and scrVwaAnnounce pure. Game truth behind it: the settings window-mode
   trio (fullscreen/windowedMode/borderlessWindow) draws NO group header -
   each checkbox draws only its own rightText - and the three are independent

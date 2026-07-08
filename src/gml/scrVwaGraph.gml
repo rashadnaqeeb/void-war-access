@@ -752,6 +752,58 @@ function vwa_graph_move_stop(gr, dirNum)
     return result;
 }
 
+// Jump to the first (dirNum -1) or last (+1) control of the focused Tab
+// stop, in declaration order - a list's ends (WotR ui.home/ui.end). The
+// last entry of a multi-item row is its last member, so End on a menu
+// ending in a button row lands on the row's final button.
+function vwa_graph_move_ends(gr, dirNum)
+{
+    var result = { moved: false, fromNode: undefined, toNode: undefined, label: undefined };
+    if (!vwa_graph_rerender(gr))
+    {
+        return result;
+    }
+    var nd = vwa_graph_node(gr);
+    result.fromNode = nd;
+    result.toNode = nd;
+    if (nd == undefined)
+    {
+        return result;
+    }
+    var rndr = gr.state.curRender;
+    var dest = undefined;
+    if (dirNum < 0)
+    {
+        for (var i = 0; i < array_length(rndr.order); i++)
+        {
+            if (rndr.order[i].stopKey == nd.stopKey)
+            {
+                dest = rndr.order[i];
+                break;
+            }
+        }
+    }
+    else
+    {
+        for (var i = array_length(rndr.order) - 1; i >= 0; i--)
+        {
+            if (rndr.order[i].stopKey == nd.stopKey)
+            {
+                dest = rndr.order[i];
+                break;
+            }
+        }
+    }
+    if (dest == undefined || dest == nd)
+    {
+        return result;
+    }
+    vwa_graph_set_current(gr.state, dest);
+    result.toNode = dest;
+    result.moved = true;
+    return result;
+}
+
 // Move focus to a specific control key. False when it isn't in the render.
 function vwa_graph_focus(gr, skey)
 {

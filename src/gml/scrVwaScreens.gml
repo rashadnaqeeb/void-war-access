@@ -45,7 +45,7 @@ function vwa_screens_init()
         },
         groupText: function()
         {
-            return vwa_t("vwa--group-radio");
+            return vwa_t("vwa--group-generic");
         }
     };
     vwa_register_nav_actions();
@@ -66,6 +66,8 @@ function vwa_control_types_init()
             vwa_part_fn("role", function() { return vwa_t("vwa--role-slider"); }, false)] },
         combo: { order: stdOrder, common: [
             vwa_part_fn("role", function() { return vwa_t("vwa--role-combo"); }, false)] },
+        option: { order: stdOrder, common: [
+            vwa_part_fn("role", function() { return vwa_t("vwa--role-option"); }, false)] },
         label: { order: stdOrder, common: [] }
     };
 }
@@ -280,15 +282,19 @@ function vwa_nav_observe(scr)
     }
 
     // Same node: live-part watch. Compare by list position; a build returns
-    // parts in a stable order, so index identity holds across frames.
+    // parts in a stable order, so index identity holds across frames. When
+    // the live-part COUNT changes (the node's part set reshaped under
+    // focus), index identity is void: rebaseline silently instead of
+    // speaking a positionally-wrong part (WotR rebaselines the same way).
     var liveParts = vwa_ann_live_parts(nd, global.vwaControlTypes);
+    var sameShape = (array_length(liveParts)
+        == array_length(global.vwaNavLiveCache));
     var fresh = [];
     for (var i = 0; i < array_length(liveParts); i++)
     {
         var t = vwa_part_resolve(liveParts[i]);
         array_push(fresh, t);
-        if (i < array_length(global.vwaNavLiveCache)
-            && t != global.vwaNavLiveCache[i] && t != "")
+        if (sameShape && t != global.vwaNavLiveCache[i] && t != "")
         {
             vwa_speak([t], false);
         }
@@ -342,14 +348,26 @@ function vwa_register_nav_actions()
             vwa_nav_activate();
         });
     vwa_action_register("nav-next-stop", "vwa--action-nav-next-stop", "ui",
-        vwa_bind(vk_tab, false, false, false), false, function()
+        vwa_bind(vk_tab, false, false, false), true, function()
         {
             vwa_nav_stop_cycle(1);
         });
     vwa_action_register("nav-prev-stop", "vwa--action-nav-prev-stop", "ui",
-        vwa_bind(vk_tab, true, false, false), false, function()
+        vwa_bind(vk_tab, true, false, false), true, function()
         {
             vwa_nav_stop_cycle(-1);
+        });
+    // Home/End jump to the focused Tab stop's first/last control (WotR
+    // ui.home/ui.end; arrows never cross a stop, so neither do these).
+    vwa_action_register("nav-home", "vwa--action-nav-home", "ui",
+        vwa_bind(vk_home, false, false, false), false, function()
+        {
+            vwa_nav_move_ends(-1);
+        });
+    vwa_action_register("nav-end", "vwa--action-nav-end", "ui",
+        vwa_bind(vk_end, false, false, false), false, function()
+        {
+            vwa_nav_move_ends(1);
         });
     // Back is opt-in per screen: a screen declaring onBack (fn() -> bool)
     // gets first claim on Escape; returning true consumes the press so the
@@ -369,6 +387,15 @@ function vwa_register_nav_actions()
         vwa_bind(vk_f9, false, false, false), false, function()
         {
             vwa_nav_tooltip();
+        });
+    // Read the focused control in full on demand (WotR AnnounceCurrent):
+    // the whole path - contexts outermost-first, then the control with all
+    // its parts - composed fresh from live state, unlike F11 which replays
+    // the last spoken line verbatim.
+    vwa_action_register("nav-read-current", "vwa--action-nav-read-current", "ui",
+        vwa_bind(vk_f10, false, false, false), false, function()
+        {
+            vwa_nav_read_current();
         });
 }
 
@@ -414,7 +441,8 @@ function vwa_nav_move(dir)
     {
         if (vwa_graph_adjust(scr.graph, (dir == "right") ? 1 : -1, false))
         {
-            return; // adjusted; the live-part watch speaks the new value
+            vwa_nav_state_feedback(scr);
+            return;
         }
     }
     vwa_graph_move(scr.graph, dir);
@@ -430,7 +458,85 @@ function vwa_nav_activate()
     if (!vwa_graph_activate(scr.graph))
     {
         vwa_speak([vwa_t("vwa--no-action")], false);
+        return;
     }
+    vwa_nav_state_feedback(scr);
+}
+
+// Speak a user-caused value change NOW, interrupting, instead of waiting
+// for the next tick's non-interrupting live-part watch: under typematic
+// key repeat on a slider the queued values would read behind the actual
+// position (WotR speaks a synchronous StateText after activate/adjust for
+// the same reason). Rebaselines the live cache so the watch does not
+// re-speak the change. Rerenders first: an activation that destroyed its
+// own control (Cancel closing a dialogue) must not resolve parts through a
+// dead instance - after the rebuild, focus having moved means skip.
+function vwa_nav_state_feedback(scr)
+{
+    var fnAct = scr.isActive;
+    if (!fnAct())
+    {
+        return; // the activation closed this screen; the tick pops it next
+    }
+    if (!vwa_graph_rerender(scr.graph))
+    {
+        return;
+    }
+    var nd = vwa_graph_node(scr.graph);
+    var spoken = global.vwaNavSpoken;
+    if (nd == undefined || spoken.screenKey != scr.key
+        || spoken.skey != nd.nid.skey)
+    {
+        return; // focus moved; the tick's observe announces the landing
+    }
+    var liveParts = vwa_ann_live_parts(nd, global.vwaControlTypes);
+    var fresh = [];
+    for (var i = 0; i < array_length(liveParts); i++)
+    {
+        var t = vwa_part_resolve(liveParts[i]);
+        array_push(fresh, t);
+        if (i < array_length(global.vwaNavLiveCache)
+            && t != global.vwaNavLiveCache[i] && t != "")
+        {
+            vwa_speak([t], true);
+        }
+    }
+    global.vwaNavLiveCache = fresh;
+    spoken.node = nd;
+}
+
+function vwa_nav_read_current()
+{
+    var scr = global.vwaFocusedScreen;
+    if (scr == undefined)
+    {
+        return;
+    }
+    if (!vwa_graph_rerender(scr.graph))
+    {
+        return;
+    }
+    var nd = vwa_graph_node(scr.graph);
+    if (nd == undefined)
+    {
+        return;
+    }
+    var parts = vwa_ann_compose(undefined, nd, global.vwaControlTypes,
+        global.vwaAnnHooks, undefined);
+    if (array_length(parts) > 0)
+    {
+        vwa_speak(parts, true);
+    }
+}
+
+function vwa_nav_move_ends(dirNum)
+{
+    var scr = global.vwaFocusedScreen;
+    if (scr == undefined)
+    {
+        return;
+    }
+    vwa_graph_move_ends(scr.graph, dirNum);
 }
 
 function vwa_nav_stop_cycle(dirNum)

@@ -43,8 +43,10 @@ Without `-Speech`, the mod runs in capture-only mode: nothing is voiced, but eve
 - Arrow keys: move through a menu (up/down wrap at the ends; left/right adjust sliders and move within horizontal rows).
 - Enter: activate the focused control (buttons click, checkboxes flip, dropdowns open, a dropdown entry commits).
 - Tab and Shift+Tab: cycle between control groups on screens that have them.
+- Home and End: jump to the first or last control of the current group.
 - Escape: close popups and menus (the game's own handling). With a dropdown list open, Escape closes just the list and stays in the menu.
 - F9: read the focused control's tooltip.
+- F10: re-read the focused control in full (label, role, state, position).
 - F11: repeat the last spoken line.
 - Ctrl: stop speech.
 - Shift+F11: reset the speech stack and announce the active backend.

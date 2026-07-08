@@ -227,7 +227,7 @@ Check 'toggleDropdown cleared' ((Cmd 'get oSettings_windowSize.toggleDropdown') 
 #     its row group: the entry announces the localized generic group word
 #     plus the group's vertical position (row 2 of the 14 vertical entries),
 #     then the member with its in-row "1 of 3". ---
-$grpWord = (Cmd 'call vwa_t vwa--group-radio').result
+$grpWord = (Cmd 'call vwa_t vwa--group-generic').result
 $fsTip = CmdStr 'get oSettings_checkbox_fullscreen.tooltipStr'
 CheckSpeech 'focus the fullscreen checkbox' { FocusNode 'menu-settings' 'oSettings_checkbox_fullscreen' } @("$grpWord, 2 of 14, $(NodeLine $fs)")
 CheckSpeech 'F9 reads the tooltip' { Fire 'nav-tooltip' } @($fsTip)

@@ -804,10 +804,20 @@ function vwa_dev_state_json()
         out += "{\"key\":" + vwa_json_str(a.actionKey)
             + ",\"labelKey\":" + vwa_json_str(a.labelKey)
             + ",\"category\":" + vwa_json_str(a.category)
-            + ",\"binding\":{\"vk\":" + vwa_json_num(a.binding.vk)
-            + ",\"shift\":" + (a.binding.shift ? "true" : "false")
-            + ",\"ctrl\":" + (a.binding.ctrl ? "true" : "false")
-            + ",\"alt\":" + (a.binding.alt ? "true" : "false") + "}"
+            + ",\"bindings\":[";
+        for (var bi = 0; bi < array_length(a.bindings); bi++)
+        {
+            var bnd = a.bindings[bi];
+            if (bi > 0)
+            {
+                out += ",";
+            }
+            out += "{\"vk\":" + vwa_json_num(bnd.vk)
+                + ",\"shift\":" + (bnd.shift ? "true" : "false")
+                + ",\"ctrl\":" + (bnd.ctrl ? "true" : "false")
+                + ",\"alt\":" + (bnd.alt ? "true" : "false") + "}";
+        }
+        out += "]"
             + ",\"repeats\":" + (a.repeats ? "true" : "false")
             + ",\"live\":" + (vwa_array_index_of(live, a.category) >= 0 ? "true" : "false")
             + "}";
@@ -826,15 +836,18 @@ function vwa_dev_state_json()
         {
             continue;
         }
-        var cid = vwa_chord_id(a.binding);
-        var g = variable_struct_get(groups, cid);
-        if (g == undefined)
+        for (var bi = 0; bi < array_length(a.bindings); bi++)
         {
-            g = [];
-            variable_struct_set(groups, cid, g);
-            array_push(chordIds, cid);
+            var cid = vwa_chord_id(a.bindings[bi]);
+            var g = variable_struct_get(groups, cid);
+            if (g == undefined)
+            {
+                g = [];
+                variable_struct_set(groups, cid, g);
+                array_push(chordIds, cid);
+            }
+            array_push(g, { key: a.actionKey, prio: prio });
         }
-        array_push(g, { key: a.actionKey, prio: prio });
     }
     var first = true;
     for (var i = 0; i < array_length(chordIds); i++)
@@ -1100,19 +1113,19 @@ function vwa_dev_menu_rename(oldName, newName)
     throw ("no test menu item named " + oldName);
 }
 
-// An intentionally-conflicting chord pair (F10 in global and ui) plus a
-// repeating action (F9, dev) for typematic checks. Spoken text here is dev
-// text, exempt from localization.
+// An intentionally-conflicting chord pair (F8 in global and ui - a key no
+// real action binds) plus a repeating action (F9, dev) for typematic
+// checks. Spoken text here is dev text, exempt from localization.
 function vwa_dev_register_test_actions()
 {
     global.vwaDevRepeatCount = 0;
     vwa_action_register("dev-shout-global", "dev", "global",
-        vwa_bind(vk_f10, false, false, false), false, function()
+        vwa_bind(vk_f8, false, false, false), false, function()
         {
             vwa_speak(["test shout global"], true);
         });
     vwa_action_register("dev-shout-ui", "dev", "ui",
-        vwa_bind(vk_f10, false, false, false), false, function()
+        vwa_bind(vk_f8, false, false, false), false, function()
         {
             vwa_speak(["test shout ui"], true);
         });

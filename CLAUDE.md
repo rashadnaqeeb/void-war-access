@@ -114,11 +114,14 @@ other flag order, or the permission rule won't match.
   last spoken, Ctrl stop speech, Shift+F11 panic speech-stack reset. UI
   category (live only while a mod screen is focused, `scrVwaScreens`):
   arrows navigate (left/right adjust sliders), Enter activates, Tab /
-  Shift+Tab cycle control groups with remembered positions, F9 reads the
-  focused control's tooltip, Escape fires nav-back (opt-in per-screen
-  onBack; consumed via keyboard_clear ONLY when a screen claims it - the
-  dropdown child screen - otherwise the game's own Escape handling runs
-  untouched).
+  Shift+Tab cycle control groups with remembered positions, Home/End jump
+  to the focused group's first/last control, F9 reads the focused
+  control's tooltip, F10 re-reads the focused control in full (fresh
+  composition, unlike F11's verbatim replay), Escape fires nav-back
+  (opt-in per-screen onBack; consumed via keyboard_clear ONLY when a
+  screen claims it - the dropdown child screen - otherwise the game's own
+  Escape handling runs untouched). Actions carry a bindings LIST (any
+  chord fires; WotR parity).
 - Regression checks against a live game at the main menu:
   `scripts/drive-smoke.ps1` (dev driver), `scripts/input-smoke.ps1` (input
   layer), `scripts/screens-smoke.ps1` (framework core: exact speech
@@ -150,9 +153,14 @@ other flag order, or the permission rule won't match.
 
 - **No silent failures.** Every guarded failure path logs. Prefer
   let-it-crash over defensive guards where a value isn't expected to be
-  missing. Sanctioned swallow-and-log spots only: the dev pump watchdog and
+  missing. Sanctioned swallow-and-log spots only: the dev pump watchdog;
   the input tick watchdog (which clears `global.vwaSuppressGameKeys` so a
-  mod bug can never leave the game's keyboard dead).
+  mod bug can never leave the game's keyboard dead); the screen-callback
+  quarantine in `vwa_screens_tick` (a broken isActive/name/build logs once
+  per activation and the screen goes inert, so one bad screen can't kill
+  the framework); the part-resolve guard in `scrVwaAnnounce` (logs and
+  speaks "error" in the part's place); and `vwa_shim_init` degrading to
+  log-only speech when the DLL is absent (logs, never-strand).
 - **One speech chokepoint.** All speech flows through `vwa_speak(parts,
   interrupt)`; parts is an array (strings or `{text:...}` structs); joining
   happens only there. No direct shim calls from feature code (sanctioned
@@ -171,7 +179,10 @@ other flag order, or the permission rule won't match.
 - **Every mod string is localized** via `vwa--` rows in the lang CSVs through
   `vwa_t(key)`. Sole exception: dev-driver and log text.
 - **Never interrupt speech by default**; interrupt only on genuine focus
-  movement.
+  movement, on direct user-caused state feedback (the value a held key
+  just changed - `vwa_nav_state_feedback`, WotR StateText parity: queued
+  values would read behind a held slider key), and on the explicit
+  say-it-now keys (F10 read-current, F11 repeat-last, panic confirmation).
 - **All user-facing hotkeys go through the input layer** (session 3+); no raw
   `keyboard_check` in feature code.
 - GameMaker externals take/return ONLY doubles and null-terminated strings.

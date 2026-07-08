@@ -458,7 +458,48 @@ Work:
 
 Exit criteria: `parity-audit.md` exists and every divergence is either fixed or documented as deliberate; our audit command exists; the next-phase backlog (in-run screens, combat, encounters, scanner equivalent, background-run if still unsolved) is drafted at the bottom of that doc.
 
-Status: not started.
+Status: agent verification COMPLETE (2026-07-08); user by-ear verification pending.
+Ran as seven parallel review passes (five subsystem comparisons, the WotR
+invariant-checklist walk, and a UI-infrastructure inventory for the
+completeness backlog Rashad asked for), triggered by his report of missing
+Home/End and tooltip gaps. `docs/parity-audit.md` holds the full result;
+`.claude/commands/audit.md` now encodes the invariants as the recurring
+architectural-health command. Eight unintended divergences found, all fixed
+same session: (1) Home/End jump to the focused stop's first/last control
+(`vwa_graph_move_ends`); (2) Tab/Shift+Tab now repeat while held (reference
+marks both Repeating); (3) actions carry a bindings ARRAY (register accepts
+struct or array; dispatch and /state iterate) - the substrate rebinding UI
+needs; (4) synchronous value feedback (`vwa_nav_state_feedback`, WotR
+StateText): adjust/activate speaks the changed live part immediately WITH
+interrupt and rebaselines the watch - previously a held slider key read
+queued stale values one frame behind; guarded by the screen's own isActive
+so an activation that closes its screen (Cancel/Back) never rebuilds a dead
+graph; the CLAUDE.md interrupt invariant was widened to name this case;
+(5) dropdown entries got the new "option" control type and role word;
+(6) enabled/disabled and dropdown-selected state parts are LIVE now;
+(7) the live-part watch rebaselines silently when the part COUNT changes
+instead of index-comparing across shapes; (8) the generic group word is the
+neutral "group" (vwa--group-generic, was "Radio group" - it also labels
+button rows like Confirm/Cancel; Rashad can veto the wording). Plus F10
+read-current-control (WotR AnnounceCurrent as a user key, fresh composition
+vs F11's verbatim replay). Tooltip mystery resolved: F9 works on all 16
+settings controls; the settings buttons have NO tooltip in game truth
+(oButton_menus has no tooltipStr at all), so "No tooltip" is correct - the
+felt gap is the key divergence (WotR Space/F1 vs our F9, deliberate: the
+game binds both). Verified non-gaps recorded in parity-audit.md (numpad
+Enter = vk_enter; no rich-text markup in game strings; WotR's help system
+is unwired on its side too). Deliberate divergences documented (Tab wrap,
+"No action" feedback, dropdown-as-screen, single-command-in-flight 429,
+string categories, textSafe survivors). The invariant walk found the
+sanctioned swallow-and-log list understated - CLAUDE.md now names all five
+spots - and a version label in a shipped log line (fixed). Dev test-action
+chord pair moved F10 -> F8 (nav-read-current owns F10; input-smoke
+updated). All five smokes green post-fix (198 checks). By-ear for Rashad
+(launch with `-Speech`, in settings): Home/End jump to Window Size / Back;
+F10 re-reads the focused control in full; holding Tab cycles groups
+repeatedly; holding right on Music Volume reads values AT the slider's
+position (no lag/queue); the window-mode trio now says "group" instead of
+"Radio group"; dropdown entries say "option" before "selected".
 
 ## After the foundation
 

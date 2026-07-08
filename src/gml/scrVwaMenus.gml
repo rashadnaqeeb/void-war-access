@@ -198,7 +198,7 @@ function vwa_menus_init()
         name: function() { return vwa_t("vwa--screen-menu"); }
     });
 
-    vwa_log("menus: session-5+6 screens registered");
+    vwa_log("menus: game screens registered");
 }
 
 // Immediate-mode build from the live buttonList (never cache game state):
@@ -579,7 +579,7 @@ function vwa_widget_add_button_menus(bd, inst)
             vwa_part_fn("enabled", method({ inst: inst }, function()
             {
                 return self.inst.dimButton ? vwa_t("vwa--state-disabled") : "";
-            }), false)
+            }), true)
         ],
         onActivate: method({ inst: inst }, function()
         {
@@ -774,7 +774,7 @@ function vwa_widget_add_obutton(bd, inst)
                 }
                 var act = bt.buttonActive;
                 return act() ? "" : vwa_t("vwa--state-disabled");
-            }), false)
+            }), true)
         ],
         onActivate: method({ inst: inst }, function()
         {
@@ -855,7 +855,7 @@ function vwa_dropdown_build(bd)
         var disabled = (i < array_length(dd.dropdownEntry_disabled))
             && dd.dropdownEntry_disabled[i];
         var def = {
-            typeKey: "label",
+            typeKey: "option",
             parts: [
                 vwa_part_fn("label", method({ dd: dd, idx: i }, function()
                 {
@@ -865,7 +865,7 @@ function vwa_dropdown_build(bd)
                 {
                     return (self.dd.dropdown_currSelectedIndex == self.idx)
                         ? vwa_t("vwa--state-selected") : "";
-                }), false)
+                }), true)
             ]
         };
         if (disabled)

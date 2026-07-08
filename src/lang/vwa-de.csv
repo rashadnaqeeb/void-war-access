@@ -12,6 +12,8 @@ vwa--action-nav-right,Nach rechts navigieren
 vwa--action-nav-activate,Aktivieren
 vwa--action-nav-next-stop,Nächste Steuerelementgruppe
 vwa--action-nav-prev-stop,Vorherige Steuerelementgruppe
+vwa--action-nav-home,Zum ersten Steuerelement springen
+vwa--action-nav-end,Zum letzten Steuerelement springen
 vwa--pos-of,{n} von {m}
 vwa--no-action,Keine Aktion
 vwa--role-button,Schalter
@@ -28,4 +30,6 @@ vwa--action-nav-tooltip,Tooltip vorlesen
 vwa--no-tooltip,Kein Tooltip
 vwa--screen-confirm,Bestätigung
 vwa--screen-pause,Pausenmenü
-vwa--group-radio,Optionsgruppe
+vwa--group-generic,Gruppe
+vwa--role-option,Option
+vwa--action-nav-read-current,Aktuelles Steuerelement vorlesen
