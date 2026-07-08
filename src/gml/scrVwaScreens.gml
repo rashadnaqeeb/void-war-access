@@ -42,6 +42,10 @@ function vwa_screens_init()
             var s = vwa_t("vwa--pos-of");
             s = string_replace(s, "{n}", string(i));
             return string_replace(s, "{m}", string(n));
+        },
+        groupText: function()
+        {
+            return vwa_t("vwa--group-radio");
         }
     };
     vwa_register_nav_actions();

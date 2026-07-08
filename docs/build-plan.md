@@ -422,6 +422,28 @@ lists still stand, plus two new behaviors from this session's fixes: the
 speech keys (Ctrl, F11, Shift+F11) keep working while a game text field is
 focused, and Shift+Tab must move exactly one control group backward even when
 Shift is released a beat before Tab.
+Session-7 addendum (same day, from Rashad's first by-ear pass): landing on
+the settings window-mode trio spoke a bare "1 of 3" - the in-row position -
+while the trio was invisible in the vertical count, blurring the two
+numbering axes. Fix, per Rashad's design: a multi-item row IS a group. The
+graph synthesizes a non-focusable context per multi row (vwa_gb_synth_groups;
+start_row grew a groupLabel arg) that counts as ONE entry in the vertical
+"n of m" (stamping is now per ROW), so arriving announces the group -
+its label, or the localized generic word (vwa--group-radio, "Radio group")
+via the new hooks.groupText when unnamed - plus its vertical position, then
+the landing member with its in-row "x of k". Moves within the row stay
+group-silent (path diff). Settings now reads 14 vertical entries with the
+trio as entry 2; the confirmation dialogue's Confirm/Cancel row groups the
+same way. Members keep the checkbox role (game truth: they are independent
+toggles whose "off" falls back to borderless, not real radios - the game
+draws no group header, so the group word is mod-authored, the same
+verbalized-visible-structure class as "n of m"). The dev test menu's
+OK/Cancel row carries an explicit label ("Actions") so both label paths are
+smoke-covered. All five smokes re-run green (198 checks; screens- and
+settings-smoke expectations updated). By-ear recheck for Rashad: down-arrow
+through settings hears "Radio group, 2 of 14, Fullscreen, checkbox, ...,
+1 of 3" at the trio, left/right move within it, and the vertical counts now
+include it.
 
 ## Session 8: parity audit against the references
 

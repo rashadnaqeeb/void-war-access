@@ -422,7 +422,10 @@ function vwa_widgets_emit(bd, list)
         var multi = (array_length(grp) > 1);
         if (multi)
         {
-            vwa_gb_start_row(bd, undefined);
+            // Unnamed group: the game draws no header for its same-y widget
+            // rows (the window-mode trio); the announcer speaks the generic
+            // localized group word (hooks.groupText) on entry instead.
+            vwa_gb_start_row(bd, undefined, "");
         }
         var keys = [];
         for (var i = 0; i < array_length(grp); i++)

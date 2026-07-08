@@ -170,14 +170,17 @@ function vwa_gb_pop_context(b)
 }
 
 // Open a horizontal row. Rows sharing a non-undefined rowKey with the row
-// above/below keep the column on vertical moves.
-function vwa_gb_start_row(b, rowKey)
+// above/below keep the column on vertical moves. groupLabel names the group
+// a multi-item row forms ("" = unnamed: the announcer substitutes its
+// caller-localized generic group word, hooks.groupText).
+function vwa_gb_start_row(b, rowKey, groupLabel)
 {
     if (b.curRow != undefined)
     {
         throw "graph: cannot start a row while another is open";
     }
-    b.curRow = { items: [], rowKey: rowKey, stopKey: b.stopKey };
+    b.curRow = { items: [], rowKey: rowKey, stopKey: b.stopKey,
+                 groupLabel: groupLabel };
 }
 
 function vwa_gb_end_row(b)
@@ -249,6 +252,7 @@ function vwa_gb_build(b)
         variable_struct_set(rndr.byKey, nd.nid.skey, nd);
     }
 
+    vwa_gb_synth_groups(b);
     vwa_gb_wire_rows(b);
 
     for (var i = 0; i < array_length(b.rawEdges); i++)
@@ -341,10 +345,53 @@ function vwa_gb_vertical_target(fromRow, toRow, pos)
     return toRow.items[0].nid.skey;
 }
 
-// Auto-stamp "n of m" sibling positions: a multi-item row's members within
-// their row; single-item-row nodes among the siblings sharing their
-// (parent, stop) - the vertical list level arrows actually traverse. Raw
-// nodes get none. Spoken only when m > 1 (scrVwaAnnounce).
+// A multi-item row IS a group: synthesize a non-focusable context node that
+// carries the row's label (or, when empty, the announcer's generic group
+// word via hooks.groupText) and the row's position among the stop's
+// vertical entries, and reparent the members under it. Arriving in the row
+// then announces the group level first (path diff), while the members keep
+// their own "x of k" within the row - the two numbering axes never blur
+// (session-7 user report: landing on the window-mode trio spoke a bare
+// "1 of 3" that read as a vertical position).
+function vwa_gb_synth_groups(b)
+{
+    for (var i = 0; i < array_length(b.rows); i++)
+    {
+        var row = b.rows[i];
+        if (array_length(row.items) <= 1)
+        {
+            continue;
+        }
+        var first = row.items[0];
+        var gnd = {
+            nid: vwa_id("grp:" + first.nid.skey),
+            parts: [vwa_part("label", vwa_opt(row, "groupLabel", ""))],
+            typeKey: undefined,
+            onActivate: undefined,
+            onAdjust: undefined,
+            onTooltip: undefined,
+            parent: first.parent,
+            focusable: false,
+            isGroup: true,
+            stopKey: row.stopKey,
+            posIndex: 0,
+            posCount: 0,
+            trans: {}
+        };
+        row.groupNode = gnd;
+        for (var p = 0; p < array_length(row.items); p++)
+        {
+            row.items[p].parent = gnd;
+        }
+    }
+}
+
+// Auto-stamp "n of m" sibling positions on two axes: a multi-item row's
+// members within their row, and one vertical entry per ROW - the node
+// itself for a single-item row, the synthesized group node for a multi-item
+// row - among the rows sharing a (parent, stop). The vertical count
+// therefore includes groups as single landing points. Raw nodes get none.
+// Spoken only when m > 1 (scrVwaAnnounce).
 function vwa_gb_stamp_positions(b)
 {
     var groupKeys = [];
@@ -352,14 +399,14 @@ function vwa_gb_stamp_positions(b)
     for (var i = 0; i < array_length(b.rows); i++)
     {
         var row = b.rows[i];
+        var entry = row.items[0];
         if (array_length(row.items) > 1)
         {
             vwa_gb_stamp(row.items);
-            continue;
+            entry = row.groupNode;
         }
-        var nd = row.items[0];
-        var parentKey = (nd.parent != undefined) ? nd.parent.nid.skey : "";
-        var gk = parentKey + "|" + nd.stopKey;
+        var parentKey = (entry.parent != undefined) ? entry.parent.nid.skey : "";
+        var gk = parentKey + "|" + entry.stopKey;
         var lst = variable_struct_get(groups, gk);
         if (lst == undefined)
         {
@@ -367,7 +414,7 @@ function vwa_gb_stamp_positions(b)
             variable_struct_set(groups, gk, lst);
             array_push(groupKeys, gk);
         }
-        array_push(lst, nd);
+        array_push(lst, entry);
     }
     for (var i = 0; i < array_length(groupKeys); i++)
     {

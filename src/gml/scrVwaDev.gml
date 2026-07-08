@@ -1037,7 +1037,9 @@ function vwa_dev_menu_build(b)
                 global.vwaDevMenu.volume + sign * stepSize, 0, 10);
         }
     });
-    vwa_gb_start_row(b, undefined);
+    // Named group: exercises the explicit groupLabel path (the settings
+    // screen's unnamed rows exercise the generic fallback).
+    vwa_gb_start_row(b, undefined, "Actions");
     vwa_gb_add(b, vwa_id("ok"), {
         typeKey: "button",
         parts: [vwa_part("label", "OK")],

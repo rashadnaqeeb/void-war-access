@@ -223,9 +223,13 @@ $ddIdxAfter = Cmd 'get oSettings_windowSize.dropdown_currSelectedIndex'
 Check 'selection index unchanged' ($ddIdxAfter -eq $ddIdxBefore) "$ddIdxBefore -> $ddIdxAfter"
 Check 'toggleDropdown cleared' ((Cmd 'get oSettings_windowSize.toggleDropdown') -eq $false) 'still open'
 
-# --- tooltip on demand ---
+# --- tooltip on demand. Focusing into the window-mode trio crosses into
+#     its row group: the entry announces the localized generic group word
+#     plus the group's vertical position (row 2 of the 14 vertical entries),
+#     then the member with its in-row "1 of 3". ---
+$grpWord = (Cmd 'call vwa_t vwa--group-radio').result
 $fsTip = CmdStr 'get oSettings_checkbox_fullscreen.tooltipStr'
-CheckSpeech 'focus the fullscreen checkbox' { FocusNode 'menu-settings' 'oSettings_checkbox_fullscreen' } @(NodeLine $fs)
+CheckSpeech 'focus the fullscreen checkbox' { FocusNode 'menu-settings' 'oSettings_checkbox_fullscreen' } @("$grpWord, 2 of 14, $(NodeLine $fs)")
 CheckSpeech 'F9 reads the tooltip' { Fire 'nav-tooltip' } @($fsTip)
 $noTip = (Cmd 'call vwa_t vwa--no-tooltip').result
 CheckSpeech 'focus the back button' { FocusNode 'menu-settings' 'bm:label_back' } @(NodeLine (NodeByKey $s 'bm:label_back'))
@@ -253,7 +257,9 @@ $expected = @($confirmName, (NodeLine $c.nodes[0]))
 Check 'dialogue announced: name then message' (
     ($got -join '|') -eq ($expected -join '|')) "expected '$($expected -join '|')', got '$($got -join '|')'"
 
-CheckSpeech 'down lands on Confirm' { Fire 'nav-down' } @(NodeLine $c.nodes[1])
+# Confirm/Cancel form a row group: entering announces the generic group
+# word and the group's vertical position (entry 2 after the message label).
+CheckSpeech 'down lands on Confirm' { Fire 'nav-down' } @("$grpWord, 2 of 2, $(NodeLine $c.nodes[1])")
 CheckSpeech 'right lands on Cancel' { Fire 'nav-right' } @(NodeLine $c.nodes[2])
 $cur = SpeechNext
 $r = Fire 'nav-activate'

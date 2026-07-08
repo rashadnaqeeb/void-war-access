@@ -26,9 +26,12 @@ mods: `../wotr-access` (UI architecture we are porting), `../tangledeep`
   repeat, suppression watchdog, stale-key unstick, text-safe speech controls
   that survive the game's text-field mode; the one sanctioned
   home of raw `keyboard_check`), `scrVwaGraph.gml` (control graph: two-tier
-  node identity, menu/raw builder, Tab stops, focus reconciliation; PURE -
-  no game or global references), `scrVwaAnnounce.gml` (parts, control types
-  as data, path-diff compose returning parts arrays; PURE),
+  node identity, menu/raw builder, row groups (a multi-item row synthesizes
+  a labeled context that counts as ONE vertical entry; members keep their
+  in-row "x of k"), Tab stops, focus reconciliation; PURE - no game or
+  global references), `scrVwaAnnounce.gml` (parts, control types
+  as data, path-diff compose returning parts arrays, generic group word via
+  hooks.groupText for unnamed row groups; PURE),
   `scrVwaScreens.gml` (screen registry, per-frame poll-and-diff stack and
   focus sync driven from the input tick, navigator actions, once-per-frame
   announce observe + live-part watch), `scrVwaMenus.gml` (the real game

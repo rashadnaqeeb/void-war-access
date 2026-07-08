@@ -428,6 +428,18 @@ smokes re-ran green (198 checks). Facts learned:
 - The suppression probe restores the zeroed keybind and the suppression flag
   on the throw path too (restore-and-rethrow). try/finally remains unverified
   under the UTMT importer and is deliberately not used.
+- Row groups (same-day addendum from Rashad's by-ear pass): a multi-item row
+  in the graph synthesizes a non-focusable group context (`grp:` + first
+  member's skey, stable across rebuilds) that owns the row's vertical
+  position; vertical "n of m" stamping is per ROW, so groups count as one
+  landing point. Unnamed groups speak the localized generic word through the
+  announcer hooks (hooks.groupText -> vwa--group-radio), keeping scrVwaGraph
+  and scrVwaAnnounce pure. Game truth behind it: the settings window-mode
+  trio (fullscreen/windowedMode/borderlessWindow) draws NO group header -
+  each checkbox draws only its own rightText - and the three are independent
+  toggles whose "off" path falls back to borderlessMode_enable(), not real
+  radio buttons; they keep the checkbox role and the group word carries the
+  grouping semantics.
 
 ## Reference mods (pattern sources)
 

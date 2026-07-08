@@ -147,10 +147,24 @@ function vwa_ann_live_parts(nd, types)
 
 // A node's own readout as resolved strings: effective parts (non-empty
 // ones), plus the auto-stamped "n of m" when the node has siblings and the
-// hooks provide the wording. hooks: {posText: fn(i, n) -> string}.
+// hooks provide the wording. hooks: {posText: fn(i, n) -> string,
+// groupText: fn() -> string (the generic word for an unnamed row group)}.
 function vwa_ann_leaf(nd, types, hooks)
 {
     var out = [];
+    // A synthesized row group with an empty label speaks the localized
+    // generic group word instead, so an unnamed radio row still announces
+    // itself before its landing member.
+    if (vwa_opt(nd, "isGroup", false) && vwa_ann_first_label(nd) == ""
+        && hooks != undefined && vwa_opt(hooks, "groupText", undefined) != undefined)
+    {
+        var gfn = hooks.groupText;
+        var gt = gfn();
+        if (gt != "")
+        {
+            array_push(out, gt);
+        }
+    }
     var eff = vwa_ann_effective(nd, types);
     for (var i = 0; i < array_length(eff); i++)
     {
