@@ -23,10 +23,17 @@ mods: `../wotr-access` (UI architecture we are porting), `../tangledeep`
 - `src/gml/` - GML source fragments assembled into the game by build-mod.
   `scrVwaCore.gml` (speech chokepoint, logging, shim binding),
   `scrVwaInput.gml` (input layer: actions, categories, shadowing, typematic
-  repeat, suppression watchdog; the one sanctioned home of raw
-  `keyboard_check`), and `scrVwaDev.gml` (dev-driver eval-lite interpreter,
-  dev builds only) each become a new global script; `*.append.gml` files
-  append to the named code entry (`*.dev.append.gml` marks dev-only appends).
+  repeat, suppression watchdog, stale-modifier unstick; the one sanctioned
+  home of raw `keyboard_check`), `scrVwaGraph.gml` (control graph: two-tier
+  node identity, menu/raw builder, Tab stops, focus reconciliation; PURE -
+  no game or global references), `scrVwaAnnounce.gml` (parts, control types
+  as data, path-diff compose returning parts arrays; PURE),
+  `scrVwaScreens.gml` (screen registry, per-frame poll-and-diff stack and
+  focus sync driven from the input tick, navigator actions, once-per-frame
+  announce observe + live-part watch), and `scrVwaDev.gml` (dev-driver
+  eval-lite interpreter, dev builds only) each become a new global script;
+  `*.append.gml` files append to the named code entry (`*.dev.append.gml`
+  marks dev-only appends).
   build-mod also QueueFindReplace-patches the game's `scrKeybinds` so
   `input_check*` honor `global.vwaSuppressGameKeys`, with a post-import
   decompile assert (find-replace no-ops silently on no match).
@@ -61,27 +68,40 @@ other flag order, or the permission rule won't match.
 - Dev driver: `http://127.0.0.1:8772` - `GET /health` (also reports
   `bgKeepalive`), `GET /speech?since=N` (monotonic cursor; how you observe TTS
   you can't hear), `GET /gui/raw[?obj=oThing]` (game-truth UI dump),
-  `GET /screenshot` (PNG to the save dir), `GET /state` (input layer: live
-  categories, actions, shadowing), `POST /input` (body = action key; fires
-  through real dispatch, refused when its category isn't live), `POST /cmd`.
+  `GET /gui/mod` (the mod's interpreted view: screen stack, focused screen's
+  nodes with resolved parts/positions/edges, focused key - diff against
+  /gui/raw to find what the mod is losing), `GET /screenshot` (PNG to the
+  save dir), `GET /state` (input layer: live categories, actions,
+  shadowing), `POST /input` (body = action key; fires through real dispatch,
+  refused when its category isn't live), `POST /cmd`.
   The `/cmd` eval-lite vocabulary (in `scrVwaDev`, dev builds only): `ping`,
   `say <text>`, `room`, `get <path>`, `set <path> <value>`,
   `dump <path> [depth]`, `instances <obj>`, `call <script|path> [args...]`,
-  `gui.raw [obj]`, `screenshot`, `state`, `input <actionKey>`, `help`. Paths:
-  `global.x`, `oObject.var` (first live instance), a numeric id, chained with
-  `.member` and `[n]`. A JSON reply is content-typed JSON; errors are `ERROR:`
-  text and never crash the pump. Never `var` a GML builtin name (`depth`, `x`,
-  ...) in injected code - it is a hard compile error. Input-layer dev helpers
-  via `call`: `vwa_dev_test_screen <cats|none>` (stub screen stack),
-  `vwa_dev_register_test_actions`, `vwa_dev_arm_input_fault` (watchdog test),
-  `vwa_dev_suppression_probe <bind>` (one-frame suppression proof; retry on
-  `live:false` - runner key state reads "held" for ~1 min after boot, and
+  `gui.raw [obj]`, `gui.mod`, `screenshot`, `state`, `input <actionKey>`,
+  `help`. Paths: `global.x`, `oObject.var` (first live instance), a numeric
+  id, chained with `.member` and `[n]`. A JSON reply is content-typed JSON;
+  errors are `ERROR:` text and never crash the pump. Never `var` a GML
+  builtin name (`depth`, `x`, ...) in injected code - it is a hard compile
+  error. Dev helpers via `call`: `vwa_dev_test_screen <cats|none>`
+  (graph-less screen making categories live; trailing `!` = exclusive
+  modal), `vwa_dev_test_menu <on|off>` (the synthetic navigator test menu),
+  `vwa_dev_menu_focus <skey>` / `vwa_dev_menu_rename <old> <new>` (focus
+  jump / tier-1 identity test on it), `vwa_dev_register_test_actions`,
+  `vwa_dev_arm_input_fault` (watchdog test), `vwa_dev_key_direct <vk>`
+  (runner vs OS key state), `vwa_dev_suppression_probe <bind>` (one-frame
+  suppression proof; self-heals stale runner key state, so retry only on
+  `live:false` with `kbDirect:true` - a human really holding a key;
   `keyboard_key_press` does NOT work in this runner).
 - User hotkeys (Global category, registered in `scrVwaInput`): F11 repeat
-  last spoken, Ctrl stop speech, Shift+F11 panic speech-stack reset.
+  last spoken, Ctrl stop speech, Shift+F11 panic speech-stack reset. UI
+  category (live only while a mod screen is focused, `scrVwaScreens`):
+  arrows navigate (left/right adjust sliders), Enter activates, Tab /
+  Shift+Tab cycle control groups with remembered positions.
 - Regression checks against a live game at the main menu:
-  `scripts/drive-smoke.ps1` (dev driver) and `scripts/input-smoke.ps1`
-  (input layer). Run both after touching the shim, the pump, or `scrVwaInput`.
+  `scripts/drive-smoke.ps1` (dev driver), `scripts/input-smoke.ps1` (input
+  layer), and `scripts/screens-smoke.ps1` (framework core: exact speech
+  transcript over the synthetic test menu). Run all three after touching the
+  shim, the pump, `scrVwaInput`, or any framework script.
 - Background-run works: the shim subclasses the game window's WndProc to swallow
   deactivation, so the autonomous loop runs unattended (drive over HTTP with the
   game backgrounded). The documented pause is a BOOT freeze - frozen until the

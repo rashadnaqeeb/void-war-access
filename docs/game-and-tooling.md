@@ -208,6 +208,50 @@ cold boot). Facts learned:
   string from the HTTP thread. `/state` and `POST /input <actionKey>` are
   shim-side sugar submitting `state` / `input <key>` through the pump.
 
+## Session 4 findings: screens, graph, announcer (verified 2026-07-08)
+
+The framework core (`scrVwaGraph`, `scrVwaAnnounce`, `scrVwaScreens`), the
+`/gui/mod` endpoint, and the synthetic test menu are built and verified live
+(46-check screens-smoke plus the other two smokes all pass from a cold
+boot). Facts learned:
+
+- GML `==` on two struct references is reference equality, and it works as
+  the graph's tier-1 node identity: the smoke's rename test (structural key
+  changes, backing struct ref stays) follows focus correctly. Comparing a
+  struct to a real with `==` returns false without erroring (vwa_ref_eq
+  still guards the type mix explicitly).
+- `method({...}, function() { ... self.x ... })` closures compile under the
+  UTMT importer and behave as documented - the standard way to give per-item
+  handlers/label functions their data (GML anonymous functions do NOT
+  capture locals; they capture only self).
+- `array_sort` with an anonymous comparator, `string_replace`, `clamp`, and
+  struct-member function calls via a local (`var f = st.fn; f()`) all
+  compile and work under the importer.
+- **The bg keepalive makes runner key state lie** (bit us): the WndProc
+  subclass swallows the focus-loss messages that normally make the runner
+  clear its keyboard bookkeeping, so a key pressed before a window switch
+  whose RELEASE went to the other window reads "held" forever. Observed
+  live: a stale left Alt (keyboard_key 164) pinned for over a minute and
+  broke exact-modifier chord matching and the suppression probe.
+  `keyboard_check_direct` (real OS state, ignores focus; accepts
+  vk_lalt/vk_ralt/vk_lshift/vk_rshift/vk_lcontrol/vk_rcontrol) exposes the
+  lie. Fixes shipped: `vwa_input_unstick_modifiers` (every input tick:
+  io_clear + loud log when the runner holds a modifier the OS reports up)
+  and the suppression probe self-heals on any runner-held key the OS denies.
+  The unstick's fix path cannot be provoked on demand (this runner ignores
+  keyboard_key_press), so it is code-reviewed + trigger-observed; watch the
+  mod log for its line in real sessions.
+- Speech ordering that the framework guarantees, for future screens: screen
+  name first (no interrupt), then the landing control's full path (no
+  interrupt, so it queues behind the name); moves within a screen interrupt;
+  live-part changes and activation feedback do not. All speech flows as
+  parts arrays into vwa_speak; the announcer returns arrays, never joined
+  strings.
+- The navigator announces from the per-frame tick (observe), one frame after
+  the action that moved focus - multiple moves in one frame speak once, on
+  the final landing. The dev pump processes one command per frame, so any
+  HTTP round-trip after a POST /input observes the settled state.
+
 ## Reference mods (pattern sources)
 
 - `..\factorio-access` - Lua mod, speech via stdout protocol to an external launcher. Patterns: MessageBuilder speech composition (crashes on hand-added spaces), scanner as streaming entity database, graph-based keyboard UI rebuilt per keypress, vary-early message wording, minimal punctuation, let-it-crash over defensive guards, tick-based offline test framework.

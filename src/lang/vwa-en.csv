@@ -5,3 +5,15 @@ vwa--action-stop-speech,Stop speech
 vwa--action-panic-reset,Reset speech
 vwa--nothing-to-repeat,Nothing to repeat
 vwa--speech-reset,Speech reset complete
+vwa--action-nav-up,Navigate up
+vwa--action-nav-down,Navigate down
+vwa--action-nav-left,Navigate left
+vwa--action-nav-right,Navigate right
+vwa--action-nav-activate,Activate
+vwa--action-nav-next-stop,Next control group
+vwa--action-nav-prev-stop,Previous control group
+vwa--pos-of,{n} of {m}
+vwa--no-action,No action
+vwa--role-button,button
+vwa--role-toggle,toggle
+vwa--role-slider,slider

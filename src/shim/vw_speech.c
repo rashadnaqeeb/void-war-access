@@ -652,6 +652,8 @@ static void handle_connection(SOCKET s)
             snprintf(cmd, sizeof cmd, "gui.raw%s%s", obj[0] ? " " : "", obj);
             handle_gml(s, cmd);
         }
+        else if (strcmp(req.method, "GET") == 0 && strcmp(req.path, "/gui/mod") == 0)
+            handle_gml(s, "gui.mod"); // the mod's interpreted view; diff against /gui/raw
         else if (strcmp(req.method, "GET") == 0 && strcmp(req.path, "/screenshot") == 0)
             handle_gml(s, "screenshot");
         else if (strcmp(req.method, "GET") == 0 && strcmp(req.path, "/state") == 0)

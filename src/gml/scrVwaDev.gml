@@ -11,7 +11,7 @@
 // Vocabulary (see vwa_dev_dispatch): ping, say, room, help,
 //   get <path> / set <path> <value> / dump <path> [depth]
 //   instances <objectName> / call <scriptOrPath> [args...]
-//   gui.raw [objectName] / screenshot
+//   gui.raw [objectName] / gui.mod / screenshot
 //   state (input layer dump) / input <actionKey> (fire an action)
 //
 // Paths: global.name, objectName.var (first live instance), or a numeric
@@ -726,9 +726,9 @@ function vwa_dev_gui_raw(objName)
 
 // ---- input layer introspection (session 3) ----
 
-// GET /state: suppression, screen-stack stub, live categories, every
-// registered action, and per-chord shadowing resolution. labelKey is
-// reported raw (not localized) so dev test actions need no CSV rows.
+// GET /state: suppression, screen stack, live categories, every registered
+// action, and per-chord shadowing resolution. labelKey is reported raw (not
+// localized) so dev test actions need no CSV rows.
 function vwa_dev_state_json()
 {
     var live = vwa_live_categories();
@@ -747,7 +747,10 @@ function vwa_dev_state_json()
         {
             out += ",";
         }
-        out += "{\"name\":" + vwa_json_str(scr.name) + ",\"categories\":[";
+        out += "{\"name\":" + vwa_json_str(scr.key)
+            + ",\"layer\":" + vwa_json_num(scr.layerNum)
+            + ",\"exclusive\":" + (scr.exclusive ? "true" : "false")
+            + ",\"categories\":[";
         for (var j = 0; j < array_length(scr.categories); j++)
         {
             if (j > 0)
@@ -856,14 +859,26 @@ function vwa_dev_state_json()
 
 // ---- input layer dev helpers (invoked via the call command) ----
 
-// Stub screen-stack control until the real screen layer (session 4).
-// spec: comma-separated category list for one test screen, or "none".
+// Input-layer test screen: a graph-less, silent screen registered through
+// the real screen registry (scrVwaScreens) whose only job is to make a
+// chosen category set live. spec: comma-separated category list, or "none";
+// a trailing "!" marks the screen exclusive (a hard modal blocking the
+// categories of screens below it). Layer 92 puts it above the test menu
+// (91) so the exclusive behavior is observable. The stack updates on the
+// next screens tick (a frame later), which every caller observes through a
+// later HTTP round-trip anyway.
 function vwa_dev_test_screen(spec)
 {
     if (spec == "none" || spec == "")
     {
-        global.vwaScreenStack = [];
+        global.vwaDevTestScreenOn = false;
         return "stack cleared";
+    }
+    var excl = false;
+    if (string_char_at(spec, string_length(spec)) == "!")
+    {
+        excl = true;
+        spec = string_copy(spec, 1, string_length(spec) - 1);
     }
     var cats = [];
     var cur = "";
@@ -887,8 +902,179 @@ function vwa_dev_test_screen(spec)
     {
         array_push(cats, cur);
     }
-    global.vwaScreenStack = [{ name: "vwa-test-screen", categories: cats }];
+    global.vwaDevTestScreenOn = true;
+    var scr = vwa_screen_find("vwa-test-screen");
+    if (scr == undefined)
+    {
+        vwa_screen_register({
+            key: "vwa-test-screen",
+            layerNum: 92,
+            categories: cats,
+            exclusive: excl,
+            isActive: function() { return global.vwaDevTestScreenOn; }
+        });
+    }
+    else
+    {
+        scr.categories = cats;
+        scr.exclusive = excl;
+    }
     return "test screen pushed with " + string(array_length(cats)) + " categories";
+}
+
+// ---- the synthetic test menu (session 4) ----
+// A fake screen exercising every navigator behavior against known data:
+// labeled single-item rows (auto "n of m"), a two-item row, a toggle with a
+// live value part, a slider with onAdjust, a second Tab stop under a labeled
+// context, a no-action label, plus helpers to move focus and rename an item
+// (tier-1 identity: the skey changes, the backing ref struct does not).
+// All text here is dev text, exempt from localization.
+
+function vwa_dev_test_menu(spec)
+{
+    if (spec == "off")
+    {
+        global.vwaDevMenuOn = false;
+        return "test menu off";
+    }
+    if (spec != "on")
+    {
+        throw "vwa_dev_test_menu wants on or off";
+    }
+    // Fresh state on every "on" so scripted transcripts are deterministic.
+    global.vwaDevMenu = {
+        items: [{ nm: "Alpha" }, { nm: "Beta" }, { nm: "Gamma" }],
+        soundOn: false,
+        volume: 5,
+        hideBeta: false
+    };
+    global.vwaDevMenuOn = true;
+    var scr = vwa_screen_find("vwa-test-menu");
+    if (scr == undefined)
+    {
+        vwa_screen_register({
+            key: "vwa-test-menu",
+            layerNum: 91,
+            categories: ["ui"],
+            isActive: function() { return global.vwaDevMenuOn; },
+            name: function() { return "Test menu"; },
+            build: function(b) { vwa_dev_menu_build(b); }
+        });
+    }
+    else
+    {
+        vwa_nav_state_reset(scr.navState);
+    }
+    return "test menu on";
+}
+
+function vwa_dev_menu_build(b)
+{
+    var m = global.vwaDevMenu;
+
+    vwa_gb_begin_stop(b, "main");
+    for (var i = 0; i < array_length(m.items); i++)
+    {
+        var it = m.items[i];
+        if (m.hideBeta && it.nm == "Beta")
+        {
+            continue;
+        }
+        vwa_gb_add(b, vwa_id_ref(it, "item:" + it.nm), {
+            typeKey: "button",
+            parts: [vwa_part_fn("label",
+                method({ it: it }, function() { return self.it.nm; }), false)],
+            onActivate: method({ it: it }, function()
+            {
+                vwa_speak([self.it.nm + " pressed"], false);
+            })
+        });
+    }
+    vwa_gb_add(b, vwa_id("sound"), {
+        typeKey: "toggle",
+        parts: [vwa_part("label", "Sound"),
+            vwa_part_fn("value", function()
+            {
+                return global.vwaDevMenu.soundOn ? "on" : "off";
+            }, true)],
+        onActivate: function()
+        {
+            global.vwaDevMenu.soundOn = !global.vwaDevMenu.soundOn;
+        }
+    });
+    vwa_gb_add(b, vwa_id("volume"), {
+        typeKey: "slider",
+        parts: [vwa_part("label", "Volume"),
+            vwa_part_fn("value", function()
+            {
+                return string(global.vwaDevMenu.volume);
+            }, true)],
+        onAdjust: function(sign, large)
+        {
+            var stepSize = large ? 5 : 1;
+            global.vwaDevMenu.volume = clamp(
+                global.vwaDevMenu.volume + sign * stepSize, 0, 10);
+        }
+    });
+    vwa_gb_start_row(b, undefined);
+    vwa_gb_add(b, vwa_id("ok"), {
+        typeKey: "button",
+        parts: [vwa_part("label", "OK")],
+        onActivate: function() { vwa_speak(["OK pressed"], false); }
+    });
+    vwa_gb_add(b, vwa_id("cancel"), {
+        typeKey: "button",
+        parts: [vwa_part("label", "Cancel")],
+        onActivate: function() { vwa_speak(["Cancel pressed"], false); }
+    });
+    vwa_gb_end_row(b);
+
+    vwa_gb_begin_stop(b, "extras");
+    vwa_gb_push_context(b, "Extras");
+    vwa_gb_add(b, vwa_id("one"), {
+        typeKey: "button",
+        parts: [vwa_part("label", "One")],
+        onActivate: function() { vwa_speak(["One pressed"], false); }
+    });
+    vwa_gb_add(b, vwa_id("two"), {
+        typeKey: "button",
+        parts: [vwa_part("label", "Two")],
+        onActivate: function() { vwa_speak(["Two pressed"], false); }
+    });
+    vwa_gb_add(b, vwa_id("status"), {
+        typeKey: "label",
+        parts: [vwa_part("label", "Status")]
+    });
+    vwa_gb_pop_context(b);
+}
+
+// Ask the test menu's navigator to land on a node next frame (goes through
+// the normal reconcile path, so the landing is announced by observe).
+function vwa_dev_menu_focus(skey)
+{
+    var scr = vwa_screen_find("vwa-test-menu");
+    if (scr == undefined)
+    {
+        throw "test menu not registered (call vwa_dev_test_menu on)";
+    }
+    scr.navState.nextMove = skey;
+    return "focus requested: " + skey;
+}
+
+// Rename an item in place: its structural key changes with the label while
+// its backing ref struct stays - the tier-1 focus-follow test.
+function vwa_dev_menu_rename(oldName, newName)
+{
+    var m = global.vwaDevMenu;
+    for (var i = 0; i < array_length(m.items); i++)
+    {
+        if (m.items[i].nm == oldName)
+        {
+            m.items[i].nm = newName;
+            return "renamed " + oldName + " to " + newName;
+        }
+    }
+    throw ("no test menu item named " + oldName);
 }
 
 // An intentionally-conflicting chord pair (F10 in global and ui) plus a
@@ -943,25 +1129,129 @@ function vwa_dev_suppression_probe(bindName)
     global.vwaSuppressGameKeys = false;
     var whileLive = input_check(bindName) ? true : false;
     var clearedIo = false;
-    if (!whileLive && keyboard_key == 0)
+    if (!whileLive)
     {
-        // Freshly-booted runner io can report "a key is held" with no key
-        // named (vk_nokey false, vk_anykey false, keyboard_key 0) for
-        // minutes; io_clear resets the bookkeeping. Only reached in that
-        // inconsistent state, so no real user input can be discarded.
-        io_clear();
-        clearedIo = true;
-        whileLive = input_check(bindName) ? true : false;
+        // Two known lies in the runner's key bookkeeping: freshly-booted io
+        // reports "a key is held" with no key named (keyboard_key 0) for
+        // minutes, and the bg keepalive swallows the focus-loss messages
+        // that clear key state, so a key whose release went to another
+        // window reads held forever (a stale Alt; bit us session 4). In
+        // both cases keyboard_check_direct (real OS state) disagrees, and
+        // io_clear resets the bookkeeping without discarding real input.
+        if (keyboard_key == 0 || !keyboard_check_direct(keyboard_key))
+        {
+            io_clear();
+            clearedIo = true;
+            whileLive = input_check(bindName) ? true : false;
+        }
     }
     variable_struct_set(global.keybinds, bindName, priorKey);
     global.vwaSuppressGameKeys = priorFlag;
-    // kbKey: what the runner thinks is held. The keepalive keeps key state
-    // updating while backgrounded, so a human typing anywhere on the machine
-    // makes vk_nokey read false; callers should retry on live=false and use
-    // kbKey to tell "user was typing" from a real break.
+    // kbKey: what the runner thinks is held; kbDirect: whether the OS
+    // agrees. live=false with kbDirect=true means a human is really holding
+    // a key right now - callers should retry.
     // Returned via the call command, whose dumper serializes the struct.
     return { suppressed: whileSuppressed, live: whileLive,
-             kbKey: keyboard_key, ioCleared: clearedIo };
+             kbKey: keyboard_key,
+             kbDirect: (keyboard_key > 0 && keyboard_check_direct(keyboard_key)) ? true : false,
+             ioCleared: clearedIo };
+}
+
+// GET /gui/mod: the mod's interpreted view - the active screen stack, the
+// focused screen's current render (nodes with resolved announcement parts,
+// positions, stops, parent chains, edges), and the focused node. Diff
+// against /gui/raw to find what the mod is losing. The render is the one
+// the last screens tick built (at most a frame old); its part texts resolve
+// live right here.
+function vwa_dev_gui_mod()
+{
+    var out = "{\"stack\":[";
+    for (var i = 0; i < array_length(global.vwaScreenStack); i++)
+    {
+        var scr = global.vwaScreenStack[i];
+        if (i > 0)
+        {
+            out += ",";
+        }
+        out += "{\"key\":" + vwa_json_str(scr.key)
+            + ",\"layer\":" + vwa_json_num(scr.layerNum)
+            + ",\"exclusive\":" + (scr.exclusive ? "true" : "false") + "}";
+    }
+    out += "]";
+
+    var focused = global.vwaFocusedScreen;
+    if (focused == undefined)
+    {
+        return out + ",\"focused\":null,\"focusKey\":null,\"nodes\":[]}";
+    }
+    out += ",\"focused\":" + vwa_json_str(focused.key);
+
+    var st = focused.navState;
+    out += ",\"focusKey\":"
+        + ((st.curId != undefined) ? vwa_json_str(st.curId.skey) : "null");
+
+    out += ",\"nodes\":[";
+    if (st.curRender != undefined)
+    {
+        var order = st.curRender.order;
+        for (var i = 0; i < array_length(order); i++)
+        {
+            var nd = order[i];
+            if (i > 0)
+            {
+                out += ",";
+            }
+            out += "{\"skey\":" + vwa_json_str(nd.nid.skey)
+                + ",\"hasRef\":" + ((nd.nid.ref != undefined) ? "true" : "false")
+                + ",\"type\":" + ((nd.typeKey != undefined) ? vwa_json_str(nd.typeKey) : "null")
+                + ",\"stop\":" + vwa_json_str(nd.stopKey)
+                + ",\"pos\":[" + vwa_json_num(nd.posIndex) + "," + vwa_json_num(nd.posCount) + "]";
+
+            out += ",\"parents\":[";
+            var chain = vwa_ann_path(nd);
+            for (var j = 0; j < array_length(chain) - 1; j++)
+            {
+                if (j > 0)
+                {
+                    out += ",";
+                }
+                out += vwa_json_str(chain[j].nid.skey);
+            }
+            out += "],\"parts\":[";
+            var leaf = vwa_ann_leaf(nd, global.vwaControlTypes, global.vwaAnnHooks);
+            for (var j = 0; j < array_length(leaf); j++)
+            {
+                if (j > 0)
+                {
+                    out += ",";
+                }
+                out += vwa_json_str(leaf[j]);
+            }
+            out += "],\"edges\":{";
+            var dirs = variable_struct_get_names(nd.trans);
+            for (var j = 0; j < array_length(dirs); j++)
+            {
+                if (j > 0)
+                {
+                    out += ",";
+                }
+                out += vwa_json_str(dirs[j]) + ":"
+                    + vwa_json_str(variable_struct_get(nd.trans, dirs[j]).to);
+            }
+            out += "}}";
+        }
+    }
+    return out + "]}";
+}
+
+// Diagnostic: the runner's view of a key vs the OS's (keyboard_check_direct
+// ignores window focus). Disagreement = stale runner bookkeeping (see
+// vwa_input_unstick_modifiers).
+function vwa_dev_key_direct(vk)
+{
+    return { vk: vk,
+             runnerCheck: keyboard_check(vk) ? true : false,
+             osDirect: keyboard_check_direct(vk) ? true : false };
 }
 
 function vwa_dev_screenshot()
@@ -1060,6 +1350,9 @@ function vwa_dev_dispatch(cmd)
         case "gui.raw":
             return vwa_dev_gui_raw(rest);
 
+        case "gui.mod":
+            return vwa_dev_gui_mod();
+
         case "screenshot":
             return vwa_dev_screenshot();
 
@@ -1077,7 +1370,7 @@ function vwa_dev_dispatch(cmd)
             return "commands: ping | say <text> | room | get <path> | "
                 + "set <path> <value> | dump <path> [depth] | "
                 + "instances <objectName> | call <scriptOrPath> [args...] | "
-                + "gui.raw [objectName] | screenshot | state | "
+                + "gui.raw [objectName] | gui.mod | screenshot | state | "
                 + "input <actionKey> | help";
 
         default:

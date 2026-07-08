@@ -5,3 +5,15 @@ vwa--action-stop-speech,Arrêter la parole
 vwa--action-panic-reset,Réinitialiser la parole
 vwa--nothing-to-repeat,Rien à répéter
 vwa--speech-reset,Parole réinitialisée
+vwa--action-nav-up,Naviguer vers le haut
+vwa--action-nav-down,Naviguer vers le bas
+vwa--action-nav-left,Naviguer à gauche
+vwa--action-nav-right,Naviguer à droite
+vwa--action-nav-activate,Activer
+vwa--action-nav-next-stop,Groupe de contrôles suivant
+vwa--action-nav-prev-stop,Groupe de contrôles précédent
+vwa--pos-of,{n} sur {m}
+vwa--no-action,Aucune action
+vwa--role-button,bouton
+vwa--role-toggle,bascule
+vwa--role-slider,curseur

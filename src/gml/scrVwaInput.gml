@@ -20,7 +20,7 @@ function vwa_input_init()
 {
     global.vwaActions = {};      // actionKey -> action struct
     global.vwaActionOrder = [];  // registration order: stable dumps, shadow tie-breaks
-    global.vwaScreenStack = [];  // structs {name, categories}; real screens arrive session 4
+    global.vwaScreenStack = [];  // owned by scrVwaScreens once vwa_screens_init runs
     global.vwaChordState = {};   // chordId -> {vk, downAt, lastFire} for edge + repeat
     global.vwaSuppressGameKeys = false;
     global.vwaInputFault = false;           // armed by the dev driver to test the watchdog
@@ -117,7 +117,8 @@ function vwa_chord_down(binding)
 }
 
 // Priority-ordered live category list: stack top (focused) first, each
-// screen's categories in declared order, then "global".
+// screen's categories in declared order, then "global". An exclusive screen
+// (a hard modal) blocks the categories of every screen below it.
 function vwa_live_categories()
 {
     var cats = [];
@@ -131,6 +132,10 @@ function vwa_live_categories()
             {
                 array_push(cats, scats[j]);
             }
+        }
+        if (variable_struct_exists(stack[i], "exclusive") && stack[i].exclusive)
+        {
+            break;
         }
     }
     if (vwa_array_index_of(cats, "global") < 0)
@@ -184,6 +189,13 @@ function vwa_input_tick()
             global.vwaInputFault = false;
             throw "injected test fault (vwa_dev_arm_input_fault)";
         }
+        vwa_input_unstick_modifiers();
+        // Screen layer first (resolve/diff the stack, sync focus, announce),
+        // so the live category set is current when chords dispatch below.
+        if (variable_global_exists("vwaScreens"))
+        {
+            vwa_screens_tick();
+        }
         if (!global.textFieldInputEnabled)
         {
             vwa_input_dispatch();
@@ -207,6 +219,40 @@ function vwa_input_tick()
         global.vwaInputWatchdogTripped = true;
         vwa_log("ERROR: input tick crashed; suppression cleared, game keys live again: "
             + string(err));
+    }
+}
+
+// The background keepalive (the shim's WndProc subclass) swallows the
+// focus-loss messages that normally make the runner clear its key state, so
+// a modifier pressed while switching windows reads "held" forever - its
+// release went to another window. That silently breaks exact-modifier chord
+// matching (a stale Alt pinned keyboard_check(vk_alt) for minutes; bit us
+// session 4). Detect the lie with keyboard_check_direct (real OS state,
+// ignoring window focus) and reset the runner's bookkeeping. This io_clear
+// only fires when the runner claims a modifier the OS reports up, so no
+// real input can be discarded; it logs every time.
+function vwa_input_unstick_modifiers()
+{
+    var stale = false;
+    if (keyboard_check(vk_shift) && !keyboard_check_direct(vk_lshift)
+        && !keyboard_check_direct(vk_rshift))
+    {
+        stale = true;
+    }
+    if (keyboard_check(vk_control) && !keyboard_check_direct(vk_lcontrol)
+        && !keyboard_check_direct(vk_rcontrol))
+    {
+        stale = true;
+    }
+    if (keyboard_check(vk_alt) && !keyboard_check_direct(vk_lalt)
+        && !keyboard_check_direct(vk_ralt))
+    {
+        stale = true;
+    }
+    if (stale)
+    {
+        io_clear();
+        vwa_log("input: cleared stale modifier state (runner held a modifier the OS reports up)");
     }
 }
 

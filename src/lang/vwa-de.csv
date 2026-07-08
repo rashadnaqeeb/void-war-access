@@ -5,3 +5,15 @@ vwa--action-stop-speech,Sprachausgabe stoppen
 vwa--action-panic-reset,Sprachausgabe zurücksetzen
 vwa--nothing-to-repeat,Nichts zu wiederholen
 vwa--speech-reset,Sprachausgabe zurückgesetzt
+vwa--action-nav-up,Nach oben navigieren
+vwa--action-nav-down,Nach unten navigieren
+vwa--action-nav-left,Nach links navigieren
+vwa--action-nav-right,Nach rechts navigieren
+vwa--action-nav-activate,Aktivieren
+vwa--action-nav-next-stop,Nächste Steuerelementgruppe
+vwa--action-nav-prev-stop,Vorherige Steuerelementgruppe
+vwa--pos-of,{n} von {m}
+vwa--no-action,Keine Aktion
+vwa--role-button,Schalter
+vwa--role-toggle,Umschalter
+vwa--role-slider,Schieberegler

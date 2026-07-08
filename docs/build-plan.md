@@ -184,7 +184,36 @@ Verify (user): the test screen sounds right by ear: ordering, no repetition, int
 Exit criteria: full scripted transcript matches expectations; framework has zero references to any concrete game screen.
 Risks: struct/closure identity semantics in GML for the reference tier of node identity (may need instance ids and explicit keys rather than reference equality).
 
-Status: not started.
+Status: agent verification COMPLETE (2026-07-08); user by-ear verification pending.
+Three new shipped scripts: `scrVwaGraph` (two-tier node identity, menu/raw
+builder with column keys, Tab stops with remembered positions and
+selected-member landing, parent-stack contexts, down-right total order,
+three-tier focus reconciliation), `scrVwaAnnounce` (parts as data, control
+types with kind ordering and role words, path-diff compose returning parts
+arrays for the chokepoint, localized auto "n of m"), `scrVwaScreens`
+(registry, per-frame poll-and-diff stack driven from the input tick before
+dispatch, focus sync, navigator actions arrows/Enter/Tab/Shift+Tab in the ui
+category, once-per-frame observe that speaks focus changes, live-part watch
+speaking just the changed part). Screen structs carry key/layerNum/
+isActive/name/build/categories/exclusive; exclusive modals block lower
+screens' categories (session 3's stub replaced; vwa_dev_test_screen now goes
+through the real registry). `GET /gui/mod` + eval-lite `gui.mod` dump the
+interpreted view. `scripts/screens-smoke.ps1` (46 checks) asserts the exact
+transcript on the synthetic dev test menu (`vwa_dev_test_menu`): screen
+name, context entry outermost-first, sibling moves with "n of m", toggle and
+slider live parts speaking only the changed value, row edges silent, Tab
+memory both directions, no-action feedback, survivor fallback, tier-1
+reference follow across a rename, exclusive blocking, focus restore on
+uncover. The predicted identity risk did NOT materialize: GML struct `==` is
+reference equality and works as the tier-1 ref (verified live). What did
+bite: the bg keepalive swallows the focus-loss messages that clear runner
+key state, so a modifier whose release went to another window reads held
+forever (a stale Alt broke chord matching for a full smoke run) - fixed with
+a per-tick unstick + probe self-heal via keyboard_check_direct, see
+game-and-tooling. Interrupt policy (moves interrupt, screen names and live
+parts do not) is implemented but only verifiable by ear - part of the user
+check: run screens-smoke with `-Speech` and listen for ordering, no
+repetition, and key-repeat interrupting cleanly on the test menu.
 
 ## Session 5: first real screens: main menu and patch notes
 

@@ -124,15 +124,15 @@ Check 'global action fires with empty stack' ($r -eq 'fired dev-shout-global') $
 # --- suppression: the game's own input_check goes quiet, then comes back ---
 # One-frame probe: rebinds open_doors to vk_nokey (held whenever no key is
 # down) and reads the game's input_check with the flag on, then off; every
-# touched state is restored. live=false has two known benign causes, both
-# worth outwaiting: the runner's key bookkeeping reads "something held" for
-# the first minute or so after boot (kbKey 0), and a human typing anywhere
-# on the machine (the keepalive keeps key state updating while backgrounded).
+# touched state is restored. The probe self-heals stale runner key state
+# (io_clear when keyboard_check_direct disagrees), so a lasting live=false
+# with kbDirect=true means a human is really holding a key - worth
+# outwaiting.
 $r = Cmd 'call vwa_dev_suppression_probe open_doors'
 Check 'game key suppressed' ($r.result.suppressed -eq $false) ($r | ConvertTo-Json -Compress)
 foreach ($attempt in 1..12) {
     if ($r.result.live -eq $true) { break }
-    Write-Host "  ...  live=false, kbKey $($r.result.kbKey) (boot warm-up or someone typing?); retrying"
+    Write-Host "  ...  live=false, kbKey $($r.result.kbKey) direct=$($r.result.kbDirect) (someone holding a key?); retrying"
     Start-Sleep -Seconds 5
     $r = Cmd 'call vwa_dev_suppression_probe open_doors'
 }
