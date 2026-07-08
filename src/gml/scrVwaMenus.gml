@@ -502,10 +502,9 @@ function vwa_widget_add(bd, inst)
 // control whenever the game gives the widget a tooltipStr, silent when it
 // has none. Void War tooltips are flat strings (verified: draw_label
 // 9-slice panels; sections/double panels are visual composition only, no
-// links or nesting), so inline reading covers the whole tooltip surface -
-// unlike WotR's layered Pathfinder tooltips, which needed a drill-in
-// reader. oButton defaults tooltipStr to the NUMBER 0, so the string
-// check does both jobs.
+// links or nesting), so inline reading covers the whole tooltip surface.
+// oButton defaults tooltipStr to the NUMBER 0, so the string check does
+// both jobs.
 function vwa_widget_tooltip_part(inst)
 {
     return vwa_part_fn("tooltip", method({ inst: inst }, function()

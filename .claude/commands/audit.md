@@ -10,9 +10,9 @@ is invisible to the user, so correctness findings outrank style findings.
 
 ## Instructions
 
-1. Read CLAUDE.md (invariants, sanctioned exceptions, and the deliberate
-   divergences from the WotR reference - do NOT re-report those as
-   findings) and docs/backlog.md (known future work is not a finding).
+1. Read CLAUDE.md (invariants, sanctioned exceptions, and the settled
+   design decisions - do NOT re-report those as findings) and
+   docs/backlog.md (known future work is not a finding).
 2. Scan all of src/gml/, src/shim/, src/lang/, tools/, and scripts/.
 3. Where a check needs game truth, look it up in decompiled/ or verify
    over the dev driver against a live game - never from memory.

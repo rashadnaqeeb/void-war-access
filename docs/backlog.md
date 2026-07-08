@@ -18,22 +18,22 @@ verified facts live in CLAUDE.md.
   name-only placeholder; cover via the generic widget adapter.
 - The `/loadsave` dev-driver equivalent (cold start to in-run in one call).
 
-## UI infrastructure still missing vs WotR Access (menu features only)
+## UI infrastructure not built yet (menu features)
 
 1. Type-ahead search: type letters to jump within the focused Tab stop.
-   WotR's tiered matcher (word start > prefix > mid-word > substring >
-   abbreviation, repeated-letter cycling) is pure and ports cleanly; needs
-   a text-input feed the input layer doesn't have yet.
+   Tiered matching (word start > prefix > mid-word > substring >
+   abbreviation, repeated-letter cycling); needs a text-input feed the
+   input layer doesn't have yet.
 2. Expandable tree groups: focusable headers whose children emit only while
    expanded (NOT our row groups). Needed for long categorized lists and a
    mod-settings tree.
 3. Secondary action (Backspace vtable slot) - nothing to bind until
    vendor/loot-style screens.
-4. Grid screens: FlowSheet-style regions with Ctrl+Up/Down region jumps
-   (reserved) and a table emitter (rows/columns, column-header
-   announcements) - for cargo/crew.
+4. Grid screens: regions with Ctrl+Up/Down region jumps (reserved) and a
+   table emitter (rows/columns, column-header announcements) - for
+   cargo/crew.
 5. Review buffers: scrub named text lists (event log, status) independent
-   of focus (Alt+arrows in WotR).
+   of focus.
 6. Text entry echo for game input fields (the input layer's textSafe
    machinery is the substrate).
 7. Settings model: persisted typed settings tree, per-kind/per-type
@@ -43,10 +43,10 @@ verified facts live in CLAUDE.md.
    the substrate); capture screen with conflict handling.
 9. Mod menu launcher, help screen, log review screen (worth it once the
    settings model exists).
-10. UI earcons (WotR plays hover/activation sounds) - a design decision;
-    the game's own click sounds already fire on activation.
-11. Clipboard last-resort speech channel (WotR's terminal fallback) - low
-    priority; Prism covers SAPI.
+10. UI earcons (hover/activation sounds) - a design decision; the game's
+    own click sounds already fire on activation.
+11. Clipboard last-resort speech channel - low priority; Prism covers
+    SAPI.
 12. Screen-struct affordances with no consumer yet: KeepStateOnPop,
     InitialFocusStop, pending-focus-with-retry, StartUnfocused/Wrap flags.
 13. Dev-driver niceties: compound (array/struct) literals for call/set, an

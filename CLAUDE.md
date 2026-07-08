@@ -164,8 +164,8 @@ group's first/last control, **Escape** nav-back (consumed ONLY when a screen
 claims it via onBack - the dropdown child screen - otherwise the game's own
 Escape runs untouched). Tooltips have NO key: a widget's tooltipStr is an
 announcement part, read inline with the control. Actions carry a bindings
-LIST (any chord fires). Ctrl+Up/Down are reserved (WotR region jumps) for
-future grid screens.
+LIST (any chord fires). Ctrl+Up/Down are reserved for future grid-screen
+region jumps.
 
 ## Hard rules (the audit command checks these)
 
@@ -212,14 +212,14 @@ future grid screens.
 - **README stays current in the same session** as any key or feature change
   (and this file for any rule or architecture change).
 
-## Deliberate divergences from the WotR reference (do not re-flag)
+## Settled design decisions (do not re-flag)
 
-Tab wraps between stops (WotR consumes; its no-wrap ties to an exploration
-blur we don't have). Enter on a no-action node speaks "No action" (WotR is
-silent). Dropdowns are registered child screens via poll-and-diff (WotR
-uses imperative child chains). No focus-mode toggle - the screen stack IS
-focus mode. Tooltip is an inline part, no key (game tooltips are flat).
-A multi-item row IS a group with a two-axis "n of m" (WotR hides rows from
-the vertical count - the exact bug Rashad reported). String categories, not
-enums. textSafe speech keys stay live while typing (WotR stands down).
-Single-command-in-flight 429 on the dev driver (drivers serialize).
+Tab wraps between stops. Enter on a no-action node speaks "No action".
+Dropdowns are registered child screens going live through poll-and-diff.
+No focus-mode toggle - the screen stack IS focus mode. Tooltip is an
+inline announcement part, no key (game tooltips are flat). A multi-item
+row IS a group: one entry in the vertical "n of m", members keep their
+in-row "x of k" - the two numbering axes never blur. Input categories are
+strings, not enums. The textSafe speech keys stay live while the game's
+text-field mode is active. The dev driver serializes game-touching calls
+(a second in-flight command gets an explicit 429).

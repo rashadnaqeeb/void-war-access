@@ -42,8 +42,8 @@ function vwa_input_init()
 }
 
 // binding: struct from vwa_bind(), or an array of them - any listed chord
-// fires the action (WotR actions carry a binding LIST; ours stores one the
-// same way so a second key can be added without reshaping the registry).
+// fires the action (stored as a list so a second key can be added without
+// reshaping the registry).
 // repeats: typematic repeat while held.
 // handler: a zero-argument function; handlers speak via vwa_speak only.
 function vwa_action_register(actionKey, labelKey, category, binding, repeats, handler)

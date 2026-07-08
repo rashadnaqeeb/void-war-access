@@ -1,7 +1,6 @@
 // scrVwaAnnounce - Void War Access announcement composition: announcement
 // parts, per-control-type part ordering (as data, not classes), and the
-// path-diff compose that turns a focus change into spoken parts. Ported from
-// WotR Access's UI/Graph/GraphAnnouncer + GraphTypes.
+// path-diff compose that turns a focus change into spoken parts.
 // Imported by tools/build-mod.csx as a new global script. Ships in release.
 //
 // PURE MODULE: composition returns ARRAYS OF STRINGS for vwa_speak (the

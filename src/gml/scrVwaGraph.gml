@@ -1,21 +1,19 @@
 // scrVwaGraph - Void War Access control graph: two-tier node identity,
 // immediate-mode graph builder (menu mode + raw mode), and the navigation
 // engine (down-right total order, focus reconciliation across rebuilds, Tab
-// stops with remembered positions). Ported from WotR Access's UI/Graph
-// (GraphBuilder/KeyGraph/ControlId), itself from Tanglebeep and Factorio
-// Access's key-graph.lua.
+// stops with remembered positions).
 // Imported by tools/build-mod.csx as a new global script. Ships in release.
 //
 // PURE MODULE: no instance or global references, no speech - the engine
 // returns what happened and the screens layer (scrVwaScreens) announces it.
 // Announcement-part helpers and composition live in scrVwaAnnounce.
 //
-// Known divergences from the WotR reference, deliberate for now:
-// - No expandable tree groups (BeginGroup) and no regions; nothing in the
-//   Void War foundation screens needs them yet.
+// Deliberate simplifications, for now:
+// - No expandable tree groups and no regions; nothing in the Void War
+//   foundation screens needs them yet.
 // - No menu/raw mode-boundary stitching: a Tab stop that mixes menu rows
 //   with raw nodes leaves the seam unwired. Revisit if a real screen mixes
-//   modes (WotR GraphBuilder.StitchModeBoundaries is the recipe).
+//   modes.
 //
 // Directions are the strings "up" / "down" / "left" / "right" (enums are
 // avoided; cross-entry enum visibility is not guaranteed under the UTMT
@@ -750,9 +748,9 @@ function vwa_graph_move_stop(gr, dirNum)
 }
 
 // Jump to the first (dirNum -1) or last (+1) control of the focused Tab
-// stop, in declaration order - a list's ends (WotR ui.home/ui.end). The
-// last entry of a multi-item row is its last member, so End on a menu
-// ending in a button row lands on the row's final button.
+// stop, in declaration order - a list's ends. The last entry of a
+// multi-item row is its last member, so End on a menu ending in a button
+// row lands on the row's final button.
 function vwa_graph_move_ends(gr, dirNum)
 {
     var result = { moved: false, fromNode: undefined, toNode: undefined, label: undefined };

@@ -1,9 +1,8 @@
 // scrVwaScreens - Void War Access screen layer: the screen registry, the
 // per-frame poll-and-diff stack resolve, focus sync, and the navigator (the
 // UI-category actions that move the graph cursor, plus the once-per-frame
-// observe that speaks focus changes). Ported from WotR Access's
-// Screens/ScreenManager + Screen and UI/Navigator, on the GML graph engine
-// in scrVwaGraph and the composer in scrVwaAnnounce.
+// observe that speaks focus changes). Built on the graph engine in
+// scrVwaGraph and the composer in scrVwaAnnounce.
 // Imported by tools/build-mod.csx as a new global script. Ships in release.
 //
 // A screen is a struct registered once at boot (or lazily by dev tooling):
@@ -285,7 +284,7 @@ function vwa_nav_observe(scr)
     // parts in a stable order, so index identity holds across frames. When
     // the live-part COUNT changes (the node's part set reshaped under
     // focus), index identity is void: rebaseline silently instead of
-    // speaking a positionally-wrong part (WotR rebaselines the same way).
+    // speaking a positionally-wrong part.
     var liveParts = vwa_ann_live_parts(nd, global.vwaControlTypes);
     var sameShape = (array_length(liveParts)
         == array_length(global.vwaNavLiveCache));
@@ -342,10 +341,10 @@ function vwa_register_nav_actions()
         {
             vwa_nav_move("right");
         });
-    // Ctrl+left/right: large adjust steps on the focused control (sliders
-    // step 0.2 instead of 0.05, vwa_widget_slider_adjust). No-op on a
-    // control with no onAdjust. Ctrl+up/down stay unbound - reserved for
-    // WotR-style region jumps if grid screens ever need them.
+    // Ctrl+left/right: large adjust steps on the focused control
+    // (vwa_widget_slider_adjust). No-op on a control with no onAdjust.
+    // Ctrl+up/down stay unbound - reserved for region jumps if grid
+    // screens ever need them.
     vwa_action_register("nav-left-large", "vwa--action-nav-left-large", "ui",
         vwa_bind(vk_left, false, true, false), true, function()
         {
@@ -371,8 +370,8 @@ function vwa_register_nav_actions()
         {
             vwa_nav_stop_cycle(-1);
         });
-    // Home/End jump to the focused Tab stop's first/last control (WotR
-    // ui.home/ui.end; arrows never cross a stop, so neither do these).
+    // Home/End jump to the focused Tab stop's first/last control (arrows
+    // never cross a stop, so neither do these).
     vwa_action_register("nav-home", "vwa--action-nav-home", "ui",
         vwa_bind(vk_home, false, false, false), false, function()
         {
@@ -464,9 +463,8 @@ function vwa_nav_activate()
 // Speak a user-caused value change NOW, interrupting, instead of waiting
 // for the next tick's non-interrupting live-part watch: under typematic
 // key repeat on a slider the queued values would read behind the actual
-// position (WotR speaks a synchronous StateText after activate/adjust for
-// the same reason). Rebaselines the live cache so the watch does not
-// re-speak the change. Rerenders first: an activation that destroyed its
+// position. Rebaselines the live cache so the watch does not re-speak the
+// change. Rerenders first: an activation that destroyed its
 // own control (Cancel closing a dialogue) must not resolve parts through a
 // dead instance - after the rebuild, focus having moved means skip.
 function vwa_nav_state_feedback(scr)
