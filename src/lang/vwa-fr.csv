@@ -18,3 +18,13 @@ vwa--role-button,bouton
 vwa--role-toggle,bascule
 vwa--role-slider,curseur
 vwa--screen-menu,Menu
+vwa--role-combo,zone de liste déroulante
+vwa--state-checked,coché
+vwa--state-unchecked,non coché
+vwa--state-selected,sélectionné
+vwa--state-disabled,indisponible
+vwa--action-nav-back,Retour
+vwa--action-nav-tooltip,Lire l'infobulle
+vwa--no-tooltip,Pas d'infobulle
+vwa--screen-confirm,Confirmation
+vwa--screen-pause,Menu pause

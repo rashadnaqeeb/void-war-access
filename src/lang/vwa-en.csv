@@ -18,3 +18,13 @@ vwa--role-button,button
 vwa--role-toggle,toggle
 vwa--role-slider,slider
 vwa--screen-menu,Menu
+vwa--role-combo,combo box
+vwa--state-checked,checked
+vwa--state-unchecked,not checked
+vwa--state-selected,selected
+vwa--state-disabled,unavailable
+vwa--action-nav-back,Back
+vwa--action-nav-tooltip,Read tooltip
+vwa--no-tooltip,No tooltip
+vwa--screen-confirm,Confirmation
+vwa--screen-pause,Pause Menu

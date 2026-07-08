@@ -256,6 +256,18 @@ function vwa_input_unstick_modifiers()
     }
 }
 
+// Consume an Escape press a mod screen just handled, so the game's own raw
+// keyboard_check(_pressed)(vk_escape) menu handlers (settings closes on
+// Escape, the popup dismisses on Escape) do not also act on it this frame.
+// Our tick runs in Begin Step, before every game Step/Draw read, and
+// keyboard_clear is the game's own consume mechanism
+// (oUIConfirmationDialogue Step_0 does exactly this). Lives here because
+// this script is the one sanctioned home of raw keyboard functions.
+function vwa_input_consume_escape()
+{
+    keyboard_clear(vk_escape);
+}
+
 function vwa_input_dispatch()
 {
     var live = vwa_live_categories();

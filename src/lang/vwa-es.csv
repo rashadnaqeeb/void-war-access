@@ -18,3 +18,13 @@ vwa--role-button,botón
 vwa--role-toggle,conmutador
 vwa--role-slider,deslizador
 vwa--screen-menu,Menú
+vwa--role-combo,cuadro combinado
+vwa--state-checked,marcado
+vwa--state-unchecked,no marcado
+vwa--state-selected,seleccionado
+vwa--state-disabled,no disponible
+vwa--action-nav-back,Atrás
+vwa--action-nav-tooltip,Leer descripción
+vwa--no-tooltip,Sin descripción
+vwa--screen-confirm,Confirmación
+vwa--screen-pause,Menú de pausa

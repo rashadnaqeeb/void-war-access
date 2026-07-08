@@ -314,6 +314,74 @@ pass from a cold boot). Facts learned:
   happens to parse as JSON, so a `/cmd get` of a string arrives already
   unquoted in smoke scripts (CmdStr in mainmenu-smoke handles both).
 
+## Session 6 findings: settings-family widgets (verified 2026-07-08)
+
+The generic widget adapter, the real settings/pause/confirmation/dropdown
+screens, nav-back (Escape) and nav-tooltip (F9), and
+`scripts/settings-smoke.ps1` are built and verified live (all five smokes
+pass, 194 checks). Facts learned:
+
+- Settings widget contracts (all verified live at the settings menu):
+  oSettings_checkbox children carry `rightText` (label), `toggled`,
+  `tooltipStr`, `onClick` (method or -4); the real click path is
+  `clickToToggle` = all_dropdowns_closed guard, sfx_settingsCheckbox,
+  onClick. oButton_menus carry `text` / `textLabelName` (stable identity;
+  text re-localizes), `onClick`, `parentID` (the spawning menu instance,
+  stamped by menu_spawnButton), `dimButton`, `hoverConditionsMet`; Step_0
+  order is onClick THEN the press sound. oMenuElement dropdowns:
+  `enableDropdown`, `dropdownEntries` (plain string array),
+  `dropdown_currSelectedIndex`, `dropdownEntry_disabled`, `toggleDropdown`
+  (open flag), `select_dropdownEntry` (commit callback), value shown =
+  `centerTextOverride` when non-empty else `centerText`. Sliders (children
+  that ran settingsMenuElement_initSlider; detectable by the `dragging`
+  variable) show `leftLabel` / `rightLabel` (the game's Step refreshes
+  rightLabel every frame). oButton (oButton_configureKeybinds): label
+  `centerText`, click = onPress, press sound, `triggerButton = true` (the
+  child's Step does the work off the flag); `buttonActive()` gates it.
+- Ownership signals: every settings element's Create sets
+  `depth = global.dpthSettingsMenu1` - the clean "belongs to the settings
+  menu" filter for family enumeration. Menu buttons belong via `parentID`.
+- `all_dropdowns_closed` lives in scrResolution (not scrMenu);
+  `dropdown_any_open` in scrMenu. Both callable from injected code.
+- The game's dropdown mouse flow leaves the list OPEN after an entry click
+  (only the language element's beta path closes it); clicking the dropdown
+  button toggles it shut. Selecting the CURRENT window-size entry re-runs
+  set_displaySize with the same size - harmless, which is what the smoke
+  exploits to test commit without changing state.
+- **Dying-instance scope** (bit us): a stored onClick that destroys its own
+  button (Cancel destroys oUIConfirmationDialogue; its cleanup kills the
+  buttons) leaves the game's own running event fine, but any read through
+  the dead id from OUR method afterward throws "Unable to find instance"
+  - on a physical key that lands in the input tick watchdog. Mirrors must
+  read everything they need from the instance BEFORE invoking the callback
+  (the press-sound id), and guard post-callback writes with
+  instance_exists. The first smoke run masked this because the /input ERROR
+  reply was piped to null while the game state still changed; the smoke now
+  asserts replies are not ERROR.
+- Escape consume: `keyboard_clear(vk_escape)` from our Begin Step tick
+  suppresses the game's later `keyboard_check_pressed(vk_escape)` reads
+  that frame - it is the game's own pattern (oUIConfirmationDialogue
+  Step_0). The mod claims Escape ONLY via the opt-in per-screen onBack
+  (currently just the dropdown child screen); every other Escape reaches
+  the game untouched. Action-path verified; the physical-key ordering is
+  the one user-check item scripts cannot cover (this runner ignores
+  synthetic keys).
+- The standalone language menu object `oMenuLanguage` (menuToggle 10) is
+  dead code in 1.4.0c: no instance_create anywhere (only an oHull guard
+  references it). The settings language DROPDOWN is the live language UI.
+- `pause_game()` no-ops unless global.gameStarted or startTutorial, so
+  dev-spawning oMenuPause at the main menu is safe (verified: buttons work,
+  Resume reverts via revert_to_lastPauseState and clears the flag). The
+  dev driver grew `vwa_dev_spawn <objName>` for exactly this. In-run the
+  pause menu also DRAWS the current difficulty name + description
+  (draw_difficulty_and_description) - not yet surfaced; pick it up with the
+  in-run screens (a label node from runDifficulty_to_str/getDescription).
+- oUIConfirmationDialogue's spawned-over-settings variant (beta language)
+  gets `text` in the TARGET language (already localized at spawn); its
+  Confirm/Cancel are ordinary oButton_menus parented to the dialogue, and
+  oButton_menus Step_0 blocks every button NOT parented to the dialogue
+  while one exists - mirrored in the button vtable.
+
 ## Reference mods (pattern sources)
 
 - `..\factorio-access` - Lua mod, speech via stdout protocol to an external launcher. Patterns: MessageBuilder speech composition (crashes on hand-added spaces), scanner as streaming entity database, graph-based keyboard UI rebuilt per keypress, vary-early message wording, minimal punctuation, let-it-crash over defensive guards, tick-based offline test framework.

@@ -60,6 +60,8 @@ function vwa_control_types_init()
             vwa_part_fn("role", function() { return vwa_t("vwa--role-toggle"); }, false)] },
         slider: { order: stdOrder, common: [
             vwa_part_fn("role", function() { return vwa_t("vwa--role-slider"); }, false)] },
+        combo: { order: stdOrder, common: [
+            vwa_part_fn("role", function() { return vwa_t("vwa--role-combo"); }, false)] },
         label: { order: stdOrder, common: [] }
     };
 }
@@ -345,6 +347,56 @@ function vwa_register_nav_actions()
         {
             vwa_nav_stop_cycle(-1);
         });
+    // Back is opt-in per screen: a screen declaring onBack (fn() -> bool)
+    // gets first claim on Escape; returning true consumes the press so the
+    // game's own raw Escape handlers underneath do not also fire (a dropdown
+    // must close without the whole settings menu closing behind it). With no
+    // onBack the game sees Escape untouched - dismissing the popup, closing
+    // settings, opening settings from the bare main menu all stay the game's
+    // own behavior.
+    vwa_action_register("nav-back", "vwa--action-nav-back", "ui",
+        vwa_bind(vk_escape, false, false, false), false, function()
+        {
+            vwa_nav_back();
+        });
+    // Tooltip on demand: F9 reads the focused control's tooltip. F-keys
+    // avoid every key the game binds (see vwa_register_global_actions).
+    vwa_action_register("nav-tooltip", "vwa--action-nav-tooltip", "ui",
+        vwa_bind(vk_f9, false, false, false), false, function()
+        {
+            vwa_nav_tooltip();
+        });
+}
+
+function vwa_nav_back()
+{
+    var scr = global.vwaFocusedScreen;
+    if (scr == undefined)
+    {
+        return;
+    }
+    if (!variable_struct_exists(scr, "onBack") || scr.onBack == undefined)
+    {
+        return;
+    }
+    var fn = scr.onBack;
+    if (fn())
+    {
+        vwa_input_consume_escape();
+    }
+}
+
+function vwa_nav_tooltip()
+{
+    var scr = global.vwaFocusedScreen;
+    if (scr == undefined)
+    {
+        return;
+    }
+    if (!vwa_graph_tooltip(scr.graph))
+    {
+        vwa_speak([vwa_t("vwa--no-tooltip")], false);
+    }
 }
 
 function vwa_nav_move(dir)

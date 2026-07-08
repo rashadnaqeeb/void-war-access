@@ -163,15 +163,23 @@ for ($i = 1; $i -le $settingsIdx; $i++) {
     CheckSpeech "down to entry $($i + 1) of $n" { Fire 'nav-down' } @(NodeLine $m.nodes[$i])
 }
 
-# --- Enter on Settings: the game menu opens; placeholder announces it ---
-CheckSpeech 'activating Settings announces the settings menu' { Fire 'nav-activate' } @($settingsName)
+# --- Enter on Settings: the real settings screen opens (session 6): it
+#     announces its name, then the landing control ---
+$cur = SpeechNext
+Fire 'nav-activate' | Out-Null
+Start-Sleep -Milliseconds 400
+$sm = GuiMod
+Check 'settings screen focused' ($sm.focused -eq 'menu-settings') $sm.focused
+$got = @((Invoke-RestMethod "$base/speech?since=$cur" -TimeoutSec 5).lines)
+$expected = @($settingsName, (NodeLine $sm.nodes[0]))
+Check 'activating Settings announces name then landing' (
+    ($got -join '|') -eq ($expected -join '|')) "expected '$($expected -join '|')', got '$($got -join '|')'"
 $s = Invoke-RestMethod "$base/state" -TimeoutSec 8
 $stackNames = @($s.stack | ForEach-Object { $_.name })
-Check 'settings placeholder stacked over main-menu' (
+Check 'settings screen stacked over main-menu' (
     $stackNames -contains 'main-menu' -and $stackNames -contains 'menu-settings') ($stackNames -join ',')
-Check 'exclusive placeholder leaves only global live' (($s.liveCategories -join ',') -eq 'global') ($s.liveCategories -join ',')
-$r = Fire 'nav-down'
-Check 'nav refused while the placeholder holds focus' ($r -like 'ERROR:*') $r
+Check 'settings keeps ui live (real screen now)' (
+    ($s.liveCategories -contains 'ui') -and ($s.liveCategories -contains 'global')) ($s.liveCategories -join ',')
 
 # --- close via the game's own stored callback: focus restores, spoken once ---
 CheckSpeech 'closing settings re-announces menu and restores focus' {

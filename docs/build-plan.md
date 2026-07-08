@@ -279,7 +279,64 @@ Verify (user): change a real setting end to end by ear, including a dropdown, an
 Exit criteria: all four screens fully navigable; the raw-vs-mod diff shows nothing missing that a sighted player can reach; generic-builder exceptions documented here.
 Risks: dropdown closure state may need per-instance reads the generic pass can't infer; settings checkboxes are not children of `oMenuElement` and need their own enumeration.
 
-Status: not started.
+Status: agent verification COMPLETE (2026-07-08); user by-ear verification pending.
+The generic widget adapter lives in `scrVwaMenus` (`vwa_widgets_emit`: live
+enumeration, y-then-x sort, 4px same-row grouping - the game's own alignment
+tolerance - vertical wrap; `vwa_widget_add` vtable dispatch over
+oSettings_checkbox toggles, oButton_menus buttons, oMenuElement
+slider/combo/label, oButton framed buttons). Real screens registered:
+settings (menuToggle 9; ownership = the three widget families at
+`global.dpthSettingsMenu1` plus oButton_menus by parentID), pause/escape
+menu (8, oMenuPause, all oButton_menus), confirmation dialogue (14, layer
+50; live message text as a label node, then its buttons), and the dropdown
+child screen (`vwa-dropdown`, layer 45: pushed when any oMenuElement flips
+toggleDropdown, lands on the current selection via its "selected" part,
+Enter commits through the stored select_dropdownEntry then closes, Escape
+closes just the list). Escape handling is a new opt-in per-screen `onBack`:
+the ui action nav-back consumes the press (`vwa_input_consume_escape`,
+keyboard_clear in Begin Step before the game's Draw reads it) ONLY when a
+screen claims it; everywhere else the game's own Escape behavior is
+untouched. Second new ui action: nav-tooltip (F9) reads the focused
+control's tooltipStr. New control type "combo".
+Generic-builder exceptions, as predicted: (1) volume sliders have no
+pointer-free game handler - `vwa_widget_slider_adjust` mirrors the mouse
+wheel path's exact effect (0.05 step, clamp, music/master_volume_update)
+per slider object; a new game slider means extending that dispatch. (2) The
+language dropdown's per-entry beta hover tooltip is not surfaced; the same
+warning arrives in the confirmation dialogue before a beta language
+commits, so nothing is lost.
+Deliberate divergence: the game's mouse flow leaves a dropdown list open
+after clicking an entry; the keyboard flow closes on commit (combo-box
+convention; closing is exactly what clicking the dropdown button again
+does). Finding: the standalone language menu (menuToggle 10, oMenuLanguage)
+is DEAD CODE in 1.4.0c - nothing instantiates it; the settings language
+dropdown replaced it. It is still registered through the generic builder
+(one call) in case the game revives it.
+The catch this session (bit us): an onClick that destroys its own button
+(Cancel destroys the dialogue, whose cleanup kills its buttons) crashes any
+post-onClick read through the dead id from mod method scope - the game's
+own Step survives only because a dying instance's running event keeps its
+scope. Every activation mirror now reads the press-sound id before invoking
+the callback; without the fix every keyboard Cancel tripped the input
+watchdog. `vwa_dev_spawn <objName>` (dev-only) spawns screens otherwise
+unreachable without a run - oMenuPause verified safe at the main menu
+(pause_game no-ops with no run live; Resume reverts cleanly).
+`scripts/settings-smoke.ps1` (70 checks) covers the whole session including
+the raw-vs-mod widget diff and now asserts /input replies are not ERROR
+(the dead-id crash initially hid behind an ignored reply). All five smokes
+pass from a cold boot (194 checks total).
+User checks for Rashad (launch with `-Speech`): open Settings from the main
+menu and arrow through all 16 controls; the three window checkboxes read as
+a row ("1 of 3" etc.) with left/right; Enter on Show Version Info speaks
+just "checked"/"not checked"; left/right on Music Volume speaks the new
+number; Enter on Window Size opens the list landing on the current entry
+with "selected", Enter commits, and - the one thing scripts cannot press -
+a PHYSICAL Escape with the list open must close just the list and leave
+settings open (the consume path runs before the game's own Escape handler;
+verified by machinery, needs the real key once); Enter on Language then a
+beta language speaks the Confirmation dialogue, Cancel backs out; F9 on
+Fullscreen reads its tooltip; Back returns to the main menu with focus on
+Settings.
 
 ## Session 7: code review and hardening
 

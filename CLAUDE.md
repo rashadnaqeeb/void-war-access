@@ -31,8 +31,12 @@ mods: `../wotr-access` (UI architecture we are porting), `../tangledeep`
   `scrVwaScreens.gml` (screen registry, per-frame poll-and-diff stack and
   focus sync driven from the input tick, navigator actions, once-per-frame
   announce observe + live-part watch), `scrVwaMenus.gml` (the real game
-  screens: main menu, announcements popup, name-only placeholders for open
-  game menus gated on `!global.gameIsLoading`), and `scrVwaDev.gml`
+  screens: main menu, announcements popup, the generic widget adapter
+  (y-then-x rows, vtable per widget family, activation mirrors that read
+  press sounds BEFORE callbacks - a destroyed button's dead id crashes
+  post-callback reads) and the settings family: settings, pause menu,
+  confirmation dialogue, dropdown child screen with opt-in onBack Escape
+  consume; all gated on `!global.gameIsLoading`), and `scrVwaDev.gml`
   (dev-driver eval-lite interpreter, dev builds only) each become a new
   global script;
   `*.append.gml` files append to the named code entry (`*.dev.append.gml`
@@ -99,21 +103,31 @@ other flag order, or the permission rule won't match.
   `live:false` with `kbDirect:true` - a human really holding a key;
   `keyboard_key_press` does NOT work in this runner),
   `vwa_dev_dismiss_start_popup` (the announcements popup's click/Escape
-  dismissal for scripted runs, honoring the saved double-spawn quirk).
+  dismissal for scripted runs, honoring the saved double-spawn quirk),
+  `vwa_dev_spawn <objName>` (spawn by object name; oMenuPause verified safe
+  at the main menu - pause_game no-ops with no run live).
 - User hotkeys (Global category, registered in `scrVwaInput`): F11 repeat
   last spoken, Ctrl stop speech, Shift+F11 panic speech-stack reset. UI
   category (live only while a mod screen is focused, `scrVwaScreens`):
   arrows navigate (left/right adjust sliders), Enter activates, Tab /
-  Shift+Tab cycle control groups with remembered positions.
+  Shift+Tab cycle control groups with remembered positions, F9 reads the
+  focused control's tooltip, Escape fires nav-back (opt-in per-screen
+  onBack; consumed via keyboard_clear ONLY when a screen claims it - the
+  dropdown child screen - otherwise the game's own Escape handling runs
+  untouched).
 - Regression checks against a live game at the main menu:
   `scripts/drive-smoke.ps1` (dev driver), `scripts/input-smoke.ps1` (input
   layer), `scripts/screens-smoke.ps1` (framework core: exact speech
-  transcript over the synthetic test menu), and `scripts/mainmenu-smoke.ps1`
-  (real screens: main menu, settings placeholder, announcements popup;
-  profile-agnostic - expected speech derives from /gui/mod). Run all four
-  after touching the shim, the pump, `scrVwaInput`, or any framework or
-  screen script. `tools/run-game.ps1 -WaitMainMenu` blocks until /gui/mod
-  shows the main-menu screen - use it before smoke runs.
+  transcript over the synthetic test menu), `scripts/mainmenu-smoke.ps1`
+  (real screens: main menu, real settings screen, announcements popup;
+  profile-agnostic - expected speech derives from /gui/mod), and
+  `scripts/settings-smoke.ps1` (session 6: generic widget adapter, settings
+  incl. checkbox/slider/dropdown/tooltip, confirmation dialogue via the
+  beta-language flow, dev-spawned pause menu; restores every setting it
+  touches). Run all five after touching the shim, the pump, `scrVwaInput`,
+  or any framework or screen script. `tools/run-game.ps1 -WaitMainMenu`
+  blocks until /gui/mod shows the main-menu screen - use it before smoke
+  runs.
 - Background-run works: the shim subclasses the game window's WndProc to swallow
   deactivation, so the autonomous loop runs unattended (drive over HTTP with the
   game backgrounded). The documented pause is a BOOT freeze - frozen until the

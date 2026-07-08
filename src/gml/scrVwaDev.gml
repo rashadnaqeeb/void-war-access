@@ -1265,6 +1265,20 @@ function vwa_dev_gui_mod()
     return out + "]}";
 }
 
+// Spawn any object by name at (0,0) depth 0 - dev-only scaffolding for
+// driving screens that are otherwise reachable only mid-run. Verified safe
+// for oMenuPause at the main menu: pause_game() no-ops when no run is live
+// (scrPause guards on gameStarted), and its Resume button reverts cleanly.
+function vwa_dev_spawn(objName)
+{
+    if (asset_get_type(objName) != asset_object)
+    {
+        throw ("no such object: " + string(objName));
+    }
+    var inst = instance_create_depth(0, 0, 0, asset_get_index(objName));
+    return { spawned: objName, id: inst };
+}
+
 // Dismiss the game-start popup the exact way the game's own Draw_64
 // dismissal does (left click / Escape), including the once-per-profile
 // double-spawn quirk (the first-ever dismissal respawns the popup once,

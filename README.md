@@ -11,7 +11,9 @@ Early development. What works today:
 - Boot to the main menu and hear it announced.
 - Navigate the main menu with the arrow keys (wrapping top to bottom), hear each entry as "label, button, n of m", and activate entries with Enter.
 - The announcements popup (patch notes): entries are listed by title, Enter reads an announcement's body, Escape dismisses it (the game's own key). Quirk inherited from the game: the very first dismissal on a profile makes the popup reappear once - press Escape again.
-- Settings, language, and other game menus announce their names when they open; Escape closes them. Full navigation of the settings screens is the next milestone.
+- The full settings menu: checkboxes ("label, toggle, checked/not checked" - Enter flips them and the new state is announced), the volume sliders (left/right arrows adjust in 5-point steps, the new value is announced), the window size and language dropdowns (Enter opens the list as its own screen landing on the current choice, Enter commits, Escape closes just the list), Configure Keybinds, and Back. F9 reads the focused control's tooltip.
+- The confirmation dialogue (for example when choosing a beta language): the message is read, arrows reach Confirm and Cancel.
+- The in-game pause menu (Resume, Hangar, Restart, Settings, Main Menu).
 - Speech hotkeys, available everywhere: F11 repeats the last spoken line, Ctrl stops speech, Shift+F11 resets the speech stack if it ever goes quiet.
 
 In-run gameplay (combat, encounters, ship management) is not yet accessible.
@@ -38,10 +40,11 @@ Without `-Speech`, the mod runs in capture-only mode: nothing is voiced, but eve
 
 ## Keys
 
-- Arrow keys: move through a menu (up/down wrap at the ends; left/right adjust sliders where present).
-- Enter: activate the focused control.
+- Arrow keys: move through a menu (up/down wrap at the ends; left/right adjust sliders and move within horizontal rows).
+- Enter: activate the focused control (buttons click, checkboxes flip, dropdowns open, a dropdown entry commits).
 - Tab and Shift+Tab: cycle between control groups on screens that have them.
-- Escape: close popups and menus (the game's own handling).
+- Escape: close popups and menus (the game's own handling). With a dropdown list open, Escape closes just the list and stays in the menu.
+- F9: read the focused control's tooltip.
 - F11: repeat the last spoken line.
 - Ctrl: stop speech.
 - Shift+F11: reset the speech stack and announce the active backend.
