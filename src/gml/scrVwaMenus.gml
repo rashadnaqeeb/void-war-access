@@ -14,7 +14,7 @@
 // same-row tolerance 4px - the game's own alignment test in
 // oSettings_checkbox Draw_64). Activation always calls the game's own
 // stored callbacks and mirrors the real click path's guards and sounds.
-// Documented generic-builder exceptions (see build-plan session 6):
+// Documented generic-builder exceptions:
 // - Volume sliders have no pointer-free game handler; vwa_widget_slider_adjust
 //   mirrors the mouse-wheel path's effect (increment + clamp + update call)
 //   per slider object.

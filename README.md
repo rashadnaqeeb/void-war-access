@@ -54,4 +54,4 @@ control's announcement; there is no separate tooltip key.
 
 ## For developers
 
-`docs/build-plan.md` is the session-by-session roadmap; `docs/game-and-tooling.md` records verified game facts and toolchain notes; `CLAUDE.md` holds the project invariants. The mod is developed agent-first: an in-process dev driver (dev builds only, loopback HTTP on port 8772) exposes speech capture, UI dumps, and input injection so the whole loop runs unattended.
+`CLAUDE.md` holds the project invariants, verified game facts, and the build/run/verify workflow; `docs/backlog.md` lists future work. The mod is developed agent-first: an in-process dev driver (dev builds only, loopback HTTP on port 8772) exposes speech capture, UI dumps, and input injection so the whole loop runs unattended.

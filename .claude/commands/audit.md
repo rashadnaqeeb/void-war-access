@@ -10,9 +10,9 @@ is invisible to the user, so correctness findings outrank style findings.
 
 ## Instructions
 
-1. Read CLAUDE.md (invariants, sanctioned exceptions) and
-   docs/parity-audit.md (documented deliberate divergences - do NOT
-   re-report those as findings).
+1. Read CLAUDE.md (invariants, sanctioned exceptions, and the deliberate
+   divergences from the WotR reference - do NOT re-report those as
+   findings) and docs/backlog.md (known future work is not a finding).
 2. Scan all of src/gml/, src/shim/, src/lang/, tools/, and scripts/.
 3. Where a check needs game truth, look it up in decompiled/ or verify
    over the dev driver against a live game - never from memory.
@@ -131,9 +131,9 @@ is invisible to the user, so correctness findings outrank style findings.
 ### Docs currency
 
 - CLAUDE.md invariants match the code's actual sanctioned exceptions.
-- build-plan.md Status lines current; game-and-tooling.md facts marked
-  verified and dated; README keys section matches the registered actions;
-  parity-audit.md deliberate-divergence list still true.
+- README keys section matches the registered actions; CLAUDE.md's verified
+  facts, sanctioned-exception lists, and deliberate-divergence section
+  match the code; docs/backlog.md doesn't list anything already built.
 
 ## Output Format
 
@@ -147,4 +147,4 @@ is invisible to the user, so correctness findings outrank style findings.
 For each: Area, File(s):line, what the issue is, why it matters for a
 blind player or for maintainability, and a concrete suggestion. Verify
 each finding against the code before reporting; do not report documented
-deliberate divergences from parity-audit.md.
+deliberate divergences from CLAUDE.md's divergence section.
