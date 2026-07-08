@@ -21,8 +21,10 @@ mods: `../wotr-access` (UI architecture we are porting), `../tangledeep`
   queue. Pure protocol logic lives in `vw_protocol.c` (no OS deps) and is
   unit-tested host-side (`src/shim/tests/`).
 - `src/gml/` - GML source fragments assembled into the game by build-mod.
-  `scrVwaCore.gml` becomes a new global script; `*.append.gml` files append to
-  the named code entry.
+  `scrVwaCore.gml` (speech chokepoint, logging, shim binding) and
+  `scrVwaDev.gml` (dev-driver eval-lite interpreter, dev builds only) each
+  become a new global script; `*.append.gml` files append to the named code
+  entry.
 - `src/lang/` - mod strings as `vwa--`-prefixed CSV rows, merged into the
   game's own lang CSVs at build time (all mod speech is localized).
 - `vendor/prism/` - Prism 0.16.6 + header + license; ABI notes in its README.
@@ -51,12 +53,23 @@ other flag order, or the permission rule won't match.
   (the launcher wakes and cleans up). Cancelling the background task instead
   ORPHANS the game (it is Steam's child, and a hard cancel skips finally) -
   self-healing on the next launcher run, but prefer taskkill.
-- Dev driver: `http://127.0.0.1:8772` - `GET /health`, `GET /speech?since=N`
-  (monotonic cursor; how you observe TTS you can't hear), `POST /cmd` (body:
-  `ping` or `say <text>`; eval-lite arrives session 2).
-- **The game pauses until its window is focused once per launch**
-  (runner-level, verified). `/health` answers only after that. Until the
-  WndProc workaround (session 2), ask Rashad to focus the window.
+- Dev driver: `http://127.0.0.1:8772` - `GET /health` (also reports
+  `bgKeepalive`), `GET /speech?since=N` (monotonic cursor; how you observe TTS
+  you can't hear), `GET /gui/raw[?obj=oThing]` (game-truth UI dump),
+  `GET /screenshot` (PNG to the save dir), `POST /cmd`. The `/cmd` eval-lite
+  vocabulary (in `scrVwaDev`, dev builds only): `ping`, `say <text>`, `room`,
+  `get <path>`, `set <path> <value>`, `dump <path> [depth]`, `instances <obj>`,
+  `call <script|path> [args...]`, `gui.raw [obj]`, `screenshot`, `help`. Paths:
+  `global.x`, `oObject.var` (first live instance), a numeric id, chained with
+  `.member` and `[n]`. A JSON reply is content-typed JSON; errors are `ERROR:`
+  text and never crash the pump. Never `var` a GML builtin name (`depth`, `x`,
+  ...) in injected code - it is a hard compile error.
+- Background-run works: the shim subclasses the game window's WndProc to swallow
+  deactivation, so the autonomous loop runs unattended (drive over HTTP with the
+  game backgrounded). The documented pause is a BOOT freeze - frozen until the
+  window is focused once - which Steam's `-applaunch` clears by itself, so no
+  human focus is normally needed; if `/health` still stalls, ask Rashad to focus
+  the window once. `-NoBg` (launcher) / `bg=0` (cfg) disables the keepalive.
 - Logs: shim -> `build\vw_speech.log`; GML mod log -> save dir
   (`%AppData%\Roaming\Void_War\vwa-mod.log`); every spoken line also lands in
   `vwa-speech.log` there. `show_debug_message` does NOT reach `-debugoutput`;

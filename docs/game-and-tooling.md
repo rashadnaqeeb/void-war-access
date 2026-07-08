@@ -96,6 +96,72 @@ The speech shim and dev-driver transport are built and verified end to end in th
 - Prism's create_best selects JAWS on this machine (`prism:JAWS`); voiced output confirmed by ear by Rashad (2026-07-08).
 - Shim exports and tier codes: `vw_init` returns 2 prism / 1 sapi / 0 capture-only. Speech gate off means Prism/SAPI are never initialized at all (unattended runs touch no screen reader). `/health` reports `backend`, `speechOn`, `spoken` count, and `pumpAgeMs` (ms since the last `vw_poll`; -1 = GML never pumped, i.e. game frozen or patch failed).
 
+## Session 2 findings: dev driver and background-run (verified 2026-07-08)
+
+The eval-lite interpreter, `/gui/raw`, `/screenshot`, and the WndProc
+background-run keepalive are built and verified live at the main menu. Facts
+learned:
+
+- `var depth` (and any `var <builtin>`) is a hard compile error in the UTMT
+  0.9.x importer ("Declaring local variable over builtin 'depth'"). GML
+  builtins like `depth`, `x`, `y`, `visible` cannot be shadowed by a local.
+  Bit us; renamed to `dumpDepth`. Watch for this in every new script.
+- `json_stringify` is not usable for the dev dump: it cannot represent methods
+  or live instances, and it has no depth/cycle guard. We hand-roll a recursive
+  dumper (`vwa_dump_json`) that summarizes methods as `"<method>"`, instances as
+  `{__object,__id,x,y,depth,visible,...}`, and caps recursion by depth plus a
+  global node budget (`global.vwaDumpBudget`) so a cyclic or huge graph cannot
+  wedge the frame. `string(<real>)` truncates to 2 decimals, so numbers get their
+  own formatter (`vwa_json_num`).
+- Reflection primitives that work as documented in this build: `variable_global_get/set`,
+  `variable_instance_get/set`, `variable_instance_get_names`, `variable_struct_get_names`,
+  `instance_find`/`instance_number`, `asset_get_index`/`asset_get_type`,
+  `object_get_name`, `script_execute_ext(fn, argArray)`. `typeof(v) == "ref"`
+  identifies an instance reference; instance ids read back as reals >= 100000
+  (main menu controls instance was id 100005).
+- Reading a built-in instance var (`x`, `sprite_index`) via `variable_instance_get`
+  works, but `variable_instance_exists` returns false for built-ins - so the path
+  resolver probes the value and only errors when it is `undefined` AND the name
+  doesn't exist.
+- `instance_create_depth` returns the new id immediately and runs Create
+  synchronously, but a menu created by calling its button's `onClick` out of the
+  normal flow does not survive to the next frame (e.g. `oMenuSettings` count is 0
+  a frame later; ids increment 2257 -> 2258 across calls, proving creation). The
+  real open/close flow is a session 5/6 reverse-engineering task, not a driver bug.
+- The main menu at boot: `global.menuToggle == 0`, room `rmMainMenu`,
+  `oMainMenuControls` buttonList = New Game, Achievements, Settings, Exit,
+  Announcements (Continue/Tutorial/Archives/Credits are conditional on save and
+  progress state, absent on a fresh profile). `oButton` children present are
+  `oUIStationsSave`, `oUIStationsReturn`, `oSocialButton` x2; the button collision
+  boxes are `o1x1Pixel` instances parented to `oMainMenuControls`.
+- Screenshots: `screen_save(relativeName)` writes a valid PNG to the save dir;
+  `game_save_id` is that dir's absolute path (used to return the full path).
+- WndProc background-run: `SetWindowLongPtrW(GWLP_WNDPROC)` on the game window
+  succeeds from the game's main thread (which owns the window). The window class
+  is `YYGameMakerYY`, title "Void War". The window does NOT exist yet when
+  `vw_init` runs (oInitGlobals Create, preload room), so installation must retry -
+  it is driven from `vw_poll` once per frame and succeeds on the first pump
+  (attempt 1). We swallow `WM_ACTIVATE(WA_INACTIVE)`, `WM_ACTIVATEAPP(0)`, and
+  `WM_KILLFOCUS`. `/health` reports `bgKeepalive`; the subclass is removed on
+  `vw_shutdown`.
+- Background-run outcome: the autonomous loop runs unattended today. This whole
+  session drove the game over HTTP while it was backgrounded (a File Explorer
+  window held the foreground) and the pump never stalled (`pumpAgeMs` stayed
+  0-16ms). The documented "pauses on focus loss" is really a BOOT freeze - the
+  runner is frozen until the window is focused once - and Steam's `-applaunch`
+  focuses it automatically, so no human touch is needed. A steady-state
+  focus-loss freeze could NOT be reproduced: Windows' foreground lock blocks a
+  programmatic `SetForegroundWindow` from a background process (the same lock that
+  stops anything from stealing the game's focus mid-run), and a global
+  `FindWindowW("YYGameMakerYY")` returns 0 (the class is process-local), so I
+  could not force a minimize either. Net: the WndProc subclass is an installed,
+  harmless safeguard whose strict necessity is unproven; the loop works with it on
+  (default) or off (`-NoBg`).
+- `POST /cmd` replies are content-typed by shape: a reply starting with `{` or `[`
+  is served as `application/json`, else `text/plain` (errors and ping/say are
+  plain text). `/gui/raw` and `/screenshot` are GET sugar that submit
+  `gui.raw`/`screenshot` through the same one-command-per-frame pump.
+
 ## Reference mods (pattern sources)
 
 - `..\factorio-access` - Lua mod, speech via stdout protocol to an external launcher. Patterns: MessageBuilder speech composition (crashes on hand-added spaces), scanner as streaming entity database, graph-based keyboard UI rebuilt per keypress, vary-early message wording, minimal punctuation, let-it-crash over defensive guards, tick-based offline test framework.

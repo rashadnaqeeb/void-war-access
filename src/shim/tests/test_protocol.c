@@ -205,6 +205,19 @@ static void test_query(void)
     CHECK(vwp_query_u64("", "since", 7) == 7);
     CHECK(vwp_query_u64("insince=9", "since", 7) == 7);
     CHECK(vwp_query_u64("since=0", "since", 7) == 0);
+
+    char v[8];
+    CHECK(vwp_query_str("a=1&obj=oButton&b=2", "obj", v, sizeof v) == 1);
+    CHECK_STR(v, "oButton");
+    CHECK(vwp_query_str("obj=oMainMenuControls", "obj", v, sizeof v) == 1);
+    CHECK_STR(v, "oMainMe"); // truncated to outsz-1
+    CHECK(vwp_query_str("a=1&b=2", "obj", v, sizeof v) == 0);
+    CHECK_STR(v, "");
+    CHECK(vwp_query_str("obj=", "obj", v, sizeof v) == 1);
+    CHECK_STR(v, "");
+    CHECK(vwp_query_str("xobj=zz", "obj", v, sizeof v) == 0);
+    CHECK(vwp_query_str("obj=tail", "obj", v, sizeof v) == 1);
+    CHECK_STR(v, "tail");
 }
 
 static void test_cmd_slot(void)

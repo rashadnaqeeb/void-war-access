@@ -21,6 +21,11 @@ var group = new CodeImportGroup(Data);
 group.QueueReplace("gml_GlobalScript_scrVwaCore",
     File.ReadAllText(Path.Combine(gmlDir, "scrVwaCore.gml")));
 
+// Dev-driver eval-lite interpreter (dev builds only; the release build
+// script will omit this file and the pump append).
+group.QueueReplace("gml_GlobalScript_scrVwaDev",
+    File.ReadAllText(Path.Combine(gmlDir, "scrVwaDev.gml")));
+
 // Boot patch: shim load + boot announcement, at the end of oInitGlobals Create.
 group.QueueAppend("gml_Object_oInitGlobals_Create_0",
     File.ReadAllText(Path.Combine(gmlDir, "oInitGlobals_Create_0.append.gml")));
@@ -31,8 +36,10 @@ group.QueueAppend("gml_Object_oInputManager_Step_1",
 
 group.Import();
 
-// The import must actually have produced the new script's code entry.
+// The import must actually have produced the new scripts' code entries.
 if (Data.Code.ByName("gml_GlobalScript_scrVwaCore") == null)
     throw new Exception("gml_GlobalScript_scrVwaCore was not created by the import");
+if (Data.Code.ByName("gml_GlobalScript_scrVwaDev") == null)
+    throw new Exception("gml_GlobalScript_scrVwaDev was not created by the import");
 
 ScriptMessage("vw-access GML import OK");

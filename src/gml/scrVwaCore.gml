@@ -1,5 +1,6 @@
 // scrVwaCore - Void War Access core: logging, localization wrapper, the
-// speech chokepoint, shim binding, and the dev-driver command dispatcher.
+// speech chokepoint, and shim binding. The dev-driver command dispatcher
+// lives in scrVwaDev (dev builds only).
 // Imported by tools/build-mod.csx as a new global script.
 
 function vwa_pad2(n)
@@ -145,21 +146,4 @@ function vwa_speak(parts, interrupt)
             vwa_log("ERROR: vw_speak returned " + string(rc) + " for: " + text);
         }
     }
-}
-
-// Dev-driver command dispatch, one command per frame from the pump.
-// Session 1 vocabulary: ping, say <text>. The eval-lite interpreter
-// (get/set/dump/instances/call) arrives in session 2.
-function vwa_dev_dispatch(cmd)
-{
-    if (cmd == "ping")
-    {
-        return "pong";
-    }
-    if (string_copy(cmd, 1, 4) == "say ")
-    {
-        vwa_speak([string_delete(cmd, 1, 4)], true);
-        return "ok";
-    }
-    return "unknown command: " + cmd;
 }

@@ -304,6 +304,32 @@ uint64_t vwp_query_u64(const char *query, const char *key, uint64_t fallback)
     return fallback;
 }
 
+int vwp_query_str(const char *query, const char *key, char *out, size_t outsz)
+{
+    if (outsz == 0)
+        return 0;
+    out[0] = '\0';
+    size_t klen = strlen(key);
+    const char *p = query;
+    while (*p) {
+        if (strncmp(p, key, klen) == 0 && p[klen] == '=') {
+            const char *v = p + klen + 1;
+            size_t n = 0;
+            while (v[n] && v[n] != '&' && n < outsz - 1) {
+                out[n] = v[n];
+                n++;
+            }
+            out[n] = '\0';
+            return 1;
+        }
+        while (*p && *p != '&')
+            p++;
+        if (*p == '&')
+            p++;
+    }
+    return 0;
+}
+
 // ---- command slot ----
 
 void vwp_cmd_init(VwCmdSlot *s)

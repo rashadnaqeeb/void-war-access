@@ -95,7 +95,32 @@ Verify (user): none required this session (this is agent tooling), beyond confir
 Exit criteria: the smoke script passes; background-run outcome (working, or precisely documented fallback) recorded here and in `game-and-tooling.md`.
 Risks: WndProc subclassing may fight the runner's own message handling (crash or input weirdness - test thoroughly before relying on it); `json_stringify` may choke on self-referencing structs (depth-limit the dumper); method-variable invocation semantics on instances.
 
-Status: not started.
+Status: COMPLETE (2026-07-08). Eval-lite interpreter (`scrVwaDev`, a new dev-only
+global script) live: `ping`, `say`, `room`, `get`/`set`/`dump` over a path grammar
+(`global.x`, `oObject.var`, numeric ids, `.member` and `[n]` chaining), `instances
+<obj>`, `call <script|path> [args]`, `gui.raw [obj]`, `screenshot`, `help`. A
+hand-rolled recursive JSON dumper (depth- and node-budget limited so a cyclic or
+huge graph cannot wedge the frame) replaces `json_stringify` because it must
+summarize methods/instances and because `string(real)` truncates numbers.
+`GET /gui/raw` and `GET /screenshot` are shim-side sugar over the same interpreter.
+Verified live at the main menu: dumped `oMainMenuControls.buttonList` and got the
+real labels (New Game / Achievements / Settings / Exit / Announcements), set+got a
+scratch global, called scripts and got typed returns (bool, localized string,
+instance id from an onClick), enumerated instances, valid-PNG screenshot, and a
+malformed command returned `ERROR:` without killing the pump. `scripts/drive-smoke.ps1`
+(18 checks) passes end to end. Host-side protocol checks now 72 (added `vwp_query_str`).
+Background-run: the shim subclasses the game window's WndProc (retried from `vw_poll`
+each frame until the window exists; the window does not exist yet at `vw_init`) and
+swallows deactivate messages; `bgKeepalive` shows in `/health`, `-NoBg` / `bg=0`
+disables it. Outcome: the autonomous loop runs unattended TODAY - this whole session
+drove the game over HTTP with it backgrounded and the pump never stalled. The
+documented freeze is a BOOT freeze (frozen until the window is focused once), which
+Steam's `-applaunch` clears by itself; I could not reproduce a steady-state
+focus-loss freeze (Windows' foreground lock blocks a programmatic focus-steal - the
+same lock that keeps anything from stealing the game's focus during an unattended
+run), so whether the subclass is strictly load-bearing is unproven. It installs
+cleanly, does no harm, uninstalls on shutdown, and is a cheap safeguard. Details in
+`game-and-tooling.md`.
 
 ## Session 3: input layer
 

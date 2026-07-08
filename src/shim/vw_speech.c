@@ -60,6 +60,16 @@ static HANDLE g_server_thread = NULL;
 static SOCKET g_listen_sock = INVALID_SOCKET;
 static volatile LONG g_running = 0;
 
+// Background-run: the runner pauses the whole game when its window
+// deactivates, which kills unattended dev loops. We subclass the game
+// window's WndProc and swallow the deactivation messages so the runner
+// never observes focus loss. Dev-build workaround, config-gated (bg=0 /
+// VWACCESS_BG=0 disables). Known trade-off: the game also keeps reading
+// global key state (keyboard_check_direct) while unfocused.
+static int g_bg_on = 1;
+static WNDPROC g_orig_wndproc = NULL;
+static HWND g_game_hwnd = NULL;
+
 // Prism, loaded dynamically so a missing prism.dll degrades instead of
 // breaking our own DLL load.
 static HMODULE g_prism_mod = NULL;
@@ -153,6 +163,8 @@ static void read_config_file(void)
             g_speech_on = val != 0;
         else if (strcmp(line, "nodev") == 0)
             g_dev_on = val == 0;
+        else if (strcmp(line, "bg") == 0)
+            g_bg_on = val != 0;
     }
     fclose(f);
 }
@@ -169,6 +181,94 @@ static void read_config_env(void)
         g_dev_on = 0;
     if (GetEnvironmentVariableA("VWACCESS_SPEECH", v, sizeof v) > 0)
         g_speech_on = atoi(v) != 0;
+    if (GetEnvironmentVariableA("VWACCESS_BG", v, sizeof v) > 0)
+        g_bg_on = atoi(v) != 0;
+}
+
+// ---- background-run (focus-pause defeat) ----
+
+static LRESULT CALLBACK vw_wndproc(HWND h, UINT m, WPARAM w, LPARAM l)
+{
+    switch (m) {
+    case WM_ACTIVATE:
+        if (LOWORD(w) == WA_INACTIVE)
+            return 0; // runner never learns it was deactivated
+        break;
+    case WM_ACTIVATEAPP:
+        if (!w)
+            return 0;
+        break;
+    case WM_KILLFOCUS:
+        return 0;
+    default:
+        break;
+    }
+    return CallWindowProcW(g_orig_wndproc, h, m, w, l);
+}
+
+struct vw_find_wnd {
+    HWND best;    // GameMaker's own window class (visible or not)
+    HWND any;     // otherwise the first visible candidate
+};
+
+static BOOL CALLBACK vw_find_wnd_cb(HWND h, LPARAM lp)
+{
+    struct vw_find_wnd *fw = (struct vw_find_wnd *)lp;
+    char cls[64];
+    if (GetClassNameA(h, cls, sizeof cls) && strcmp(cls, "YYGameMakerYY") == 0) {
+        fw->best = h;
+        return FALSE;
+    }
+    if (!fw->any && IsWindowVisible(h))
+        fw->any = h;
+    return TRUE;
+}
+
+static BOOL CALLBACK vw_find_proc_wnd_cb(HWND h, LPARAM lp)
+{
+    DWORD pid = 0;
+    GetWindowThreadProcessId(h, &pid);
+    if (pid != GetCurrentProcessId())
+        return TRUE;
+    return vw_find_wnd_cb(h, lp);
+}
+
+// The window does not exist yet when vw_init runs (oInitGlobals Create, in
+// the preload room - observed live), so installation retries from vw_poll
+// once per frame until the window appears.
+#define VW_BG_MAX_ATTEMPTS 1800 // ~30s at 60fps
+static int g_bg_attempts = 0;
+
+static void try_install_bg(void)
+{
+    if (!g_bg_on || g_game_hwnd || g_bg_attempts >= VW_BG_MAX_ATTEMPTS)
+        return;
+    g_bg_attempts++;
+    struct vw_find_wnd fw = {NULL, NULL};
+    EnumThreadWindows(GetCurrentThreadId(), vw_find_wnd_cb, (LPARAM)&fw);
+    if (!fw.best && !fw.any)
+        EnumWindows(vw_find_proc_wnd_cb, (LPARAM)&fw);
+    HWND h = fw.best ? fw.best : fw.any;
+    if (!h) {
+        if (g_bg_attempts == VW_BG_MAX_ATTEMPTS)
+            vw_logf("bg: no game window found after %d attempts; focus-pause defeat unavailable",
+                    g_bg_attempts);
+        return;
+    }
+    char cls[64] = "", title[128] = "";
+    GetClassNameA(h, cls, sizeof cls);
+    GetWindowTextA(h, title, sizeof title);
+    DWORD owner_tid = GetWindowThreadProcessId(h, NULL);
+    SetLastError(0);
+    g_orig_wndproc = (WNDPROC)SetWindowLongPtrW(h, GWLP_WNDPROC, (LONG_PTR)vw_wndproc);
+    if (!g_orig_wndproc) {
+        vw_logf("bg: SetWindowLongPtr failed (error %lu)", GetLastError());
+        return;
+    }
+    g_game_hwnd = h;
+    vw_logf("bg: subclassed window %p (class=%s title=%s ownerTid=%lu myTid=%lu attempt=%d); "
+            "deactivation messages swallowed",
+            (void *)h, cls, title, owner_tid, GetCurrentThreadId(), g_bg_attempts);
 }
 
 // ---- speech backends ----
@@ -359,8 +459,10 @@ static void handle_health(SOCKET s)
                     VW_SHIM_VERSION);
     vwp_json_escape(&b, g_backend_desc);
     vwp_buf_appendf(&b,
-                    "\",\"speechOn\":%s,\"spoken\":%llu,\"pumpAgeMs\":%lld,\"port\":%d}",
-                    g_speech_on ? "true" : "false", spoken, pump_age, g_port);
+                    "\",\"speechOn\":%s,\"spoken\":%llu,\"pumpAgeMs\":%lld,\"port\":%d,"
+                    "\"bgKeepalive\":%s}",
+                    g_speech_on ? "true" : "false", spoken, pump_age, g_port,
+                    g_game_hwnd ? "true" : "false");
     if (!b.oom)
         http_respond(s, "200 OK", "application/json", b.data, b.len);
     vwp_buf_free(&b);
@@ -381,21 +483,17 @@ static void handle_speech(SOCKET s, const char *query)
     vwp_buf_free(&b);
 }
 
-static void handle_cmd(SOCKET s, const char *body, size_t body_len)
+// Run one command through the GML pump and answer with its reply. The reply
+// is JSON when it looks like JSON (the eval-lite commands answer JSON, but
+// errors and ping/say answer plain text; the shim cannot know which).
+static void handle_gml(SOCKET s, const char *cmd_text)
 {
-    if (body_len == 0) {
-        http_respond_text(s, "400 Bad Request", "empty command");
-        return;
-    }
-    char *cmd = malloc(body_len + 1);
+    char *reply = NULL;
+    char *cmd = vwp_strdup(cmd_text);
     if (!cmd) {
         http_respond_text(s, "500 Internal Server Error", "out of memory");
         return;
     }
-    memcpy(cmd, body, body_len);
-    cmd[body_len] = '\0';
-
-    char *reply = NULL;
     EnterCriticalSection(&g_lock);
     if (vwp_cmd_submit(&g_cmd, cmd) != 0) {
         LeaveCriticalSection(&g_lock);
@@ -420,7 +518,10 @@ static void handle_cmd(SOCKET s, const char *body, size_t body_len)
     free(cmd);
 
     if (reply) {
-        http_respond_text(s, "200 OK", reply);
+        int looks_json = reply[0] == '{' || reply[0] == '[';
+        http_respond(s, "200 OK",
+                     looks_json ? "application/json" : "text/plain; charset=utf-8",
+                     reply, strlen(reply));
         free(reply);
     } else {
         vw_logf("cmd: timed out after %d ms (game not pumping?)", VW_CMD_TIMEOUT_MS);
@@ -428,6 +529,23 @@ static void handle_cmd(SOCKET s, const char *body, size_t body_len)
                           "game not pumping (no vw_poll reply within 5s; is the game "
                           "window focused at least once since launch?)");
     }
+}
+
+static void handle_cmd(SOCKET s, const char *body, size_t body_len)
+{
+    if (body_len == 0) {
+        http_respond_text(s, "400 Bad Request", "empty command");
+        return;
+    }
+    char *cmd = malloc(body_len + 1);
+    if (!cmd) {
+        http_respond_text(s, "500 Internal Server Error", "out of memory");
+        return;
+    }
+    memcpy(cmd, body, body_len);
+    cmd[body_len] = '\0';
+    handle_gml(s, cmd);
+    free(cmd);
 }
 
 static void handle_connection(SOCKET s)
@@ -466,6 +584,15 @@ static void handle_connection(SOCKET s)
             handle_speech(s, req.query);
         else if (strcmp(req.method, "POST") == 0 && strcmp(req.path, "/cmd") == 0)
             handle_cmd(s, req.body, req.body_len);
+        else if (strcmp(req.method, "GET") == 0 && strcmp(req.path, "/gui/raw") == 0) {
+            // sugar over the eval-lite command; ?obj=oThing narrows the dump
+            char obj[80], cmd[96];
+            vwp_query_str(req.query, "obj", obj, sizeof obj);
+            snprintf(cmd, sizeof cmd, "gui.raw%s%s", obj[0] ? " " : "", obj);
+            handle_gml(s, cmd);
+        }
+        else if (strcmp(req.method, "GET") == 0 && strcmp(req.path, "/screenshot") == 0)
+            handle_gml(s, "screenshot");
         else
             http_respond_text(s, "404 Not Found", "unknown endpoint");
     } else if (req.bad && got > 0) {
@@ -596,6 +723,11 @@ VW_EXPORT double vw_init(void)
         vw_logf("init: dev server disabled by config");
     }
 
+    if (g_bg_on)
+        try_install_bg(); // usually too early; vw_poll retries every frame
+    else
+        vw_logf("init: background-run keepalive disabled by config");
+
     vw_logf("init: done, backend=%s tier=%d", g_backend_desc, (int)tier);
     g_init_result = tier;
     return tier;
@@ -648,6 +780,7 @@ VW_EXPORT const char *vw_poll(void)
     static char buf[VWP_MAX_BODY + 1];
     if (!g_inited)
         return "";
+    try_install_bg(); // main thread, once per frame, no-op once installed
     EnterCriticalSection(&g_lock);
     g_last_poll_tick = GetTickCount64();
     const char *cmd = vwp_cmd_poll(&g_cmd);
@@ -697,6 +830,10 @@ VW_EXPORT double vw_shutdown(void)
     if (!g_inited)
         return 0;
     vw_logf("shutdown: begin");
+    if (g_game_hwnd && IsWindow(g_game_hwnd) && g_orig_wndproc) {
+        SetWindowLongPtrW(g_game_hwnd, GWLP_WNDPROC, (LONG_PTR)g_orig_wndproc);
+        g_game_hwnd = NULL;
+    }
     if (g_server_thread) {
         InterlockedExchange(&g_running, 0);
         if (g_listen_sock != INVALID_SOCKET) {

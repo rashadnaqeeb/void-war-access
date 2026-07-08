@@ -14,14 +14,19 @@
 # -Speech    voice output through the screen reader (default: capture-only,
 #            so unattended runs don't drive the user's screen reader)
 # -NoBuild   launch whatever is already in build\ (re-test the exact binary)
+# -NoBg      disable the shim's focus-pause keepalive (diagnostic / to test a
+#            release-parity launch)
 #
-# The game pauses completely until its window gains focus once (runner-level,
-# verified). Until the WndProc workaround lands (session 2), a human must
-# focus the window after each launch; /health will not answer before that.
+# The game boot-freezes until its window gains focus once (runner-level,
+# verified), but Steam's -applaunch focuses it automatically, so /health
+# normally answers with no human touch. If it stalls, focus the window once.
+# The shim also subclasses the window's WndProc to swallow later deactivation
+# (see -NoBg); the autonomous loop runs unattended.
 
 param(
     [switch]$Speech,
     [switch]$NoBuild,
+    [switch]$NoBg,      # disable the focus-pause keepalive (diagnostic / release-parity)
     [int]$HealthTimeoutSec = 300
 )
 
@@ -68,7 +73,8 @@ try {
 
     # --- shim config (Steam does not forward this shell's env to the game) ---
     $speechVal = if ($Speech) { 1 } else { 0 }
-    Set-Content "$repo\build\vw_speech.cfg" @("port=$port", "speech=$speechVal", 'nodev=0')
+    $bgVal = if ($NoBg) { 0 } else { 1 }
+    Set-Content "$repo\build\vw_speech.cfg" @("port=$port", "speech=$speechVal", 'nodev=0', "bg=$bgVal")
 
     # --- launch through Steam (direct exe launch fails the Steamworks check) ---
     Write-Host "run-game: launching (speech=$speechVal, port=$port)..."

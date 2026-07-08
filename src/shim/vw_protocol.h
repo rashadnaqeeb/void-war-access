@@ -67,6 +67,10 @@ void vwp_http_parse(const char *buf, size_t len, VwHttpReq *out);
 // Find key=<u64> in a query string ("a=1&b=2"). Returns fallback if absent or unparsable.
 uint64_t vwp_query_u64(const char *query, const char *key, uint64_t fallback);
 
+// Copy key's value (up to '&', truncated to outsz-1, no URL-decoding) into
+// out. Returns 1 if the key was present, 0 if not (out becomes "").
+int vwp_query_str(const char *query, const char *key, char *out, size_t outsz);
+
 // ---- single-slot command exchange (HTTP thread <-> GML pump) ----
 //
 // One command in flight at a time; HTTP submits, the GML pump polls it out,
