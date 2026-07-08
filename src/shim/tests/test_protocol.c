@@ -220,6 +220,26 @@ static void test_query(void)
     CHECK_STR(v, "tail");
 }
 
+static void test_tail_offset(void)
+{
+    const char *log = "a\nb\nc\n";
+    CHECK(vwp_tail_offset(log, strlen(log), 1) == 4);   // "c\n"
+    CHECK(vwp_tail_offset(log, strlen(log), 2) == 2);   // "b\nc\n"
+    CHECK(vwp_tail_offset(log, strlen(log), 3) == 0);
+    CHECK(vwp_tail_offset(log, strlen(log), 99) == 0);  // more than exist
+    CHECK(vwp_tail_offset(log, strlen(log), 0) == strlen(log)); // empty tail
+
+    // no trailing newline on the last line
+    const char *open_end = "a\nb\nc";
+    CHECK(vwp_tail_offset(open_end, strlen(open_end), 1) == 4); // "c"
+    CHECK(vwp_tail_offset(open_end, strlen(open_end), 2) == 2);
+
+    // single line, CRLF endings, empty input
+    CHECK(vwp_tail_offset("abc", 3, 1) == 0);
+    CHECK(vwp_tail_offset("a\r\nb\r\n", 6, 1) == 3);    // "b\r\n"
+    CHECK(vwp_tail_offset("", 0, 5) == 0);
+}
+
 static void test_cmd_slot(void)
 {
     VwCmdSlot s;
@@ -268,6 +288,7 @@ int main(void)
     test_http_post();
     test_http_partial_and_bad();
     test_query();
+    test_tail_offset();
     test_cmd_slot();
 
     if (g_failures) {

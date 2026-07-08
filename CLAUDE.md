@@ -132,17 +132,22 @@ Endpoints: `GET /health` (answers even with GML wedged; reports pumpAgeMs,
 bgKeepalive), `GET /speech?since=N` (monotonic cursor - how you observe TTS
 you can't hear), `GET /gui/raw[?obj=oThing]` (game truth), `GET /gui/mod`
 (the mod's interpreted view - diff against raw to find what the mod loses),
-`GET /screenshot`, `GET /state` (input layer), `POST /input` (fires a mod
-action through real dispatch; refused when its category isn't live),
-`POST /cmd`. **Game-touching calls are serialized** - one in flight, a
-second gets 429 (deliberate; the pump runs one command per frame).
+`GET /screenshot`, `GET /state` (input layer),
+`GET /log?which=shim|mod|speech[&lines=N]` (plain-text log tail, served by
+the shim with no game round-trip), `POST /input` (fires a mod action
+through real dispatch; refused when its category isn't live), `POST /cmd`.
+**Game-touching calls are serialized** - one in flight, a second gets 429
+(deliberate; the pump runs one command per frame).
 
 `/cmd` vocabulary: `ping`, `say <text>`, `room`, `get <path>`,
 `set <path> <value>`, `dump <path> [depth]`, `instances <obj>`,
-`call <script|path> [args...]` (methods invoked directly, max 4 args),
-`gui.raw [obj]`, `gui.mod`, `screenshot`, `state`, `input <actionKey>`,
-`help`. Paths: `global.x`, `oObject.var`, numeric ids, `.member`, `[n]`.
-Errors return as `ERROR:` text and never crash the pump.
+`globals [filter]` / `scripts [filter]` (discovery; case-insensitive
+name-substring filter), `call <script|path> [args...]` (methods invoked
+directly, max 4 args), `gui.raw [obj]`, `gui.mod`, `screenshot`, `state`,
+`input <actionKey>`, `help`. Paths: `global.x`, `oObject.var`, numeric ids,
+`.member`, `[n]`. `set` values and `call` args take JSON-ish compound
+literals (`[1, "two words"]`, `{a: 1, b: [2]}`) alongside scalars; bare
+words are strings. Errors return as `ERROR:` text and never crash the pump.
 
 Dev helpers via `call`: `vwa_dev_test_screen <cats|none>` (trailing `!` =
 exclusive), `vwa_dev_test_menu <on|off>`, `vwa_dev_menu_focus <skey>`,

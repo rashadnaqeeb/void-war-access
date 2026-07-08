@@ -71,6 +71,11 @@ uint64_t vwp_query_u64(const char *query, const char *key, uint64_t fallback);
 // out. Returns 1 if the key was present, 0 if not (out becomes "").
 int vwp_query_str(const char *query, const char *key, char *out, size_t outsz);
 
+// Offset into data where the last `lines` lines begin (for tailing a log).
+// A single trailing newline does not count as an extra empty line. lines==0
+// returns len (empty tail); asking for more lines than exist returns 0.
+size_t vwp_tail_offset(const char *data, size_t len, unsigned lines);
+
 // ---- single-slot command exchange (HTTP thread <-> GML pump) ----
 //
 // One command in flight at a time; HTTP submits, the GML pump polls it out,

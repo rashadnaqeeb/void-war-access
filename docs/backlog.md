@@ -49,8 +49,6 @@ verified facts live in CLAUDE.md.
     SAPI.
 12. Screen-struct affordances with no consumer yet: KeepStateOnPop,
     InitialFocusStop, pending-focus-with-retry, StartUnfocused/Wrap flags.
-13. Dev-driver niceties: compound (array/struct) literals for call/set, an
-    enumerate-globals/scripts discovery command, a /log tail.
 
 ## Standing questions
 

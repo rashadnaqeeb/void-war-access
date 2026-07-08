@@ -330,6 +330,25 @@ int vwp_query_str(const char *query, const char *key, char *out, size_t outsz)
     return 0;
 }
 
+size_t vwp_tail_offset(const char *data, size_t len, unsigned lines)
+{
+    if (len == 0 || lines == 0)
+        return len;
+    size_t i = len;
+    if (data[i - 1] == '\n')
+        i--;
+    unsigned seen = 0;
+    while (i > 0) {
+        if (data[i - 1] == '\n') {
+            seen++;
+            if (seen == lines)
+                return i;
+        }
+        i--;
+    }
+    return 0;
+}
+
 // ---- command slot ----
 
 void vwp_cmd_init(VwCmdSlot *s)

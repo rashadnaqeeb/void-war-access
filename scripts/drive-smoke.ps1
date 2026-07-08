@@ -48,6 +48,32 @@ Cmd 'set global.vwaSmokeProbe 123.5' | Out-Null
 $g = Cmd 'get global.vwaSmokeProbe'
 Check 'set/get global' ($g -eq 123.5) $g
 
+# --- compound literals: set a nested array/struct, read it back ---
+Cmd 'set global.vwaSmokeProbe [1, "two words", {a: 3, b: [true]}]' | Out-Null
+$cl = Cmd 'dump global.vwaSmokeProbe 4'
+Check 'compound set round trip' ($cl.Count -eq 3 -and $cl[1] -eq 'two words' -and
+    $cl[2].a -eq 3 -and $cl[2].b[0] -eq $true) ($cl | ConvertTo-Json -Compress)
+
+# --- compound literal as a call argument ---
+$ccall = Cmd 'call vwa_array_index_of ["alpha", "beta", "gamma"] beta'
+Check 'compound call arg' ($ccall.result -eq 1) ($ccall | ConvertTo-Json -Compress)
+
+# --- discovery: globals and scripts ---
+$gl = Cmd 'globals vwaSmokeProbe'
+Check 'globals finds the probe' ($gl.count -ge 1 -and
+    $gl.globals[0].name -eq 'vwaSmokeProbe' -and $gl.globals[0].type -eq 'array') `
+    ($gl | ConvertTo-Json -Compress)
+$sc = Cmd 'scripts vwa_dev_dispatch'
+Check 'scripts finds the dispatcher' ($sc.count -ge 1 -and
+    ($sc.scripts | ForEach-Object { $_.name }) -contains 'vwa_dev_dispatch') `
+    ($sc | ConvertTo-Json -Compress)
+
+# --- /log tails ---
+$logShim = Invoke-RestMethod "$base/log?which=shim&lines=10" -TimeoutSec 5
+Check 'log tail shim' ($logShim -is [string] -and $logShim.Length -gt 0) $logShim
+$logMod = Invoke-RestMethod "$base/log?which=mod&lines=10" -TimeoutSec 5
+Check 'log tail mod' ($logMod -is [string] -and $logMod.Length -gt 0) $logMod
+
 # --- dump the main menu buttonList: the reverse-engineering path ---
 $buttons = Cmd 'dump oMainMenuControls.buttonList 3'
 $labels = @($buttons | ForEach-Object { $_.buttonStr })

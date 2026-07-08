@@ -11,8 +11,11 @@
 // Vocabulary (see vwa_dev_dispatch): ping, say, room, help,
 //   get <path> / set <path> <value> / dump <path> [depth]
 //   instances <objectName> / call <scriptOrPath> [args...]
+//   globals [filter] / scripts [filter] (discovery, name-substring filter)
 //   gui.raw [objectName] / gui.mod / screenshot
 //   state (input layer dump) / input <actionKey> (fire an action)
+// set values and call arguments accept JSON-ish compound literals
+// ([1, "two"], {a: 1, b: [2]}) alongside the scalar forms.
 //
 // Paths: global.name, objectName.var (first live instance), or a numeric
 // instance id; segments join with '.' and arrays index with [n], e.g.
@@ -448,6 +451,11 @@ function vwa_resolve(path)
 }
 
 // ---- literal parsing (set values, call arguments) ----
+// Scalars: numbers, true/false/undefined, quoted strings, bare words as
+// strings. Compound literals (vwa_lit_scan) add JSON-ish arrays and structs:
+//   [1, "two", {a: 3}]      {name: "x", tags: [1, 2]}
+// Struct keys are bare identifiers or quoted strings; quoted strings have no
+// escape sequences (a " always closes, matching the tokenizer).
 
 // quoted: the token came from double quotes, so it is always a string.
 function vwa_parse_literal(s, quoted)
@@ -476,6 +484,160 @@ function vwa_parse_literal(s, quoted)
     {
         return s; // bare word: a string
     }
+}
+
+function vwa_lit_skip_ws(s, i)
+{
+    var n = string_length(s);
+    while (i <= n)
+    {
+        var c = string_char_at(s, i);
+        if (c != " " && c != "\t" && c != "\r" && c != "\n")
+        {
+            break;
+        }
+        i++;
+    }
+    return i;
+}
+
+// Scan ONE literal starting at index i (1-based; caller skips leading
+// whitespace). Returns { v, next }. Bare words end at whitespace or at a
+// compound delimiter (, ] }) so they compose inside arrays and structs; a
+// bare word that needs those characters must be quoted.
+function vwa_lit_scan(s, i)
+{
+    var n = string_length(s);
+    if (i > n)
+    {
+        throw "expected a value, got end of input";
+    }
+    var c = string_char_at(s, i);
+    if (c == "\"")
+    {
+        var qs = "";
+        i++;
+        while (i <= n && string_char_at(s, i) != "\"")
+        {
+            qs += string_char_at(s, i);
+            i++;
+        }
+        if (i > n)
+        {
+            throw "unclosed quote in literal";
+        }
+        return { v: qs, next: i + 1 };
+    }
+    if (c == "[")
+    {
+        var arr = [];
+        i = vwa_lit_skip_ws(s, i + 1);
+        if (i <= n && string_char_at(s, i) == "]")
+        {
+            return { v: arr, next: i + 1 };
+        }
+        for (;;)
+        {
+            var el = vwa_lit_scan(s, i);
+            array_push(arr, el.v);
+            i = vwa_lit_skip_ws(s, el.next);
+            if (i > n)
+            {
+                throw "unclosed [ in literal";
+            }
+            var ad = string_char_at(s, i);
+            if (ad == "]")
+            {
+                return { v: arr, next: i + 1 };
+            }
+            if (ad != ",")
+            {
+                throw ("expected , or ] in array literal, got '" + ad + "'");
+            }
+            i = vwa_lit_skip_ws(s, i + 1);
+        }
+    }
+    if (c == "{")
+    {
+        var st = {};
+        i = vwa_lit_skip_ws(s, i + 1);
+        if (i <= n && string_char_at(s, i) == "}")
+        {
+            return { v: st, next: i + 1 };
+        }
+        for (;;)
+        {
+            if (i > n)
+            {
+                throw "unclosed { in literal";
+            }
+            var skey = "";
+            if (string_char_at(s, i) == "\"")
+            {
+                var kr = vwa_lit_scan(s, i);
+                skey = kr.v;
+                i = kr.next;
+            }
+            else
+            {
+                while (i <= n)
+                {
+                    var kc = string_char_at(s, i);
+                    if (kc == ":" || kc == "," || kc == "}" || kc == " "
+                        || kc == "\t" || kc == "\r" || kc == "\n")
+                    {
+                        break;
+                    }
+                    skey += kc;
+                    i++;
+                }
+            }
+            if (skey == "")
+            {
+                throw "empty key in struct literal";
+            }
+            i = vwa_lit_skip_ws(s, i);
+            if (i > n || string_char_at(s, i) != ":")
+            {
+                throw ("expected : after struct key '" + skey + "'");
+            }
+            i = vwa_lit_skip_ws(s, i + 1);
+            var vr = vwa_lit_scan(s, i);
+            variable_struct_set(st, skey, vr.v);
+            i = vwa_lit_skip_ws(s, vr.next);
+            if (i > n)
+            {
+                throw "unclosed { in literal";
+            }
+            var sd = string_char_at(s, i);
+            if (sd == "}")
+            {
+                return { v: st, next: i + 1 };
+            }
+            if (sd != ",")
+            {
+                throw ("expected , or } in struct literal, got '" + sd + "'");
+            }
+            i = vwa_lit_skip_ws(s, i + 1);
+        }
+    }
+    var word = "";
+    while (i <= n)
+    {
+        var bc = string_char_at(s, i);
+        if (bc == " " || bc == "\t" || bc == "\r" || bc == "\n"
+            || bc == "," || bc == "]" || bc == "}")
+        {
+            break;
+        }
+        word += bc;
+        i++;
+    }
+    if (word == "")
+    {
+        throw ("unexpected '" + c + "' in literal");
+    }
+    return { v: vwa_parse_literal(word, false), next: i };
 }
 
 // Whitespace-split honoring double quotes; returns [{t, q}].
@@ -534,7 +696,25 @@ function vwa_dev_tokens(s)
 
 function vwa_dev_set(path, literalText)
 {
-    var v = vwa_parse_literal(literalText, false);
+    // Compound or quoted values go through the scanner; anything else keeps
+    // the legacy whole-rest scalar parse so an unquoted multi-word string
+    // (set global.name hello world) still lands as one string.
+    var v;
+    var c0 = string_char_at(literalText, 1);
+    if (c0 == "[" || c0 == "{" || c0 == "\"")
+    {
+        var lit = vwa_lit_scan(literalText, 1);
+        if (vwa_lit_skip_ws(literalText, lit.next) <= string_length(literalText))
+        {
+            throw ("unexpected text after the value literal: "
+                + string_delete(literalText, 1, lit.next - 1));
+        }
+        v = lit.v;
+    }
+    else
+    {
+        v = vwa_parse_literal(literalText, false);
+    }
     var segs = vwa_path_segments(path);
     var n = array_length(segs);
     var last = segs[n - 1];
@@ -606,12 +786,101 @@ function vwa_dev_instances(objName)
     return out + "]}";
 }
 
-function vwa_dev_call(nameTok, argToks)
+// ---- discovery (globals / scripts) ----
+
+// Case-insensitive substring match; an empty filter matches everything.
+function vwa_dev_name_match(name, filter)
+{
+    if (filter == "")
+    {
+        return true;
+    }
+    return string_pos(string_lower(filter), string_lower(name)) > 0;
+}
+
+// globals [filter]: every global variable name with its value's typeof,
+// sorted. The entry point for discovering game state to get/dump.
+function vwa_dev_globals(filter)
+{
+    var names = variable_instance_get_names(global);
+    array_sort(names, true);
+    var out = "";
+    var cnt = 0;
+    for (var i = 0; i < array_length(names); i++)
+    {
+        if (!vwa_dev_name_match(names[i], filter))
+        {
+            continue;
+        }
+        if (cnt > 0)
+        {
+            out += ",";
+        }
+        out += "{\"name\":" + vwa_json_str(names[i]) + ",\"type\":"
+            + vwa_json_str(typeof(variable_global_get(names[i]))) + "}";
+        cnt++;
+    }
+    return "{\"count\":" + string(cnt) + ",\"globals\":[" + out + "]}";
+}
+
+// scripts [filter]: scan the script asset table by index. Script assets
+// have no enumeration function, so this probes two index ranges: the
+// classic asset range from 0 and the GMS 2.3+ function-script range from
+// 100000. A linear probe of dead indices is cheap (script_exists), and this
+// is a dev command. Output is name-sorted and capped.
+function vwa_dev_scripts(filter)
+{
+    var hits = [];
+    var ranges = [[0, 20000], [100000, 120000]];
+    for (var r = 0; r < array_length(ranges); r++)
+    {
+        for (var i = ranges[r][0]; i < ranges[r][1]; i++)
+        {
+            if (!script_exists(i))
+            {
+                continue;
+            }
+            var nm = script_get_name(i);
+            if (vwa_dev_name_match(nm, filter))
+            {
+                array_push(hits, { name: nm, index: i });
+            }
+        }
+    }
+    array_sort(hits, function(a, b)
+    {
+        if (a.name == b.name)
+        {
+            return 0;
+        }
+        return (a.name < b.name) ? -1 : 1;
+    });
+    var shown = min(array_length(hits), 500);
+    var out = "";
+    for (var i = 0; i < shown; i++)
+    {
+        if (i > 0)
+        {
+            out += ",";
+        }
+        out += "{\"name\":" + vwa_json_str(hits[i].name)
+            + ",\"index\":" + string(hits[i].index) + "}";
+    }
+    return "{\"count\":" + string(array_length(hits))
+        + ",\"shown\":" + string(shown) + ",\"scripts\":[" + out + "]}";
+}
+
+// argsText: everything after the name; space-separated literals, each of
+// which may be a compound (arrays/structs may contain spaces internally).
+function vwa_dev_call(nameTok, argsText)
 {
     var args = [];
-    for (var i = 0; i < array_length(argToks); i++)
+    var ai = vwa_lit_skip_ws(argsText, 1);
+    while (ai <= string_length(argsText))
     {
-        array_push(args, vwa_parse_literal(argToks[i].t, argToks[i].q));
+        var lit = vwa_lit_scan(argsText, ai);
+        array_push(args, lit.v);
+        ai = vwa_lit_skip_ws(argsText, lit.next);
     }
     var fn;
     var isBoundMethod = false;
@@ -1432,19 +1701,23 @@ function vwa_dev_dispatch(cmd)
             }
             return vwa_dev_instances(rest);
 
+        case "globals":
+            return vwa_dev_globals(rest);
+
+        case "scripts":
+            return vwa_dev_scripts(rest);
+
         case "call":
         {
             if (rest == "")
             {
                 throw "call needs a script or method path";
             }
-            var cToks = vwa_dev_tokens(rest);
-            var argToks = [];
-            for (var i = 1; i < array_length(cToks); i++)
-            {
-                array_push(argToks, cToks[i]);
-            }
-            return vwa_dev_call(cToks[0].t, argToks);
+            // name = first space-delimited token; the rest is literal args
+            var csp = string_pos(" ", rest);
+            var cname = (csp > 0) ? string_copy(rest, 1, csp - 1) : rest;
+            var cargs = (csp > 0) ? string_delete(rest, 1, csp) : "";
+            return vwa_dev_call(cname, cargs);
         }
 
         case "gui.raw":
@@ -1469,9 +1742,11 @@ function vwa_dev_dispatch(cmd)
         case "help":
             return "commands: ping | say <text> | room | get <path> | "
                 + "set <path> <value> | dump <path> [depth] | "
-                + "instances <objectName> | call <scriptOrPath> [args...] | "
+                + "instances <objectName> | globals [filter] | scripts [filter] | "
+                + "call <scriptOrPath> [args...] | "
                 + "gui.raw [objectName] | gui.mod | screenshot | state | "
-                + "input <actionKey> | help";
+                + "input <actionKey> | help; set values and call args accept "
+                + "JSON-ish literals: [1, \"two\"] and {a: 1}";
 
         default:
             return "unknown command: " + word + " (try help)";

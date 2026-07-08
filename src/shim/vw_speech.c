@@ -33,7 +33,7 @@
 #include "../../vendor/prism/prism.h"
 #include "vw_protocol.h"
 
-#define VW_SHIM_VERSION "0.2.0"
+#define VW_SHIM_VERSION "0.3.0"
 #define VW_DEFAULT_PORT 8772
 #define VW_CMD_TIMEOUT_MS 5000
 #define VW_EXPORT __declspec(dllexport)
@@ -534,6 +534,79 @@ static void handle_cmd(SOCKET s, const char *body, size_t body_len)
     free(cmd);
 }
 
+// GET /log?which=shim|mod|speech&lines=N - tail a log file as plain text.
+// shim = vw_speech.log next to the DLL; mod/speech = the GML logs in the
+// game's save dir (%APPDATA%\Void_War). Reads the last N lines out of a
+// bounded window from the end, so a huge log cannot balloon the response.
+#define VW_LOG_TAIL_WINDOW (256 * 1024)
+#define VW_LOG_TAIL_MAX_LINES 2000
+
+static void handle_log(SOCKET s, const char *query)
+{
+    char which[16];
+    if (!vwp_query_str(query, "which", which, sizeof which) || !which[0])
+        snprintf(which, sizeof which, "shim");
+    uint64_t lines = vwp_query_u64(query, "lines", 50);
+    if (lines < 1)
+        lines = 1;
+    if (lines > VW_LOG_TAIL_MAX_LINES)
+        lines = VW_LOG_TAIL_MAX_LINES;
+
+    char path[MAX_PATH + 64];
+    if (strcmp(which, "shim") == 0) {
+        snprintf(path, sizeof path, "%svw_speech.log", g_dll_dir);
+    } else if (strcmp(which, "mod") == 0 || strcmp(which, "speech") == 0) {
+        char appdata[MAX_PATH];
+        if (GetEnvironmentVariableA("APPDATA", appdata, sizeof appdata) == 0) {
+            vw_logf("log: APPDATA not set; cannot locate the %s log", which);
+            http_respond_text(s, "500 Internal Server Error", "APPDATA not set");
+            return;
+        }
+        snprintf(path, sizeof path, "%s\\Void_War\\vwa-%s.log", appdata, which);
+    } else {
+        http_respond_text(s, "400 Bad Request", "which must be shim, mod, or speech");
+        return;
+    }
+
+    // The shim's own log is written under g_log_lock; hold it while reading
+    // so a line mid-write is never served half-flushed. The GML logs are
+    // written line-at-a-time by the game with no lock we can share.
+    int lock_needed = strcmp(which, "shim") == 0;
+    if (lock_needed)
+        EnterCriticalSection(&g_log_lock);
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        if (lock_needed)
+            LeaveCriticalSection(&g_log_lock);
+        char msg[MAX_PATH + 96];
+        snprintf(msg, sizeof msg, "log file not found: %s", path);
+        http_respond_text(s, "404 Not Found", msg);
+        return;
+    }
+    fseek(f, 0, SEEK_END);
+    long fsize = ftell(f);
+    if (fsize < 0)
+        fsize = 0;
+    size_t want = (size_t)fsize > VW_LOG_TAIL_WINDOW ? VW_LOG_TAIL_WINDOW : (size_t)fsize;
+    char *buf = malloc(want ? want : 1);
+    if (!buf) {
+        fclose(f);
+        if (lock_needed)
+            LeaveCriticalSection(&g_log_lock);
+        http_respond_text(s, "500 Internal Server Error", "out of memory");
+        return;
+    }
+    fseek(f, (long)((size_t)fsize - want), SEEK_SET);
+    size_t got = fread(buf, 1, want, f);
+    fclose(f);
+    if (lock_needed)
+        LeaveCriticalSection(&g_log_lock);
+
+    size_t off = vwp_tail_offset(buf, got, (unsigned)lines);
+    http_respond(s, "200 OK", "text/plain; charset=utf-8", buf + off, got - off);
+    free(buf);
+}
+
 // POST /input: fire a registered input action by key through the GML input
 // layer's dispatch path (which validates category liveness). Sugar over the
 // "input <actionKey>" eval-lite command.
@@ -611,6 +684,8 @@ static void handle_connection(SOCKET s)
             handle_gml(s, "state"); // input layer: live categories, actions, shadowing
         else if (strcmp(req.method, "POST") == 0 && strcmp(req.path, "/input") == 0)
             handle_input(s, req.body, req.body_len);
+        else if (strcmp(req.method, "GET") == 0 && strcmp(req.path, "/log") == 0)
+            handle_log(s, req.query); // tail a log file (shim/mod/speech)
         else
             http_respond_text(s, "404 Not Found", "unknown endpoint");
     } else if (req.bad && got > 0) {
