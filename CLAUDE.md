@@ -5,8 +5,7 @@ primary interface; there is no visual fallback. If something fails silently,
 speaks stale data, or omits information, the player has no way to know. A
 logged failure is actionable; a silent one is invisible.
 
-Greenfield project: committing to `main` is fine. Future work lives in
-`docs/backlog.md`.
+Greenfield project: committing to `main` is fine.
 
 ## Game & environment (verified)
 
@@ -237,32 +236,3 @@ reuse the chord for region jumps.
 - Zero build warnings, C and UTMT import, never suppressed.
 - **README stays current in the same session** as any key or feature change
   (and this file for any rule or architecture change).
-
-## Settled design decisions (do not re-flag)
-
-Tab wraps between stops. Enter on a no-action node speaks "No action".
-Dropdowns are registered child screens going live through poll-and-diff.
-No focus-mode toggle - the screen stack IS focus mode. Tooltip is an
-inline announcement part, no key (game tooltips are flat). A multi-item
-row IS a group: one entry in the vertical "n of m", members keep their
-in-row "x of k" - the two numbering axes never blur. Input categories are
-strings, not enums. The textSafe speech keys stay live while the game's
-text-field mode is active. The dev driver serializes game-touching calls
-(a second in-flight command gets an explicit 429). Submenus (Rashad's
-model): sibling moves land ON headers (discovery: the role word cues right
-arrow), down from a header skips the subtree, bottom-of-children flows
-into the NEXT submenu's first child (title announces via path diff), and
-left/right belong to the focused control whenever it claims them (slider
-adjust, in-row movement, a future table's columns) - left-to-exit exists
-only where left is unclaimed. Precedence, not an exception. Headers speak
-their child count, including "0 items". Ctrl+Down is down-at-the-last-item
-of the enclosing submenu and Ctrl+Up is up-at-the-first-item (the header) -
-the jump chords never land anywhere a boundary arrow could not. Type-ahead
-matching is tiered (start whole word > start prefix > mid whole word > mid
-word prefix > substring > word-prefix abbreviation), keeps LIST ORDER within
-a tier (position beats name length), ranks pre-comma name matches over
-post-comma metadata across all tiers, folds diacritics, and cycles a
-repeated single letter through all its matches; landings re-announce every
-keystroke (silence after a keystroke is indistinguishable from a dead key).
-Backspace is deliberately unwired - retype instead. keyboard_string is the
-typed-char source, drained in scrVwaInput every non-text-field frame.
