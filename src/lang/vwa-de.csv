@@ -35,3 +35,5 @@ vwa--action-nav-jump-up,Zum Untermenütitel springen
 vwa--action-nav-jump-down,Untermenü überspringen
 vwa--submenu-items,{k} Einträge
 vwa--submenu-item-one,1 Eintrag
+vwa--search-no-match,"{text}, kein Treffer"
+vwa--search-cleared,Suche gelöscht

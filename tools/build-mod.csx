@@ -26,11 +26,13 @@ group.QueueReplace("gml_GlobalScript_scrVwaInput",
     File.ReadAllText(Path.Combine(gmlDir, "scrVwaInput.gml")));
 
 // New global scripts: the framework core (session 4) - control graph,
-// announcement composition, screen layer + navigator.
+// announcement composition, type-ahead matcher, screen layer + navigator.
 group.QueueReplace("gml_GlobalScript_scrVwaGraph",
     File.ReadAllText(Path.Combine(gmlDir, "scrVwaGraph.gml")));
 group.QueueReplace("gml_GlobalScript_scrVwaAnnounce",
     File.ReadAllText(Path.Combine(gmlDir, "scrVwaAnnounce.gml")));
+group.QueueReplace("gml_GlobalScript_scrVwaSearch",
+    File.ReadAllText(Path.Combine(gmlDir, "scrVwaSearch.gml")));
 group.QueueReplace("gml_GlobalScript_scrVwaScreens",
     File.ReadAllText(Path.Combine(gmlDir, "scrVwaScreens.gml")));
 
@@ -98,6 +100,8 @@ if (Data.Code.ByName("gml_GlobalScript_scrVwaGraph") == null)
     throw new Exception("gml_GlobalScript_scrVwaGraph was not created by the import");
 if (Data.Code.ByName("gml_GlobalScript_scrVwaAnnounce") == null)
     throw new Exception("gml_GlobalScript_scrVwaAnnounce was not created by the import");
+if (Data.Code.ByName("gml_GlobalScript_scrVwaSearch") == null)
+    throw new Exception("gml_GlobalScript_scrVwaSearch was not created by the import");
 if (Data.Code.ByName("gml_GlobalScript_scrVwaScreens") == null)
     throw new Exception("gml_GlobalScript_scrVwaScreens was not created by the import");
 if (Data.Code.ByName("gml_GlobalScript_scrVwaMenus") == null)

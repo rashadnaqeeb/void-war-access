@@ -1719,6 +1719,41 @@ function vwa_dev_dismiss_start_popup()
     return { dismissed: true, respawned: respawned };
 }
 
+// Feed characters into the live type-ahead path with the same letter/space
+// filtering the real tick applies - everything below the raw keyboard read
+// (this runner ignores synthetic keys, so keyboard_string cannot be driven
+// from here). Returns the resulting search state.
+function vwa_dev_typeahead(txt)
+{
+    txt = string(txt);
+    for (var i = 1; i <= string_length(txt); i++)
+    {
+        var o = string_ord_at(txt, i);
+        if (vwa_search_char_is_letter(o))
+        {
+            vwa_nav_typeahead_char(chr(o));
+        }
+        else if (o == 32 && global.vwaSearch.buffer != "")
+        {
+            vwa_nav_typeahead_char(" ");
+        }
+    }
+    return vwa_dev_search_state();
+}
+
+function vwa_dev_search_state()
+{
+    var st = global.vwaSearch;
+    var nav = global.vwaSearchNav;
+    var skeys = [];
+    for (var i = 0; i < array_length(st.results); i++)
+    {
+        array_push(skeys, nav.scopeSkeys[st.results[i]]);
+    }
+    return { buffer: st.buffer, active: st.active, cursor: st.cursor,
+             resultSkeys: skeys, focusSkey: nav.focusSkey };
+}
+
 // Diagnostic: the runner's view of a key vs the OS's (keyboard_check_direct
 // ignores window focus). Disagreement = stale runner bookkeeping (see
 // vwa_input_unstick_keys).

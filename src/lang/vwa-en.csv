@@ -35,3 +35,5 @@ vwa--action-nav-jump-up,Jump to submenu header
 vwa--action-nav-jump-down,Jump past submenu
 vwa--submenu-items,{k} items
 vwa--submenu-item-one,1 item
+vwa--search-no-match,"{text}, no match"
+vwa--search-cleared,Search cleared

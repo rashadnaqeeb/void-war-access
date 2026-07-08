@@ -1,8 +1,9 @@
 // scrVwaScreens - Void War Access screen layer: the screen registry, the
 // per-frame poll-and-diff stack resolve, focus sync, and the navigator (the
-// UI-category actions that move the graph cursor, plus the once-per-frame
-// observe that speaks focus changes). Built on the graph engine in
-// scrVwaGraph and the composer in scrVwaAnnounce.
+// UI-category actions that move the graph cursor, the type-ahead glue, plus
+// the once-per-frame observe that speaks focus changes). Built on the graph
+// engine in scrVwaGraph, the composer in scrVwaAnnounce, and the matcher in
+// scrVwaSearch.
 // Imported by tools/build-mod.csx as a new global script. Ships in release.
 //
 // A screen is a struct registered once at boot (or lazily by dev tooling):
@@ -33,6 +34,14 @@ function vwa_screens_init()
     // it was spoken from (its parent chain feeds the next path diff).
     global.vwaNavSpoken = { screenKey: undefined, skey: undefined, node: undefined };
     global.vwaNavLiveCache = [];     // resolved texts of the focused node's live parts
+    // Type-ahead: the pure matcher state (scrVwaSearch) plus the glue that
+    // ties results back to graph nodes. scopeSkeys/scopeNames are the
+    // focused Tab stop's nodes as captured at the last keystroke (results
+    // index into them); focusSkey is where the last result landed - focus
+    // moving off it means the results are stale.
+    global.vwaSearch = vwa_search_new();
+    global.vwaSearchNav = { scopeSkeys: [], scopeNames: [],
+                            focusSkey: undefined, screenKey: undefined };
 
     vwa_control_types_init();
     global.vwaAnnHooks = {
@@ -425,6 +434,10 @@ function vwa_nav_back()
     {
         return;
     }
+    if (vwa_nav_search_action("back"))
+    {
+        return;
+    }
     if (!variable_struct_exists(scr, "onBack") || scr.onBack == undefined)
     {
         return;
@@ -440,6 +453,11 @@ function vwa_nav_move(dir)
 {
     var scr = global.vwaFocusedScreen;
     if (scr == undefined)
+    {
+        return;
+    }
+    var kind = (dir == "up" || dir == "down") ? dir : "other";
+    if (vwa_nav_search_action(kind))
     {
         return;
     }
@@ -461,6 +479,10 @@ function vwa_nav_adjust_large(sign)
     {
         return;
     }
+    if (vwa_nav_search_action("other"))
+    {
+        return;
+    }
     if (vwa_graph_adjust(scr.graph, sign, true))
     {
         vwa_nav_state_feedback(scr);
@@ -474,6 +496,9 @@ function vwa_nav_activate()
     {
         return;
     }
+    // Enter is not a search key: it clears the search silently and then
+    // activates whatever result the search focused.
+    vwa_nav_search_action("other");
     // Enter on a submenu header enters it, same as right arrow (a header's
     // action IS entering; an empty one is a silent edge, like any list
     // end - its "0 items" already told the player why).
@@ -542,6 +567,10 @@ function vwa_nav_move_ends(dirNum)
     {
         return;
     }
+    if (vwa_nav_search_action((dirNum < 0) ? "home" : "end"))
+    {
+        return;
+    }
     vwa_graph_move_ends(scr.graph, dirNum);
 }
 
@@ -552,5 +581,229 @@ function vwa_nav_stop_cycle(dirNum)
     {
         return;
     }
+    if (vwa_nav_search_action("other"))
+    {
+        return;
+    }
     vwa_graph_move_stop(scr.graph, dirNum);
+}
+
+// ---- type-ahead ----
+// Letters (and, once a buffer exists, space) type into a search over the
+// focused Tab stop; the best match focuses and speaks immediately (direct
+// user-caused feedback, so it interrupts). While a search is active, up and
+// down step the results, Home/End jump to the first/last result, Escape
+// clears (consumed, so the game's own Escape handlers stay quiet), and any
+// other navigation key clears silently and then does its normal job. The
+// matcher itself lives in scrVwaSearch.
+
+// Once per frame from vwa_input_tick, after vwa_screens_tick (so the
+// focused screen and its render are current). Screens can opt out with
+// allowsTypeahead: false (for future screens whose letters are hotkeys);
+// the game's text-field mode always wins.
+function vwa_nav_typeahead_tick()
+{
+    var nav = global.vwaSearchNav;
+    if (global.textFieldInputEnabled)
+    {
+        // The game's text field owns the keyboard (and keyboard_string).
+        vwa_nav_search_clear(false);
+        return;
+    }
+
+    var typed = vwa_input_take_typed();
+
+    var scr = global.vwaFocusedScreen;
+    var nd = (scr != undefined && vwa_opt(scr, "allowsTypeahead", true))
+        ? vwa_graph_node(scr.graph) : undefined;
+    if (nd == undefined)
+    {
+        vwa_nav_search_clear(false);
+        nav.screenKey = (scr != undefined) ? scr.key : undefined;
+        return;
+    }
+    if (nav.screenKey != scr.key)
+    {
+        // Focus changed screens: drop any search along with this frame's
+        // typed characters (they were aimed at the old screen).
+        nav.screenKey = scr.key;
+        vwa_nav_search_clear(false);
+        return;
+    }
+    // Focus moved off the last result (Tab, a rebuild, an activation):
+    // the results are stale.
+    if (global.vwaSearch.active && nav.focusSkey != undefined
+        && nav.focusSkey != nd.nid.skey)
+    {
+        vwa_nav_search_clear(false);
+    }
+
+    for (var i = 1; i <= string_length(typed); i++)
+    {
+        var o = string_ord_at(typed, i);
+        if (vwa_search_char_is_letter(o))
+        {
+            vwa_nav_typeahead_char(chr(o));
+        }
+        else if (o == 32 && global.vwaSearch.buffer != "")
+        {
+            vwa_nav_typeahead_char(" ");
+        }
+    }
+}
+
+// One typed character: recapture the search scope fresh from the current
+// render (never cache game state), append, search.
+function vwa_nav_typeahead_char(ch)
+{
+    var scr = global.vwaFocusedScreen;
+    if (scr == undefined)
+    {
+        return;
+    }
+    var nd = vwa_graph_node(scr.graph);
+    if (nd == undefined || scr.navState.curRender == undefined)
+    {
+        return;
+    }
+    var nav = global.vwaSearchNav;
+    var order = scr.navState.curRender.order;
+    var scope = [];
+    var names = [];
+    for (var i = 0; i < array_length(order); i++)
+    {
+        var cand = order[i];
+        if (cand.stopKey != nd.stopKey)
+        {
+            continue;
+        }
+        array_push(scope, cand.nid.skey);
+        array_push(names, vwa_nav_search_text(cand));
+    }
+    if (array_length(scope) == 0)
+    {
+        return;
+    }
+    nav.scopeSkeys = scope;
+    nav.scopeNames = names;
+    vwa_search_add_char(global.vwaSearch, ch);
+    vwa_search_run(global.vwaSearch, array_length(scope),
+        function(i) { return global.vwaSearchNav.scopeNames[i]; },
+        function(i) { vwa_nav_search_land(i); },
+        function(txt) { vwa_nav_search_no_match(txt); });
+}
+
+// A node's searchable text: its first part's resolved label (game text is
+// markup-free, so the label is match-ready as-is).
+function vwa_nav_search_text(nd)
+{
+    return vwa_ann_first_label(nd);
+}
+
+// Land on a result: focus it and speak NOW with interrupt (like
+// vwa_nav_state_feedback, keystroke feedback cannot wait a frame - and a
+// repeated keystroke re-reads the unchanged landing, which a silent
+// observe would swallow). Rebaselines the announce memory so the tick's
+// observe does not re-speak the move.
+function vwa_nav_search_land(idx)
+{
+    var scr = global.vwaFocusedScreen;
+    var nav = global.vwaSearchNav;
+    if (scr == undefined || idx < 0 || idx >= array_length(nav.scopeSkeys))
+    {
+        vwa_log("ERROR: search landing with no screen or bad index "
+            + string(idx));
+        return;
+    }
+    var skey = nav.scopeSkeys[idx];
+    if (!vwa_graph_focus(scr.graph, skey))
+    {
+        // The control vanished between keystroke and step; the next tick's
+        // staleness check clears the results.
+        vwa_log("search: result " + string(skey) + " no longer in the render");
+        return;
+    }
+    var nd = vwa_graph_node(scr.graph);
+    var spoken = global.vwaNavSpoken;
+    var fromNd = (spoken.screenKey == scr.key) ? spoken.node : undefined;
+    var parts = vwa_ann_compose(fromNd, nd, global.vwaControlTypes,
+        global.vwaAnnHooks, undefined);
+    if (array_length(parts) > 0)
+    {
+        vwa_speak(parts, true);
+    }
+    global.vwaNavSpoken = { screenKey: scr.key, skey: nd.nid.skey, node: nd };
+    global.vwaNavLiveCache = vwa_nav_live_resolve(nd);
+    nav.focusSkey = nd.nid.skey;
+}
+
+function vwa_nav_search_no_match(txt)
+{
+    vwa_speak([string_replace(vwa_t("vwa--search-no-match"), "{text}", txt)],
+        true);
+}
+
+function vwa_nav_search_clear(announce)
+{
+    var st = global.vwaSearch;
+    var nav = global.vwaSearchNav;
+    var had = st.active || st.buffer != "";
+    vwa_search_reset(st);
+    nav.scopeSkeys = [];
+    nav.scopeNames = [];
+    nav.focusSkey = undefined;
+    if (announce && had)
+    {
+        vwa_speak([vwa_t("vwa--search-cleared")], true);
+    }
+}
+
+// The navigator handlers call this first. kind: "up" / "down" / "home" /
+// "end" / "back" / "other". Returns true when the active search consumed
+// the action. Up/down are reserved while a search is active even with no
+// results (they must not move focus out from under a mid-typing search);
+// Home/End join in only when there are results to jump within; Escape
+// always clears; everything else clears silently and proceeds.
+function vwa_nav_search_action(kind)
+{
+    var st = global.vwaSearch;
+    if (!st.active && st.buffer == "")
+    {
+        return false;
+    }
+    var scr = global.vwaFocusedScreen;
+    var nav = global.vwaSearchNav;
+    if (scr != undefined)
+    {
+        var nd = vwa_graph_node(scr.graph);
+        if (nd != undefined && nav.focusSkey != undefined
+            && nav.focusSkey != nd.nid.skey)
+        {
+            vwa_nav_search_clear(false);
+            return false;
+        }
+    }
+    if (kind == "up" || kind == "down")
+    {
+        if (array_length(st.results) > 0)
+        {
+            vwa_search_navigate(st, (kind == "down") ? 1 : -1,
+                function(i) { vwa_nav_search_land(i); });
+        }
+        return true;
+    }
+    if ((kind == "home" || kind == "end") && array_length(st.results) > 0)
+    {
+        vwa_search_jump(st, kind == "end",
+            function(i) { vwa_nav_search_land(i); });
+        return true;
+    }
+    if (kind == "back")
+    {
+        vwa_nav_search_clear(true);
+        vwa_input_consume_escape();
+        return true;
+    }
+    vwa_nav_search_clear(false);
+    return false;
 }

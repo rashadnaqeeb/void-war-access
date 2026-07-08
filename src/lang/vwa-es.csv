@@ -35,3 +35,5 @@ vwa--action-nav-jump-up,Ir al título del submenú
 vwa--action-nav-jump-down,Saltar el submenú
 vwa--submenu-items,{k} elementos
 vwa--submenu-item-one,1 elemento
+vwa--search-no-match,"{text}, sin coincidencias"
+vwa--search-cleared,Búsqueda borrada

@@ -195,9 +195,12 @@ function vwa_input_tick()
         vwa_input_unstick_keys();
         // Screen layer first (resolve/diff the stack, sync focus, announce),
         // so the live category set is current when chords dispatch below.
+        // Type-ahead runs between the two: it sees the fresh stack, and a
+        // landing it makes is current when the actions dispatch.
         if (variable_global_exists("vwaScreens"))
         {
             vwa_screens_tick();
+            vwa_nav_typeahead_tick();
         }
         // While the game's text-field input is active, only text-safe
         // actions dispatch: the speech controls must never go dead while
@@ -270,6 +273,27 @@ function vwa_input_unstick_keys()
         io_clear();
         vwa_log("input: cleared stale key state (runner held a key the OS reports up)");
     }
+}
+
+// Drain the runner's typed-character buffer for the type-ahead layer.
+// Lives here: this script is the one sanctioned home of raw keyboard reads.
+// keyboard_string is drained every eligible frame so stale characters can
+// never flush into a later search; it is never touched while the game's
+// text-field mode owns it (oTextField reads and clears it itself). Returns
+// "" while Ctrl or Alt is held - chords are not typing.
+function vwa_input_take_typed()
+{
+    if (global.textFieldInputEnabled)
+    {
+        return "";
+    }
+    var typed = keyboard_string;
+    keyboard_string = "";
+    if (keyboard_check(vk_control) || keyboard_check(vk_alt))
+    {
+        return "";
+    }
+    return typed;
 }
 
 // Consume an Escape press a mod screen just handled, so the game's own raw

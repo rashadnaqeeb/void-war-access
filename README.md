@@ -15,6 +15,7 @@ Early development. What works today:
 - The confirmation dialogue (for example when choosing a beta language): the message is read, arrows reach Confirm and Cancel.
 - The in-game pause menu (Resume, Hangar, Restart, Settings, Main Menu).
 - Submenus (used by upcoming mod screens such as the mod's own settings): a collapsible section presented as an element in the list, announced as "label, submenu, k items, n of m". Right arrow or Enter enters it, landing on its first item; left arrow returns to its header (on controls that don't use left/right themselves, like sliders or row members); up from the first item also lands on the header; down from the header skips the whole section; walking down past its last item continues into whatever follows, entering the next submenu directly with its title announced. Submenus nest. Ctrl+Down jumps out forward from anywhere inside (same landing as Down at the last item) and Ctrl+Up jumps to the header (same landing as Up at the first item).
+- Type-ahead search on every mod screen: just start typing a control's name and focus jumps to the best match, re-announcing on every keystroke. Matches rank start-of-name first, then word starts, then anywhere in the text; accents are ignored ("sea" finds "Séance"); typing several words matches word starts in order ("ga pi" finds "gas pipe"); pressing one letter repeatedly cycles through all of that letter's matches. While a search is active, Up/Down step through the matches, Home/End jump to the first/last match, and Escape clears the search (only then does Escape do its normal job); any other navigation key drops the search and works normally. If nothing matches, the mod says so, repeating what you typed.
 - Speech hotkeys, available everywhere - including while typing in a game text field: Ctrl stops speech, Shift+F11 resets the speech stack if it ever goes quiet.
 
 In-run gameplay (combat, encounters, ship management) is not yet accessible.
@@ -47,7 +48,8 @@ Without `-Speech`, the mod runs in capture-only mode: nothing is voiced, but eve
 - Enter: activate the focused control (buttons click, checkboxes flip, dropdowns open, a dropdown entry commits, a submenu opens).
 - Tab and Shift+Tab: cycle between control groups on screens that have them.
 - Home and End: jump to the first or last control of the current group.
-- Escape: close popups and menus (the game's own handling). With a dropdown list open, Escape closes just the list and stays in the menu.
+- Letters (and space, mid-search): type-ahead search over the current group; focus follows the best match as you type. Up/Down then step through the matches, Home/End jump to the first/last match, Escape clears the search, and any other key drops it and acts normally.
+- Escape: close popups and menus (the game's own handling). With a dropdown list open, Escape closes just the list and stays in the menu; with a search active, Escape clears the search first.
 - Ctrl: stop speech.
 - Shift+F11: reset the speech stack and announce the active backend.
 

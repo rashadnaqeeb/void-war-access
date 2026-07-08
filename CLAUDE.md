@@ -82,9 +82,11 @@ Greenfield project: committing to `main` is fine. Future work lives in
   of raw `keyboard_check`), `scrVwaGraph` (control graph: two-tier node
   identity, menu/raw builder, row groups, submenus, Tab stops, focus
   reconciliation; PURE - no game or global refs), `scrVwaAnnounce` (parts as data, control
-  types, path-diff compose; PURE), `scrVwaScreens` (screen registry,
-  poll-and-diff stack, navigator actions, once-per-frame announce observe +
-  live-part watch, synchronous state feedback), `scrVwaMenus` (the real
+  types, path-diff compose; PURE), `scrVwaSearch` (type-ahead matcher:
+  tiered matching, diacritic folding, result stepping; PURE - fixtures run
+  through the dev driver), `scrVwaScreens` (screen registry,
+  poll-and-diff stack, navigator actions, type-ahead glue, once-per-frame
+  announce observe + live-part watch, synchronous state feedback), `scrVwaMenus` (the real
   screens: main menu, announcements popup, the generic widget adapter and
   the settings family; all gated on `!global.gameIsLoading`), `scrVwaDev`
   (eval-lite interpreter, dev builds only). `*.append.gml` appends to the
@@ -118,9 +120,10 @@ any other form won't match the permission rule.
   to focus the window once. The keepalive is opt-in via cfg (`bg=1`, which
   run-game writes by default) so a shipped install never runs combat unheard.
 - **Smokes** (against a live game at the main menu): `scripts/drive-smoke`,
-  `input-smoke`, `screens-smoke`, `mainmenu-smoke`, `settings-smoke` -
+  `input-smoke`, `screens-smoke`, `mainmenu-smoke`, `settings-smoke`,
+  `typeahead-smoke` -
   profile-agnostic where possible (expected speech derives from /gui/mod).
-  **Run all five after touching the shim, the pump, scrVwaInput, or any
+  **Run all six after touching the shim, the pump, scrVwaInput, or any
   framework or screen script.**
 - **Logs:** shim -> `build\vw_speech.log`; GML -> `%AppData%\Roaming\
   Void_War\vwa-mod.log`; every spoken line -> `vwa-speech.log` there.
@@ -154,6 +157,8 @@ exclusive), `vwa_dev_test_menu <on|off>`, `vwa_dev_test_submenu <on|off>`,
 `vwa_dev_menu_focus <skey>`,
 `vwa_dev_menu_rename <old> <new>`, `vwa_dev_register_test_actions`,
 `vwa_dev_arm_input_fault`, `vwa_dev_key_direct <vk>`,
+`vwa_dev_typeahead <text>` / `vwa_dev_search_state` (drive/inspect the
+type-ahead layer below the raw keyboard read),
 `vwa_dev_suppression_probe <bind>` (retry only on `live:false` with
 `kbDirect:true`), `vwa_dev_dismiss_start_popup` (honors the once-per-profile
 double-spawn quirk), `vwa_dev_spawn <objName>` (oMenuPause verified safe at
@@ -170,11 +175,18 @@ the control leaves left unclaimed, up from the first child is the header,
 down past the last child flows onward - diving into a sibling submenu's
 first child), **Enter** activates, **Tab/Shift+Tab**
 cycle control groups with remembered positions, **Home/End** jump to the
-group's first/last control, **Escape** nav-back (consumed ONLY when a screen
-claims it via onBack - the dropdown child screen - otherwise the game's own
-Escape runs untouched). Tooltips have NO key: a widget's tooltipStr is an
+group's first/last control, **Escape** nav-back (consumed ONLY when an
+active search clears or a screen claims it via onBack - the dropdown child
+screen - otherwise the game's own Escape runs untouched). Tooltips have NO key: a widget's tooltipStr is an
 announcement part, read inline with the control. Actions carry a bindings
-LIST (any chord fires). **Ctrl+Up/Down** jump by submenu, landing exactly
+LIST (any chord fires). **Letters** (and space once a buffer exists) run
+type-ahead search over the focused Tab stop: focus follows the best match,
+re-announcing per keystroke; while active, up/down step results, Home/End
+jump to the first/last result, Escape clears (consumed), any other nav key
+clears silently and acts normally; a no-match speaks the buffer back.
+Matching lives in scrVwaSearch (tiered; see its header); screens can opt
+out via `allowsTypeahead: false` (none do yet - reserve it for screens
+whose letters are hotkeys). **Ctrl+Up/Down** jump by submenu, landing exactly
 where the plain arrow at the enclosing submenu's boundary lands: down =
 down-at-its-last-item (flow out, dive included), up = up-at-its-first-item
 (the enclosing header; repeat climbs out). A top-level header mirrors the
@@ -245,4 +257,12 @@ adjust, in-row movement, a future table's columns) - left-to-exit exists
 only where left is unclaimed. Precedence, not an exception. Headers speak
 their child count, including "0 items". Ctrl+Down is down-at-the-last-item
 of the enclosing submenu and Ctrl+Up is up-at-the-first-item (the header) -
-the jump chords never land anywhere a boundary arrow could not.
+the jump chords never land anywhere a boundary arrow could not. Type-ahead
+matching is tiered (start whole word > start prefix > mid whole word > mid
+word prefix > substring > word-prefix abbreviation), keeps LIST ORDER within
+a tier (position beats name length), ranks pre-comma name matches over
+post-comma metadata across all tiers, folds diacritics, and cycles a
+repeated single letter through all its matches; landings re-announce every
+keystroke (silence after a keystroke is indistinguishable from a dead key).
+Backspace is deliberately unwired - retype instead. keyboard_string is the
+typed-char source, drained in scrVwaInput every non-text-field frame.

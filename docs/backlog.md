@@ -20,10 +20,6 @@ verified facts live in CLAUDE.md.
 
 ## UI infrastructure not built yet (menu features)
 
-1. Type-ahead search: type letters to jump within the focused Tab stop.
-   Tiered matching (word start > prefix > mid-word > substring >
-   abbreviation, repeated-letter cycling); needs a text-input feed the
-   input layer doesn't have yet.
 3. Secondary action (Backspace vtable slot) - nothing to bind until
    vendor/loot-style screens.
 4. Grid screens: regions with Ctrl+Up/Down region jumps (the chord already
