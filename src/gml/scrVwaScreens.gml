@@ -41,7 +41,8 @@ function vwa_screens_init()
     // moving off it means the results are stale.
     global.vwaSearch = vwa_search_new();
     global.vwaSearchNav = { scopeSkeys: [], scopeNames: [],
-                            focusSkey: undefined, screenKey: undefined };
+                            focusSkey: undefined, screenKey: undefined,
+                            fieldMode: false };
 
     vwa_control_types_init();
     global.vwaAnnHooks = {
@@ -86,6 +87,10 @@ function vwa_control_types_init()
             vwa_part_fn("role", function() { return vwa_t("vwa--role-option"); }, false)] },
         submenu: { order: stdOrder, common: [
             vwa_part_fn("role", function() { return vwa_t("vwa--role-submenu"); }, false)] },
+        // Editable text box: activation enters the game's text-field mode
+        // via vwa_text_begin (scrVwaText); the screen supplies the adapter.
+        textfield: { order: stdOrder, common: [
+            vwa_part_fn("role", function() { return vwa_t("vwa--role-edit"); }, false)] },
         label: { order: stdOrder, common: [] }
     };
 }
@@ -607,7 +612,19 @@ function vwa_nav_typeahead_tick()
     if (global.textFieldInputEnabled)
     {
         // The game's text field owns the keyboard (and keyboard_string).
+        nav.fieldMode = true;
         vwa_nav_search_clear(false);
+        return;
+    }
+    if (nav.fieldMode)
+    {
+        // First tick after the field mode ended: discard the buffer
+        // instead of searching it. Anything in there was typed while the
+        // field owned the keyboard (residue the field's own consume gate
+        // missed, or dev injection) and belongs to the field, not to a
+        // search.
+        nav.fieldMode = false;
+        vwa_input_take_typed();
         return;
     }
 

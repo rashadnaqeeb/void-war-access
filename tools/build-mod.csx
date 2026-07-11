@@ -36,6 +36,11 @@ group.QueueReplace("gml_GlobalScript_scrVwaSearch",
 group.QueueReplace("gml_GlobalScript_scrVwaScreens",
     File.ReadAllText(Path.Combine(gmlDir, "scrVwaScreens.gml")));
 
+// New global script: the text edit layer (session 9) - edit-mode tracker,
+// review cursor, keyboard exit for the game's text fields.
+group.QueueReplace("gml_GlobalScript_scrVwaText",
+    File.ReadAllText(Path.Combine(gmlDir, "scrVwaText.gml")));
+
 // New global script: the real game screens (session 5) - main menu,
 // announcements popup, game-menu placeholders.
 group.QueueReplace("gml_GlobalScript_scrVwaMenus",
@@ -104,6 +109,8 @@ if (Data.Code.ByName("gml_GlobalScript_scrVwaSearch") == null)
     throw new Exception("gml_GlobalScript_scrVwaSearch was not created by the import");
 if (Data.Code.ByName("gml_GlobalScript_scrVwaScreens") == null)
     throw new Exception("gml_GlobalScript_scrVwaScreens was not created by the import");
+if (Data.Code.ByName("gml_GlobalScript_scrVwaText") == null)
+    throw new Exception("gml_GlobalScript_scrVwaText was not created by the import");
 if (Data.Code.ByName("gml_GlobalScript_scrVwaMenus") == null)
     throw new Exception("gml_GlobalScript_scrVwaMenus was not created by the import");
 if (Data.Code.ByName("gml_GlobalScript_scrVwaDev") == null)

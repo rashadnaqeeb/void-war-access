@@ -38,3 +38,17 @@ vwa--submenu-item-one,1 Eintrag
 vwa--search-no-match,"{text}, kein Treffer"
 vwa--search-cleared,Suche gelöscht
 vwa--group-social,Soziale Links
+vwa--role-edit,Eingabefeld
+vwa--text-editing,Bearbeiten
+vwa--text-edit-closed,Bearbeitung beendet
+vwa--text-changed,Text geändert
+vwa--text-blank,leer
+vwa--char-space,Leerzeichen
+vwa--action-text-left,Vorheriges Zeichen vorlesen
+vwa--action-text-right,Nächstes Zeichen vorlesen
+vwa--action-text-word-left,Vorheriges Wort vorlesen
+vwa--action-text-word-right,Nächstes Wort vorlesen
+vwa--action-text-home,Erstes Zeichen vorlesen
+vwa--action-text-end,Letztes Zeichen vorlesen
+vwa--action-text-read,Text vorlesen
+vwa--action-text-exit,Bearbeitung beenden

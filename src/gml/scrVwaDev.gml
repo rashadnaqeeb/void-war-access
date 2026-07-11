@@ -1754,6 +1754,39 @@ function vwa_dev_search_state()
              resultSkeys: skeys, focusSkey: nav.focusSkey };
 }
 
+// Append characters to the runner's typed buffer (keyboard_string is a
+// writable builtin - unlike synthetic key PRESSES, which this runner
+// ignores). oTextField only moves the buffer into its text while a
+// physical key is held (its Step gates on keyboard_check(vk_anykey)), so
+// this cannot fake end-to-end typing; what it CAN prove is the boundary:
+// mid-edit the buffer must persist untouched (the mod's type-ahead drain
+// stays off it). Requires the game's text-field mode; use
+// vwa_dev_typeahead for the search layer.
+function vwa_dev_type(txt)
+{
+    if (!global.textFieldInputEnabled)
+    {
+        throw "text-field input not active; use vwa_dev_typeahead for the search layer";
+    }
+    vwa_input_inject_typed(string(txt));
+    return { typed: string(txt) };
+}
+
+// The text edit layer's live state plus the game-side truth it tracks.
+// kbString is the runner's raw typed buffer (a read does not drain it):
+// the smoke uses it to prove the type-ahead drain keeps its hands off the
+// buffer mid-edit. Raw keyboard access in dev code follows the
+// vwa_dev_key_direct precedent.
+function vwa_dev_text_state()
+{
+    var st = global.vwaText;
+    return { active: st.active, pending: st.pending, cursor: st.cursor,
+             flag: global.textFieldInputEnabled ? true : false,
+             fieldExists: instance_exists(oTextField) ? true : false,
+             fieldText: instance_exists(oTextField) ? string(oTextField.text) : "",
+             kbString: string(keyboard_string) };
+}
+
 // Diagnostic: the runner's view of a key vs the OS's (keyboard_check_direct
 // ignores window focus). Disagreement = stale runner bookkeeping (see
 // vwa_input_unstick_keys).

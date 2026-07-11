@@ -9,6 +9,7 @@ if (vwa_shim_init())
 }
 vwa_input_init();
 vwa_screens_init();
+vwa_text_init();
 vwa_menus_init();
 if (global.vwaShimReady)
 {

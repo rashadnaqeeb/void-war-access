@@ -202,6 +202,13 @@ function vwa_input_tick()
             vwa_screens_tick();
             vwa_nav_typeahead_tick();
         }
+        // Text edit layer next (scrVwaText): announces edit-mode edges and
+        // backspace feedback, so the dispatch below sees the same flag
+        // state the tick observed.
+        if (variable_global_exists("vwaText"))
+        {
+            vwa_text_tick();
+        }
         // While the game's text-field input is active, only text-safe
         // actions dispatch: the speech controls must never go dead while
         // the player is typing (never strand the user).
@@ -279,8 +286,10 @@ function vwa_input_unstick_keys()
 // Lives here: this script is the one sanctioned home of raw keyboard reads.
 // keyboard_string is drained every eligible frame so stale characters can
 // never flush into a later search; it is never touched while the game's
-// text-field mode owns it (oTextField reads and clears it itself). Returns
-// "" while Ctrl or Alt is held - chords are not typing.
+// text-field mode owns it (oTextField reads and clears it itself), and the
+// type-ahead tick discards the first drain after that mode ends (leftover
+// characters belonged to the field). Returns "" while Ctrl or Alt is held -
+// chords are not typing.
 function vwa_input_take_typed()
 {
     if (global.textFieldInputEnabled)
@@ -296,16 +305,31 @@ function vwa_input_take_typed()
     return typed;
 }
 
-// Consume an Escape press a mod screen just handled, so the game's own raw
-// keyboard_check(_pressed)(vk_escape) menu handlers (settings closes on
-// Escape, the popup dismisses on Escape) do not also act on it this frame.
-// Our tick runs in Begin Step, before every game Step/Draw read, and
-// keyboard_clear is the game's own consume mechanism
-// (oUIConfirmationDialogue Step_0 does exactly this). Lives here because
-// this script is the one sanctioned home of raw keyboard functions.
+// Consume a key press a mod handler just acted on, so the game's own raw
+// keyboard_check(_pressed) reads do not also act on it this frame (settings
+// closes on Escape, the ship selector cycles hulls on the arrows - raw and
+// ungated, even mid-text-edit). Our tick runs in Begin Step, before every
+// game Step/Draw read, and keyboard_clear is the game's own consume
+// mechanism (oUIConfirmationDialogue Step_0 does exactly this). A held key
+// re-asserts through OS auto-repeat, so consuming does not wedge it. Lives
+// here because this script is the one sanctioned home of raw keyboard
+// functions.
+function vwa_input_consume_key(vk)
+{
+    keyboard_clear(vk);
+}
+
 function vwa_input_consume_escape()
 {
-    keyboard_clear(vk_escape);
+    vwa_input_consume_key(vk_escape);
+}
+
+// Append characters to the runner's typed buffer as if the player had
+// typed them; keyboard_string is what the game's oTextField consumes. Only
+// the dev driver calls this (vwa_dev_type) - real typing needs no help.
+function vwa_input_inject_typed(txt)
+{
+    keyboard_string = keyboard_string + string(txt);
 }
 
 function vwa_input_dispatch(textOnly)

@@ -81,9 +81,10 @@ Greenfield project: committing to `main` is fine.
   `scrVwaGraph` (control graph, builder, navigation engine; PURE),
   `scrVwaAnnounce` (announcement parts, path-diff compose; PURE),
   `scrVwaSearch` (type-ahead matcher; PURE), `scrVwaScreens` (screen
-  registry and stack, navigator, type-ahead glue), `scrVwaMenus` (the real
-  game screens + the generic widget adapter), `scrVwaDev` (dev driver,
-  dev builds only). `*.append.gml` appends to the named code entry
+  registry and stack, navigator, type-ahead glue), `scrVwaText` (text edit
+  layer: edit-mode tracker, review cursor, keyboard exit), `scrVwaMenus`
+  (the real game screens + the generic widget adapter), `scrVwaDev` (dev
+  driver, dev builds only). `*.append.gml` appends to the named code entry
   (`*.dev.append.gml` = dev-only).
 - `src/lang/` - mod strings as `vwa--` CSV rows, merged into the game's lang
   CSVs at build time.
@@ -114,9 +115,9 @@ any other form won't match the permission rule.
   run-game writes by default) so a shipped install never runs combat unheard.
 - **Smokes** (against a live game at the main menu): `scripts/drive-smoke`,
   `input-smoke`, `screens-smoke`, `mainmenu-smoke`, `settings-smoke`,
-  `typeahead-smoke` - profile-agnostic where possible (expected speech
-  derives from /gui/mod).
-  **Run all six after touching the shim, the pump, scrVwaInput, or any
+  `typeahead-smoke`, `textedit-smoke` - profile-agnostic where possible
+  (expected speech derives from /gui/mod).
+  **Run all seven after touching the shim, the pump, scrVwaInput, or any
   framework or screen script.**
 - **Logs:** shim -> `build\vw_speech.log`; GML -> `%AppData%\Roaming\
   Void_War\vwa-mod.log`; every spoken line -> `vwa-speech.log` there.
@@ -152,6 +153,9 @@ exclusive), `vwa_dev_test_menu <on|off>`, `vwa_dev_test_submenu <on|off>`,
 `vwa_dev_arm_input_fault`, `vwa_dev_key_direct <vk>`,
 `vwa_dev_typeahead <text>` / `vwa_dev_search_state` (drive/inspect the
 type-ahead layer below the raw keyboard read),
+`vwa_dev_type <text>` / `vwa_dev_text_state` (inject into keyboard_string /
+inspect the text edit layer; injected chars only reach a field's text while
+a physical key is held),
 `vwa_dev_suppression_probe <bind>` (retry only on `live:false` with
 `kbDirect:true`), `vwa_dev_dismiss_start_popup` (honors the once-per-profile
 double-spawn quirk), `vwa_dev_spawn <objName>` (oMenuPause verified safe at
@@ -172,9 +176,20 @@ game's own Escape runs untouched). Tooltips have NO key: a widget's
 tooltipStr is an announcement part, read inline with the control. Actions
 carry a bindings LIST (any chord fires); screens can opt out of type-ahead
 via `allowsTypeahead: false` (reserve it for screens whose letters are
-hotkeys). The behavior models live in the script headers: submenus and
+hotkeys).
+
+Text edit mode (while the game's text-field input is active): typing is
+echoed by the screen reader itself and backspace speaks the deleted
+character; **arrows** review by character, **Ctrl+left/right** by word,
+**Home/End** first/last character, **up/down** read the whole text,
+**Enter/Escape** stop editing. The review cursor is read-only - the game
+has NO movable caret, no selection, and no clipboard; every edit lands at
+the END of the text.
+
+The behavior models live in the script headers: submenus and
 jump edges in scrVwaGraph, type-ahead matching in scrVwaSearch, the
-type-ahead key handling in scrVwaScreens.
+type-ahead key handling in scrVwaScreens, the text edit model (and the
+game's text-field mechanics it wraps) in scrVwaText.
 
 ## Hard rules (the audit command checks these)
 

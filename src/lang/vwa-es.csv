@@ -38,3 +38,17 @@ vwa--submenu-item-one,1 elemento
 vwa--search-no-match,"{text}, sin coincidencias"
 vwa--search-cleared,Búsqueda borrada
 vwa--group-social,Enlaces sociales
+vwa--role-edit,campo de edición
+vwa--text-editing,Editando
+vwa--text-edit-closed,Edición terminada
+vwa--text-changed,Texto cambiado
+vwa--text-blank,vacío
+vwa--char-space,espacio
+vwa--action-text-left,Leer el carácter anterior
+vwa--action-text-right,Leer el carácter siguiente
+vwa--action-text-word-left,Leer la palabra anterior
+vwa--action-text-word-right,Leer la palabra siguiente
+vwa--action-text-home,Leer el primer carácter
+vwa--action-text-end,Leer el último carácter
+vwa--action-text-read,Leer el texto
+vwa--action-text-exit,Terminar la edición
