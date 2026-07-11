@@ -82,7 +82,7 @@ Greenfield project: committing to `main` is fine.
   `scrVwaAnnounce` (announcement parts, path-diff compose; PURE),
   `scrVwaSearch` (type-ahead matcher; PURE), `scrVwaScreens` (screen
   registry and stack, navigator, type-ahead glue), `scrVwaText` (text edit
-  layer: edit-mode tracker, review cursor, keyboard exit), `scrVwaMenus`
+  layer: edit-mode tracker, edit feedback, keyboard exit), `scrVwaMenus`
   (the real game screens + the generic widget adapter), `scrVwaDev` (dev
   driver, dev builds only). `*.append.gml` appends to the named code entry
   (`*.dev.append.gml` = dev-only).
@@ -180,11 +180,10 @@ hotkeys).
 
 Text edit mode (while the game's text-field input is active): typing is
 echoed by the screen reader itself and backspace speaks the deleted
-character; **arrows** review by character, **Ctrl+left/right** by word,
-**Home/End** first/last character, **up/down** read the whole text,
-**Enter/Escape** stop editing. The review cursor is read-only - the game
-has NO movable caret, no selection, and no clipboard; every edit lands at
-the END of the text.
+character; **up/down** read the whole text, **Enter/Escape** stop editing.
+There is deliberately NO review cursor: the game has no movable caret, no
+selection, and no clipboard - every edit lands at the END of the text, and
+a cursor that cannot place edits teaches a false model.
 
 The behavior models live in the script headers: submenus and
 jump edges in scrVwaGraph, type-ahead matching in scrVwaSearch, the

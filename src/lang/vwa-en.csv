@@ -44,11 +44,5 @@ vwa--text-edit-closed,Edit closed
 vwa--text-changed,Text changed
 vwa--text-blank,blank
 vwa--char-space,space
-vwa--action-text-left,Review previous character
-vwa--action-text-right,Review next character
-vwa--action-text-word-left,Review previous word
-vwa--action-text-word-right,Review next word
-vwa--action-text-home,Review first character
-vwa--action-text-end,Review last character
 vwa--action-text-read,Read the text
 vwa--action-text-exit,Stop editing

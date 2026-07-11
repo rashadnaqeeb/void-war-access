@@ -1780,7 +1780,7 @@ function vwa_dev_type(txt)
 function vwa_dev_text_state()
 {
     var st = global.vwaText;
-    return { active: st.active, pending: st.pending, cursor: st.cursor,
+    return { active: st.active, pending: st.pending,
              flag: global.textFieldInputEnabled ? true : false,
              fieldExists: instance_exists(oTextField) ? true : false,
              fieldText: instance_exists(oTextField) ? string(oTextField.text) : "",

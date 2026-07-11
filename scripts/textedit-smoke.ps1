@@ -1,9 +1,9 @@
 # textedit-smoke.ps1 - regression check for the text edit layer
 # (scrVwaText): enter the game's text-field mode, watch the mode
-# announcements (including the pending path), drive the review cursor,
-# verify deletion feedback from the text diff, prove the type-ahead drain
-# keeps off keyboard_string mid-edit and discards the leftover after the
-# mode ends, and exit from the keyboard.
+# announcements (including the pending path), read the field back, verify
+# deletion feedback from the text diff, prove the type-ahead drain keeps
+# off keyboard_string mid-edit and discards the leftover after the mode
+# ends, and exit from the keyboard.
 #
 # Runs entirely at the main menu against the game's REAL text machinery:
 # text_field_input (the same script every field's Step calls) creates the
@@ -129,21 +129,9 @@ $editing = LocStr 'vwa--text-editing'
 $lines = SpeechFrom $cur
 Check 'entry announced with the text' ((@($lines) -join ' ') -match ([regex]::Escape($editing) + '.*alpha beta')) ($lines -join ' | ')
 $st = TextState
-Check 'cursor parked at the end (10)' ($st.cursor -eq 10 -and $st.fieldText -eq 'alpha beta') ($st | ConvertTo-Json -Compress)
+Check 'field text seeded' ($st.fieldText -eq 'alpha beta') ($st | ConvertTo-Json -Compress)
 
-# --- review cursor ---
-$lines = ReviewSays 'text-review-left'
-Check "left speaks 't'" (@($lines)[-1] -eq 't') ($lines -join ' | ')
-$lines = ReviewSays 'text-review-word-left'
-Check "word-left speaks 'beta'" (@($lines)[-1] -eq 'beta') ($lines -join ' | ')
-$lines = ReviewSays 'text-review-word-left'
-Check "word-left again speaks 'alpha'" (@($lines)[-1] -eq 'alpha') ($lines -join ' | ')
-$lines = ReviewSays 'text-review-word-right'
-Check "word-right speaks 'beta'" (@($lines)[-1] -eq 'beta') ($lines -join ' | ')
-$lines = ReviewSays 'text-review-home'
-Check "home speaks 'a'" (@($lines)[-1] -eq 'a') ($lines -join ' | ')
-$lines = ReviewSays 'text-review-end'
-Check "end speaks 'a'" (@($lines)[-1] -eq 'a') ($lines -join ' | ')
+# --- read the field back ---
 $lines = ReviewSays 'text-read'
 Check 'read-all speaks the text' (@($lines)[-1] -eq 'alpha beta') ($lines -join ' | ')
 
@@ -157,8 +145,10 @@ Cmd 'call text_field_replace "alpha "' | Out-Null
 $lines = SpeechFrom $cur
 Check "multi end-deletion speaks 't, e, b'" (@($lines)[-1] -eq 't, e, b') ($lines -join ' | ')
 $space = LocStr 'vwa--char-space'
-$lines = ReviewSays 'text-review-end'
-Check 'end on a space speaks the space word' (@($lines)[-1] -eq $space) ($lines -join ' | ')
+$cur = SpeechNext
+Cmd 'call text_field_replace "alpha"' | Out-Null
+$lines = SpeechFrom $cur
+Check 'deleting a space speaks the space word' (@($lines)[-1] -eq $space) ($lines -join ' | ')
 
 # --- the type-ahead drain keeps off keyboard_string mid-edit ---
 Cmd 'call vwa_dev_type "xy"' | Out-Null
