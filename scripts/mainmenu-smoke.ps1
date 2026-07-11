@@ -6,11 +6,13 @@
 # so expected speech lines are derived live from /gui/mod (whose per-node
 # parts are exactly what the announcer speaks) rather than hard-coded.
 # Asserts: boot transcript reached the main menu, /gui/mod vs /gui/raw
-# agreement on the button list, sibling moves with "n of m", arrow wrap,
-# opening Settings (name-only placeholder screen this session) and closing
-# it via the game's own stored closeMenu callback with focus restore,
-# opening the announcements popup, reading a body on demand, and dismissal
-# with focus restore. Assumes a launcher (run-game.ps1) is already up at
+# agreement on the button list, sibling moves with "n of m", arrow wrap
+# within the menu's own Tab stop, the social button bar as a second Tab
+# stop (labels from the live oSocialButton tooltips, Tab announces the
+# group), opening Settings (name-only placeholder screen this session) and
+# closing it via the game's own stored closeMenu callback with focus
+# restore, opening the announcements popup, reading a body on demand, and
+# dismissal with focus restore. Assumes a launcher (run-game.ps1) is already up at
 # the main menu; drives over HTTP only. Exits nonzero on any failed check.
 #
 # Usage: powershell -NoProfile -File scripts\mainmenu-smoke.ps1
@@ -100,16 +102,27 @@ for ($i = 0; $i -lt 3 -and $m.focused -eq 'announcements'; $i++) {
 }
 
 # --- the main menu screen is up and interpreted ---
+# Two Tab stops: the menu proper (the first node's stop) and the social
+# button bar. Partitioned by the stop key; all counts derived live.
 Check 'main-menu focused' ($m.focused -eq 'main-menu') $m.focused
-$n = $m.nodes.Count
+$menuStop = $m.nodes[0].stop
+$menuNodes = @($m.nodes | Where-Object { $_.stop -eq $menuStop })
+$socialNodes = @($m.nodes | Where-Object { $_.stop -eq 'social' })
+$n = $menuNodes.Count
 Check 'at least the 5 unconditional entries' ($n -ge 5) $n
+Check 'no nodes outside the two known stops' (
+    ($menuNodes.Count + $socialNodes.Count) -eq $m.nodes.Count) (
+    ($m.nodes | ForEach-Object { $_.stop } | Sort-Object -Unique) -join ',')
 $types = @($m.nodes | ForEach-Object { $_.type } | Sort-Object -Unique)
 Check 'every entry is a button' (($types -join ',') -eq 'button') ($types -join ',')
 $posOk = $true
 for ($i = 0; $i -lt $n; $i++) {
-    if ($m.nodes[$i].pos[0] -ne ($i + 1) -or $m.nodes[$i].pos[1] -ne $n) { $posOk = $false }
+    if ($menuNodes[$i].pos[0] -ne ($i + 1) -or $menuNodes[$i].pos[1] -ne $n) { $posOk = $false }
 }
-Check '"n of m" stamped in list order' $posOk (($m.nodes | ForEach-Object { $_.pos -join '/' }) -join ' ')
+for ($i = 0; $i -lt $socialNodes.Count; $i++) {
+    if ($socialNodes[$i].pos[0] -ne ($i + 1) -or $socialNodes[$i].pos[1] -ne $socialNodes.Count) { $posOk = $false }
+}
+Check '"n of m" stamped per stop in list order' $posOk (($m.nodes | ForEach-Object { $_.pos -join '/' }) -join ' ')
 
 # --- boot transcript: the boot announcement is followed IMMEDIATELY by a
 #     screen name (main menu, or the announcements popup when it auto-opens)
@@ -128,8 +141,18 @@ $raw = Cmd 'gui.raw'
 $rawButtons = @($raw.families.oMainMenuControls[0].buttonList)
 Check 'raw and mod agree on entry count' ($rawButtons.Count -eq $n) "$($rawButtons.Count) raw vs $n mod"
 $rawLabels = @($rawButtons | ForEach-Object { $_.buttonStr }) -join '|'
-$modLabels = @($m.nodes | ForEach-Object { $_.parts[0] }) -join '|'
+$modLabels = @($menuNodes | ForEach-Object { $_.parts[0] }) -join '|'
 Check 'raw and mod agree on labels in order' ($rawLabels -eq $modLabels) "raw '$rawLabels' vs mod '$modLabels'"
+
+# --- the social bar vs its live instances: labels are the game's own
+#     tooltips, order is visual (x ascending) ---
+$rawSocial = @((Cmd 'instances oSocialButton').instances | Sort-Object x)
+Check 'raw and mod agree on social button count' (
+    $rawSocial.Count -eq $socialNodes.Count) "$($rawSocial.Count) raw vs $($socialNodes.Count) mod"
+$rawSocialLabels = @($rawSocial | ForEach-Object { CmdStr "get $($_.id).tooltipStr" }) -join '|'
+$modSocialLabels = @($socialNodes | ForEach-Object { $_.parts[0] }) -join '|'
+Check 'raw and mod agree on social labels in order' (
+    $rawSocialLabels -eq $modSocialLabels) "raw '$rawSocialLabels' vs mod '$modSocialLabels'"
 
 # --- park focus on the first entry (no speech assertion: it may already
 #     be there; a same-node nextMove is silent by design) ---
@@ -143,24 +166,43 @@ function FocusMainMenu([string]$skey) {
     Cmd "set global.vwaScreens[$mmIndex].navState.nextMove $skey" | Out-Null
     Start-Sleep -Milliseconds 300
 }
-FocusMainMenu $m.nodes[0].skey
-Check 'focus parked on the first entry' ((GuiMod).focusKey -eq $m.nodes[0].skey) (GuiMod).focusKey
+FocusMainMenu $menuNodes[0].skey
+Check 'focus parked on the first entry' ((GuiMod).focusKey -eq $menuNodes[0].skey) (GuiMod).focusKey
 
-# --- arrow wrap: up from the top lands on the bottom, down wraps back ---
-CheckSpeech 'up from the first entry wraps to the last' { Fire 'nav-up' } @(NodeLine $m.nodes[$n - 1])
-CheckSpeech 'down from the last entry wraps to the first' { Fire 'nav-down' } @(NodeLine $m.nodes[0])
+# --- arrow wrap: up from the top lands on the bottom, down wraps back -
+#     within the menu's own stop (arrows never reach the social bar) ---
+CheckSpeech 'up from the first entry wraps to the last' { Fire 'nav-up' } @(NodeLine $menuNodes[$n - 1])
+CheckSpeech 'down from the last entry wraps to the first' { Fire 'nav-down' } @(NodeLine $menuNodes[0])
+
+# --- the social bar: Tab enters it announcing the group word, left/right
+#     walk its buttons, Shift+Tab returns to the remembered menu entry ---
+if ($socialNodes.Count -gt 0) {
+    $groupWord = (Cmd 'call vwa_t vwa--group-social').result
+    CheckSpeech 'Tab reaches the social group, announced with its group word' {
+        Fire 'nav-next-stop'
+    } @("$groupWord, $(NodeLine $socialNodes[0])")
+    for ($i = 1; $i -lt $socialNodes.Count; $i++) {
+        CheckSpeech "right to social button $($i + 1)" { Fire 'nav-right' } @(NodeLine $socialNodes[$i])
+    }
+    CheckSpeech 'right at the last social button is a dead edge' { Fire 'nav-right' } @()
+    CheckSpeech 'Shift+Tab returns to the remembered menu entry' {
+        Fire 'nav-prev-stop'
+    } @(NodeLine $menuNodes[0])
+} else {
+    Write-Host '  (no social buttons live; skipping social bar checks)'
+}
 
 # --- walk down to Settings, hearing each entry exactly once ---
 $settingsIdx = -1
 $annIdx = -1
 for ($i = 0; $i -lt $n; $i++) {
-    if ($m.nodes[$i].skey -eq 'mm:label_settings') { $settingsIdx = $i }
-    if ($m.nodes[$i].skey -eq 'mm:label_announcements') { $annIdx = $i }
+    if ($menuNodes[$i].skey -eq 'mm:label_settings') { $settingsIdx = $i }
+    if ($menuNodes[$i].skey -eq 'mm:label_announcements') { $annIdx = $i }
 }
-Check 'Settings entry present' ($settingsIdx -ge 0) ($m.nodes | ForEach-Object { $_.skey })
-Check 'Announcements entry present' ($annIdx -ge 0) ($m.nodes | ForEach-Object { $_.skey })
+Check 'Settings entry present' ($settingsIdx -ge 0) ($menuNodes | ForEach-Object { $_.skey })
+Check 'Announcements entry present' ($annIdx -ge 0) ($menuNodes | ForEach-Object { $_.skey })
 for ($i = 1; $i -le $settingsIdx; $i++) {
-    CheckSpeech "down to entry $($i + 1) of $n" { Fire 'nav-down' } @(NodeLine $m.nodes[$i])
+    CheckSpeech "down to entry $($i + 1) of $n" { Fire 'nav-down' } @(NodeLine $menuNodes[$i])
 }
 
 # --- Enter on Settings: the real settings screen opens (session 6): it
@@ -184,12 +226,12 @@ Check 'settings keeps ui live (real screen now)' (
 # --- close via the game's own stored callback: focus restores, spoken once ---
 CheckSpeech 'closing settings re-announces menu and restores focus' {
     Cmd 'call oMenuSettings.closeMenu'
-} @($mainMenuName, (NodeLine $m.nodes[$settingsIdx]))
+} @($mainMenuName, (NodeLine $menuNodes[$settingsIdx]))
 
 # --- Enter on Announcements: the popup screen, derived expectations ---
 CheckSpeech 'jump to the Announcements entry' {
-    FocusMainMenu $m.nodes[$annIdx].skey
-} @(NodeLine $m.nodes[$annIdx])
+    FocusMainMenu $menuNodes[$annIdx].skey
+} @(NodeLine $menuNodes[$annIdx])
 $cur = SpeechNext
 Fire 'nav-activate' | Out-Null
 Start-Sleep -Milliseconds 400
@@ -225,8 +267,8 @@ Check 'popup dismissed' ($d.result.dismissed -eq $true) ($d | ConvertTo-Json -Co
 $got = @(SpeechFrom $cur)
 $m2 = GuiMod
 Check 'main menu focus restored to Announcements' (
-    $m2.focused -eq 'main-menu' -and $m2.focusKey -eq $m.nodes[$annIdx].skey) "$($m2.focused)/$($m2.focusKey)"
-$expected = @($mainMenuName, (NodeLine $m.nodes[$annIdx]))
+    $m2.focused -eq 'main-menu' -and $m2.focusKey -eq $menuNodes[$annIdx].skey) "$($m2.focused)/$($m2.focusKey)"
+$expected = @($mainMenuName, (NodeLine $menuNodes[$annIdx]))
 Check 'uncover re-announced menu and landing' (($got -join '|') -eq ($expected -join '|')) "expected '$($expected -join '|')', got '$($got -join '|')'"
 
 Check 'pump alive at end' ((Cmd 'ping') -eq 'pong') 'no pong'

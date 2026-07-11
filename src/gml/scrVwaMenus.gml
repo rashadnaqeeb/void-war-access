@@ -1,9 +1,10 @@
-// scrVwaMenus - Void War Access real game screens: the main menu and the
-// game-start announcements popup (session 5), plus the generic widget
-// adapter and the settings family - settings, pause/escape menu,
-// confirmation dialogue, dropdown lists as child screens, language menu -
-// (session 6). A name-only placeholder remains for menus with no real
-// graph yet (keybinds; the in-run menus arrive post-foundation).
+// scrVwaMenus - Void War Access real game screens: the main menu (with its
+// social button bar as a second Tab stop) and the game-start announcements
+// popup (session 5), plus the generic widget adapter and the settings
+// family - settings, pause/escape menu, confirmation dialogue, dropdown
+// lists as child screens, language menu - (session 6). A name-only
+// placeholder remains for menus with no real graph yet (keybinds; the
+// in-run menus arrive post-foundation).
 // Imported by tools/build-mod.csx as a new global script. Ships in release.
 //
 // The generic widget adapter (vwa_widgets_emit + vwa_widget_add) covers
@@ -240,6 +241,64 @@ function vwa_main_menu_build(b)
         vwa_gb_connect(b, firstKey, "up", lastKey, "");
         vwa_gb_connect(b, lastKey, "down", firstKey, "");
     }
+    vwa_main_menu_social_build(b);
+}
+
+// The social button bar (oSocialButtonBar spawns oSocialButton instances,
+// bottom right): its own Tab stop after the menu proper, a horizontal row
+// named by the mod's group word. Each button's visible label is an icon;
+// its hover tooltip is the game's own localized name for it
+// (label_viewSteamStorePage / label_joinOurDiscord, re-localized every
+// frame by oButton's Step), so tooltipStr IS the spoken label and there is
+// no separate tooltip part. Visibility mirrors drawConditionsMet (the bar
+// hides while the credits overlay is up); a hidden button drops out of the
+// build. Activation opens the URL through the game's own path: the shared
+// oButton mirror sets triggerButton and oSocialButton's Step calls
+// url_open.
+function vwa_main_menu_social_build(b)
+{
+    var list = [];
+    var cnt = instance_number(oSocialButton);
+    for (var i = 0; i < cnt; i++)
+    {
+        var sb = instance_find(oSocialButton, i);
+        var dc = sb.drawConditionsMet;
+        if (dc == -4 || dc())
+        {
+            array_push(list, sb);
+        }
+    }
+    if (array_length(list) == 0)
+    {
+        return;
+    }
+    array_sort(list, function(ia, ib)
+    {
+        if (ia.x != ib.x)
+        {
+            return (ia.x < ib.x) ? -1 : 1;
+        }
+        return 0;
+    });
+    vwa_gb_begin_stop(b, "social");
+    vwa_gb_start_row(b, undefined, vwa_t("vwa--group-social"));
+    for (var i = 0; i < array_length(list); i++)
+    {
+        var sb = list[i];
+        vwa_gb_add(b, vwa_id_ref(sb, "social:" + sb.tooltipLabelName), {
+            typeKey: "button",
+            parts: [vwa_part_fn("label", method({ inst: sb }, function()
+            {
+                var tt = self.inst.tooltipStr;
+                return is_string(tt) ? tt : "";
+            }), false)],
+            onActivate: method({ inst: sb }, function()
+            {
+                vwa_obutton_activate(self.inst);
+            })
+        });
+    }
+    vwa_gb_end_row(b);
 }
 
 // Mirror of the game's own click path (oMainMenuControls draw): the same
@@ -749,12 +808,68 @@ function vwa_widget_add_element_label(bd, inst)
     return skey;
 }
 
-// oButton family (Configure Keybinds): label in centerText. Activation
-// mirrors update_hover's guards plus click_to_trigger_button (oButton
-// Create): confirmation dialogue and open dropdowns block, then
-// hoverConditionsMet and buttonActive; then onPress, the press sound, and
+// The oButton family's activation mirror, shared by the generic widget
+// adapter and the main menu's social buttons: update_hover's guards plus
+// click_to_trigger_button (oButton Create), in the game's order.
+// Confirmation dialogue and open dropdowns block; drawConditionsMet blocks
+// (oButton Step_0 gates the whole click path on it - an invisible button
+// is unclickable); hoverConditionsMet blocks; an inactive buttonActive
+// refuses with audible feedback; then onPress, the press sound, and
 // triggerButton = true (the child object's Step does the real work off
 // that flag).
+function vwa_obutton_activate(bt)
+{
+    if (instance_exists(oUIConfirmationDialogue) || dropdown_any_open())
+    {
+        vwa_log("ERROR: button " + object_get_name(bt.object_index)
+            + " blocked by an overlay - screen stack out of sync?");
+        return;
+    }
+    if (bt.drawConditionsMet != -4)
+    {
+        var dc = bt.drawConditionsMet;
+        if (!dc())
+        {
+            vwa_log("ERROR: button " + object_get_name(bt.object_index)
+                + " is not drawn - screen stack out of sync?");
+            return;
+        }
+    }
+    if (bt.hoverConditionsMet != -4)
+    {
+        var hc = bt.hoverConditionsMet;
+        if (!hc())
+        {
+            vwa_log("ERROR: button " + object_get_name(bt.object_index)
+                + " hover conditions refuse activation"
+                + " - screen stack out of sync?");
+            return;
+        }
+    }
+    var act = bt.buttonActive;
+    if (!act())
+    {
+        vwa_speak([vwa_t("vwa--state-disabled")], false);
+        return;
+    }
+    // Sound id read before onPress for the same dying-instance reason as
+    // oButton_menus; skip triggerButton if onPress destroyed the button
+    // (nothing left to trigger).
+    var pressSfx = bt.sfx_press;
+    if (bt.onPress != -4)
+    {
+        var fp = bt.onPress;
+        fp();
+    }
+    sfx_start_ext(pressSfx, 0, 1, 0, 0, 1);
+    if (instance_exists(bt))
+    {
+        bt.triggerButton = true;
+    }
+}
+
+// oButton family (Configure Keybinds): label in centerText, activation via
+// the shared oButton mirror above.
 function vwa_widget_add_obutton(bd, inst)
 {
     var skey = object_get_name(inst.object_index);
@@ -779,44 +894,7 @@ function vwa_widget_add_obutton(bd, inst)
         ],
         onActivate: method({ inst: inst }, function()
         {
-            var bt = self.inst;
-            if (instance_exists(oUIConfirmationDialogue) || dropdown_any_open())
-            {
-                vwa_log("ERROR: button " + object_get_name(bt.object_index)
-                    + " blocked by an overlay - screen stack out of sync?");
-                return;
-            }
-            if (bt.hoverConditionsMet != -4)
-            {
-                var hc = bt.hoverConditionsMet;
-                if (!hc())
-                {
-                    vwa_log("ERROR: button " + object_get_name(bt.object_index)
-                        + " hover conditions refuse activation"
-                        + " - screen stack out of sync?");
-                    return;
-                }
-            }
-            var act = bt.buttonActive;
-            if (!act())
-            {
-                vwa_speak([vwa_t("vwa--state-disabled")], false);
-                return;
-            }
-            // Sound id read before onPress for the same dying-instance
-            // reason as oButton_menus; skip triggerButton if onPress
-            // destroyed the button (nothing left to trigger).
-            var pressSfx = bt.sfx_press;
-            if (bt.onPress != -4)
-            {
-                var fp = bt.onPress;
-                fp();
-            }
-            sfx_start_ext(pressSfx, 0, 1, 0, 0, 1);
-            if (instance_exists(bt))
-            {
-                bt.triggerButton = true;
-            }
+            vwa_obutton_activate(self.inst);
         })
     });
     return skey;
