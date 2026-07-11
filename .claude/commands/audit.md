@@ -131,9 +131,9 @@ is invisible to the user, so correctness findings outrank style findings.
 ### Docs currency
 
 - CLAUDE.md invariants match the code's actual sanctioned exceptions.
-- README keys section matches the registered actions; CLAUDE.md's verified
-  facts, sanctioned-exception lists, and deliberate-divergence section
-  match the code; docs/backlog.md doesn't list anything already built.
+- CLAUDE.md's verified facts, sanctioned-exception lists, and
+  deliberate-divergence section match the code; docs/backlog.md doesn't
+  list anything already built.
 
 ## Output Format
 

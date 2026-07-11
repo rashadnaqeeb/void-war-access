@@ -218,5 +218,5 @@ type-ahead key handling in scrVwaScreens.
   `keyboard_check` in feature code.
 - Comments describe current state, never change history.
 - Zero build warnings, C and UTMT import, never suppressed.
-- **README stays current in the same session** as any key or feature change
-  (and this file for any rule or architecture change).
+- **This file stays current in the same session** as any rule or
+  architecture change.
