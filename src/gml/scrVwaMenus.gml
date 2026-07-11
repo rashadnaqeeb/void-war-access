@@ -49,11 +49,13 @@ function vwa_menus_init()
         build: function(b) { vwa_main_menu_build(b); }
     });
 
-    // The game-start announcements popup (patch notes). Read-on-demand:
-    // titles are list entries, Enter speaks the body. Dismissal is the
-    // game's own Escape handler (oGameStartMessage Draw_64); mind the saved
-    // once-per-profile double-spawn quirk - the first-ever dismissal
-    // respawns the popup once, so Escape may need a second press.
+    // The game-start announcements popup (patch notes). Each announcement
+    // is a submenu: the title is the header, the body's lines are its
+    // children - Enter or right arrow expands, then down reads line by
+    // line. Dismissal is the game's own Escape handler (oGameStartMessage
+    // Draw_64); mind the saved once-per-profile double-spawn quirk - the
+    // first-ever dismissal respawns the popup once, so Escape may need a
+    // second press.
     vwa_screen_register({
         key: "announcements",
         layerNum: 60,
@@ -354,19 +356,33 @@ function vwa_announcements_build(b)
         // and a duplicate title would make the graph builder throw on every
         // build, quarantining the whole popup (session-7 review). The list
         // is fixed at boot, so the index is stable while the popup lives.
-        vwa_gb_add(b, vwa_id_ref(msg, "ann:" + string(i) + ":" + string(msg.messageTitle)), {
-            typeKey: "button",
+        vwa_gb_begin_submenu(b, vwa_id_ref(msg, "ann:" + string(i) + ":" + string(msg.messageTitle)), {
             parts: [vwa_part_fn("label", method({ msg: msg }, function()
             {
                 return self.msg.messageTitle;
-            }), false)],
-            onActivate: method({ msg: msg }, function()
-            {
-                // Read the body on demand; no interrupt (the player asked
-                // for a long read, key repeat should not shred it).
-                vwa_speak([self.msg.messageBody], false);
-            })
+            }), false)]
         });
+        // One label node per non-empty body line, split fresh each build
+        // (the struct's text is what oGameStartMessage localizes in place).
+        // Lines carry NO ref: sharing the header's msg struct would make
+        // reconcile's ref tier resolve a focused line back to the header
+        // (the first ref match in order) on every rebuild.
+        var lines = string_split(msg.messageBody, "\n");
+        var lineIdx = 0;
+        for (var j = 0; j < array_length(lines); j++)
+        {
+            var ln = string_trim(lines[j]);
+            if (ln == "")
+            {
+                continue;
+            }
+            vwa_gb_add(b, vwa_id("ann:" + string(i) + ":ln:" + string(lineIdx)), {
+                typeKey: "label",
+                parts: [vwa_part("label", ln)]
+            });
+            lineIdx += 1;
+        }
+        vwa_gb_end_submenu(b);
     }
 }
 

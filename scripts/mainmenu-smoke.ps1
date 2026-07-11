@@ -11,8 +11,9 @@
 # stop (labels from the live oSocialButton tooltips, Tab announces the
 # group), opening Settings (name-only placeholder screen this session) and
 # closing it via the game's own stored closeMenu callback with focus
-# restore, opening the announcements popup, reading a body on demand, and
-# dismissal with focus restore. Assumes a launcher (run-game.ps1) is already up at
+# restore, opening the announcements popup (each announcement a submenu:
+# Enter expands the title, down reads the body line by line, left exits),
+# and dismissal with focus restore. Assumes a launcher (run-game.ps1) is already up at
 # the main menu; drives over HTTP only. Exits nonzero on any failed check.
 #
 # Usage: powershell -NoProfile -File scripts\mainmenu-smoke.ps1
@@ -178,6 +179,10 @@ CheckSpeech 'down from the last entry wraps to the first' { Fire 'nav-down' } @(
 #     walk its buttons, Shift+Tab returns to the remembered menu entry ---
 if ($socialNodes.Count -gt 0) {
     $groupWord = (Cmd 'call vwa_t vwa--group-social').result
+    # Park the social stop's remembered position on its first button: a
+    # previous run of this script in the same game session leaves it on the
+    # last button walked, and Tab lands on the memory.
+    Cmd "set global.vwaScreens[$mmIndex].navState.stopMemory.social $($socialNodes[0].skey)" | Out-Null
     CheckSpeech 'Tab reaches the social group, announced with its group word' {
         Fire 'nav-next-stop'
     } @("$groupWord, $(NodeLine $socialNodes[0])")
@@ -244,12 +249,31 @@ $expected = @($annName, (NodeLine $a.nodes[0]))
 Check 'popup announced: screen name then first title' (
     ($got -join '|') -eq ($expected -join '|')) "expected '$($expected -join '|')', got '$($got -join '|')'"
 
-if ($a.nodes.Count -ge 2) {
-    CheckSpeech 'down to the second announcement title' { Fire 'nav-down' } @(NodeLine $a.nodes[1])
+# --- each announcement is a submenu: headers are the sibling walk, Enter
+#     expands (same as right arrow), down reads the body line by line,
+#     left exits to the header. Line content is verified against the raw
+#     body (split on newlines, trimmed, blanks dropped - the build's rule).
+$hdrs = @($a.nodes | Where-Object { $_.type -eq 'submenu' })
+# Assign before @(): PS 5.1 Invoke-RestMethod emits a JSON array as ONE
+# pipeline object, so @(Cmd ...) counts 1; @($var) enumerates the array.
+$msgs = Cmd 'get global.gameStartMessages'
+Check 'every announcement is a submenu header' (
+    $hdrs.Count -eq @($msgs).Count) "$($hdrs.Count) headers vs $(@($msgs).Count) messages"
+if ($hdrs.Count -ge 2) {
+    CheckSpeech 'down skips the body, lands on the second title' { Fire 'nav-down' } @(NodeLine $hdrs[1])
+    $lines2 = @($a.nodes | Where-Object { $_.parents -contains $hdrs[1].skey })
     $body = CmdStr 'get global.gameStartMessages[1].messageBody'
-    CheckSpeech 'Enter reads the announcement body on demand' { Fire 'nav-activate' } @($body)
+    $bodyLines = @($body -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
+    Check 'line nodes match the raw body lines' (
+        (@($lines2 | ForEach-Object { $_.parts[0] }) -join '|') -eq ($bodyLines -join '|')) (
+        "$($lines2.Count) nodes vs $($bodyLines.Count) body lines")
+    CheckSpeech 'Enter expands to the first body line' { Fire 'nav-activate' } @(NodeLine $lines2[0])
+    if ($lines2.Count -ge 2) {
+        CheckSpeech 'down reads the second body line' { Fire 'nav-down' } @(NodeLine $lines2[1])
+    }
+    CheckSpeech 'left exits back to the title' { Fire 'nav-left' } @(NodeLine $hdrs[1])
 } else {
-    Write-Host '  (single announcement; skipping body-read checks)'
+    Write-Host '  (single announcement; skipping submenu-walk checks)'
 }
 
 # --- dismissal (the game's own path is Escape; dev-only helper mirrors it,
