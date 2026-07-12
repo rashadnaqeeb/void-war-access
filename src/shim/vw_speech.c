@@ -362,26 +362,41 @@ static void unload_speech_backends(void)
 
 // Speak on the active backend. Returns 1 voiced, 0 not voiced (no backend),
 // -1 backend error (logged).
+// Lines are punctuated on the way in (vwp_punctuate_lines): a line with no
+// terminating punctuation gains a period so the synthesizer sentence-breaks
+// at newlines instead of running lines together. Only the synthesized text
+// is touched - the ring and both speech logs keep the raw chokepoint text.
 static int backend_speak(const char *text, int interrupt)
 {
-    if (g_prism_backend) {
-        PrismError e;
-        // Prefer output (speech + braille) when the backend supports it.
-        if (p_backend_output && (g_prism_features & PRISM_BACKEND_SUPPORTS_OUTPUT)) {
-            e = p_backend_output(g_prism_backend, text, interrupt != 0);
-            if (e == PRISM_OK)
-                return 1;
-            if (e != PRISM_ERROR_NOT_IMPLEMENTED) {
-                vw_logf("prism: output failed: %s (falling through to speak)", prism_err_str(e));
-            }
-        }
+    if (!g_prism_backend)
+        return 0;
+
+    VwBuf punct;
+    vwp_buf_init(&punct);
+    if (vwp_punctuate_lines(text, &punct) == 0 && punct.data)
+        text = punct.data;
+    else if (punct.oom)
+        vw_logf("prism: punctuate out of memory; speaking the raw text");
+
+    int rc = -1;
+    PrismError e;
+    // Prefer output (speech + braille) when the backend supports it.
+    if (p_backend_output && (g_prism_features & PRISM_BACKEND_SUPPORTS_OUTPUT)) {
+        e = p_backend_output(g_prism_backend, text, interrupt != 0);
+        if (e == PRISM_OK)
+            rc = 1;
+        else if (e != PRISM_ERROR_NOT_IMPLEMENTED)
+            vw_logf("prism: output failed: %s (falling through to speak)", prism_err_str(e));
+    }
+    if (rc != 1) {
         e = p_backend_speak(g_prism_backend, text, interrupt != 0);
         if (e == PRISM_OK)
-            return 1;
-        vw_logf("prism: speak failed: %s", prism_err_str(e));
-        return -1;
+            rc = 1;
+        else
+            vw_logf("prism: speak failed: %s", prism_err_str(e));
     }
-    return 0;
+    vwp_buf_free(&punct);
+    return rc;
 }
 
 // ---- http server ----

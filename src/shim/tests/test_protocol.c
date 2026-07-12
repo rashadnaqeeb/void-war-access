@@ -278,6 +278,53 @@ static void test_cmd_slot(void)
     vwp_cmd_free(&s);
 }
 
+static void check_punctuate(const char *in, const char *want, int line)
+{
+    VwBuf b;
+    vwp_buf_init(&b);
+    g_checks++;
+    if (vwp_punctuate_lines(in, &b) != 0) {
+        g_failures++;
+        fprintf(stderr, "FAIL %s:%d: punctuate returned -1 for \"%s\"\n",
+                __FILE__, line, in);
+    } else if (strcmp(b.data ? b.data : "", want) != 0) {
+        g_failures++;
+        fprintf(stderr, "FAIL %s:%d: got \"%s\" want \"%s\"\n", __FILE__, line,
+                b.data ? b.data : "(null)", want);
+    }
+    vwp_buf_free(&b);
+}
+
+#define CHECK_PUNCT(in, want) check_punctuate(in, want, __LINE__)
+
+static void test_punctuate(void)
+{
+    // no newline: untouched, including the unterminated end of text
+    CHECK_PUNCT("", "");
+    CHECK_PUNCT("hello world", "hello world");
+    // unpunctuated line gains a period at the newline
+    CHECK_PUNCT("one\ntwo", "one.\ntwo");
+    CHECK_PUNCT("one\ntwo\nthree", "one.\ntwo.\nthree");
+    CHECK_PUNCT("one\n", "one.\n");
+    // existing sentence punctuation is respected...
+    CHECK_PUNCT("one.\ntwo", "one.\ntwo");
+    CHECK_PUNCT("ready?\ngo!", "ready?\ngo!");
+    CHECK_PUNCT("list:\nitem,\nend;", "list:\nitem,\nend;");
+    // ...including through trailing whitespace (the sweep), and the added
+    // period lands before the held-back whitespace, not after it
+    CHECK_PUNCT("one. \ntwo", "one. \ntwo");
+    CHECK_PUNCT("one \t \ntwo", "one. \t \ntwo");
+    CHECK_PUNCT("one.\t\r\ntwo", "one.\t\r\ntwo");
+    // empty and whitespace-only lines gain nothing
+    CHECK_PUNCT("one\n\ntwo", "one.\n\ntwo");
+    CHECK_PUNCT("\nx", "\nx");
+    CHECK_PUNCT("one\n   \ntwo", "one.\n   \ntwo");
+    // trailing whitespace with no newline after it survives
+    CHECK_PUNCT("one\ntwo ", "one.\ntwo ");
+    // UTF-8 tail counts as a significant character
+    CHECK_PUNCT("caf\xc3\xa9\nx", "caf\xc3\xa9.\nx");
+}
+
 int main(void)
 {
     test_buf();
@@ -289,6 +336,7 @@ int main(void)
     test_http_partial_and_bad();
     test_query();
     test_tail_offset();
+    test_punctuate();
     test_cmd_slot();
 
     if (g_failures) {

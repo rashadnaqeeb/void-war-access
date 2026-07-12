@@ -70,6 +70,9 @@ Greenfield project: committing to `main` is fine.
 - Speech is always voiced; there is no speech-off mode. Every line is also
   captured to the ring, so `/speech` and the speech log see everything even
   with no usable Prism.
+- The shim punctuates lines on the way into Prism (a line with no
+  terminating punctuation gains a period, so the synthesizer sentence-breaks
+  at newlines); the ring and both speech logs keep the raw chokepoint text.
 
 ## Layout
 
@@ -135,7 +138,11 @@ any other form won't match the permission rule.
   (edit with the Edit tool, never regex/rewrite passes); PS one-liners
   through bash lose `$` variables (use script files).
 - **Logs:** shim -> `build\vw_speech.log`; GML -> `%AppData%\Roaming\
-  Void_War\vwa-mod.log`; every spoken line -> `vwa-speech.log` there.
+  Void_War\vwa-mod.log`; every spoken line -> `vwa-speech.log` there. The
+  game writes no log of its own (that save dir is also where its saves and
+  `gm_exports\` UIText dumps live). The mod log's unstick/watchdog lines
+  around a repro window are often the fastest evidence of an input-layer
+  problem - read them before theorizing.
 
 ## Dev driver (loopback HTTP, dev builds only)
 

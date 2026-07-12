@@ -76,6 +76,17 @@ int vwp_query_str(const char *query, const char *key, char *out, size_t outsz);
 // returns len (empty tail); asking for more lines than exist returns 0.
 size_t vwp_tail_offset(const char *data, size_t len, unsigned lines);
 
+// ---- speech line punctuation ----
+//
+// Append text to out with every line terminated as a sentence: at each
+// newline whose line does not already end in punctuation (. ! ? : ; ,
+// scanning back over spaces/tabs/CR), a period is inserted after the last
+// significant character. TTS engines otherwise run unpunctuated lines
+// together as one sentence. Empty lines stay empty; the end of the text
+// (no trailing newline) is the synthesizer's own utterance boundary and is
+// left alone. UTF-8 passes through untouched. 0 ok, -1 oom (out poisoned).
+int vwp_punctuate_lines(const char *text, VwBuf *out);
+
 // ---- single-slot command exchange (HTTP thread <-> GML pump) ----
 //
 // One command in flight at a time; HTTP submits, the GML pump polls it out,

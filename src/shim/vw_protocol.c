@@ -349,6 +349,54 @@ size_t vwp_tail_offset(const char *data, size_t len, unsigned lines)
     return 0;
 }
 
+// ---- speech line punctuation ----
+
+// See the contract in vw_protocol.h. Whitespace runs (space/tab/CR) are
+// held back until the next significant character or newline, so the added
+// period lands directly after the line's last significant character
+// ("abc \n" -> "abc. \n") and a period already there is found through any
+// trailing whitespace ("abc. \n" stays untouched).
+int vwp_punctuate_lines(const char *text, VwBuf *out)
+{
+    const char *ws = NULL;  // pending run of ' ' '\t' '\r'
+    size_t ws_n = 0;
+    char last = 0;          // last significant char on the current line
+    for (const char *p = text; *p; p++) {
+        char c = *p;
+        if (c == ' ' || c == '\t' || c == '\r') {
+            if (!ws)
+                ws = p;
+            ws_n++;
+            continue;
+        }
+        if (c == '\n') {
+            if (last && !strchr(".!?:;,", last) &&
+                vwp_buf_append(out, ".", 1) != 0)
+                return -1;
+            if (ws && vwp_buf_append(out, ws, ws_n) != 0)
+                return -1;
+            ws = NULL;
+            ws_n = 0;
+            last = 0;
+            if (vwp_buf_append(out, "\n", 1) != 0)
+                return -1;
+            continue;
+        }
+        if (ws) {
+            if (vwp_buf_append(out, ws, ws_n) != 0)
+                return -1;
+            ws = NULL;
+            ws_n = 0;
+        }
+        if (vwp_buf_append(out, &c, 1) != 0)
+            return -1;
+        last = c;
+    }
+    if (ws && vwp_buf_append(out, ws, ws_n) != 0)
+        return -1;
+    return 0;
+}
+
 // ---- command slot ----
 
 void vwp_cmd_init(VwCmdSlot *s)
