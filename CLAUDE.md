@@ -100,10 +100,12 @@ the hard rules.
   activation mirror, dropdown child screen, auto-paging), `scrVwaMenus`
   (screen registration dispatcher + generic fallback) with one
   `scrVwaMenu*` file per screen family (Main, Settings, Commander,
-  ShipSelect - a new game screen family gets its own file), `scrVwaDev`,
+  ShipSelect, Encounter - a new game screen family gets its own file),
+  `scrVwaDev`,
   `scrVwaDevScreens` (synthetic test screens), and `scrVwaTest` (dev builds
   only). `*.append.gml` appends to the named code entry (`*.dev.append.gml`
-  = dev-only).
+  = dev-only); `*.replace.gml` replaces one wholesale (build-mod asserts
+  each replacement landed).
 - `src/lang/` - mod strings as `vwa--` CSV rows, merged into the game's lang
   CSVs at build time.
 - `tools/` - build + launch scripts, UTMT CLI, decompile scripts.
@@ -191,7 +193,9 @@ activates, **Tab/Shift+Tab** cycle control groups, **Home/End** group ends,
 **Ctrl+left/right** large slider steps, **Ctrl+up/down** submenu jumps,
 **Alt+up/down** line review, **letters** type-ahead search, **Escape**
 nav-back (consumed only when the mod actually acts; otherwise the game's
-own Escape runs untouched). Text edit mode: **up/down** read the whole
+own Escape runs untouched). On encounter dialogues, **numbers 1-9** jump
+to that choice without activating (the game's own silent number-commit is
+patched out at build time; Enter commits). Text edit mode: **up/down** read the whole
 text, **Enter** commits the edit, **Escape** cancels it (same operation on
 fields whose text is live as typed).
 

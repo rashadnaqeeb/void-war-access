@@ -82,3 +82,9 @@ vwa--launch-locked,Le vaisseau sélectionné est verrouillé. Choisissez un autr
 vwa--state-on,activé
 vwa--state-off,désactivé
 vwa--difficulty-completed,terminée
+vwa--screen-dialogue,Dialogue
+vwa--action-enc-choice,Aller à l'option
+vwa--enc-no-choice,Pas d'option {n}
+vwa--enc-requires-scrap,nécessite {n} {currency}
+vwa--enc-portrait,Portrait : {name}
+vwa--group-rewards,Récompenses

@@ -82,3 +82,9 @@ vwa--launch-locked,La nave seleccionada está bloqueada. Elige otra nave.
 vwa--state-on,activado
 vwa--state-off,desactivado
 vwa--difficulty-completed,completada
+vwa--screen-dialogue,Diálogo
+vwa--action-enc-choice,Saltar a la opción
+vwa--enc-no-choice,No hay opción {n}
+vwa--enc-requires-scrap,requiere {n} {currency}
+vwa--enc-portrait,Retrato: {name}
+vwa--group-rewards,Recompensas

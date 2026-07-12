@@ -86,7 +86,24 @@ function vwa_dev_selftest()
     vwa_test_announce(tc);
     vwa_test_search(tc);
     vwa_test_ship(tc);
+    vwa_test_encounter(tc);
     return { checks: tc.checks, failures: tc.failures };
+}
+
+// The encounter body splitter (scrVwaMenuEncounter's pure piece): one
+// spoken line per non-empty trimmed text line, blank runs and edge
+// whitespace vanishing, non-strings empty.
+function vwa_test_encounter(tc)
+{
+    vwa_test_eq(tc, "enc: split trims and drops blanks",
+        vwa_test_join(vwa_enc_split_paragraphs("\nFirst line. \n\n Second\n")),
+        "First line. | Second");
+    vwa_test_eq(tc, "enc: split single line",
+        vwa_test_join(vwa_enc_split_paragraphs("Only")), "Only");
+    vwa_test_eq(tc, "enc: split empty string",
+        array_length(vwa_enc_split_paragraphs("")), 0);
+    vwa_test_eq(tc, "enc: split non-string",
+        array_length(vwa_enc_split_paragraphs(0)), 0);
 }
 
 // The chokepoint's pure join (both shapes, empties vanishing).

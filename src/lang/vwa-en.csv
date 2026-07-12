@@ -82,3 +82,9 @@ vwa--launch-locked,The selected ship is locked. Choose a different ship.
 vwa--state-on,on
 vwa--state-off,off
 vwa--difficulty-completed,completed
+vwa--screen-dialogue,Dialogue
+vwa--action-enc-choice,Jump to choice
+vwa--enc-no-choice,No choice {n}
+vwa--enc-requires-scrap,requires {n} {currency}
+vwa--enc-portrait,Portrait: {name}
+vwa--group-rewards,Rewards

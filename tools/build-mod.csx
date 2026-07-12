@@ -63,6 +63,14 @@ group.QueueFindReplace("gml_GlobalScript_scrKeybinds",
     "global.textFieldInputEnabled ||",
     "global.textFieldInputEnabled || global.vwaSuppressGameKeys ||");
 
+// Dialogue popups: replace oPopupGroup's Begin Step to drop the game's raw
+// number-key shortcut, which EXECUTES a choice - silent to a blind player.
+// The mod's number keys move the cursor to the choice instead
+// (scrVwaMenuEncounter). Asserted below: the shortcut call must be gone and
+// the mouse click path must survive.
+group.QueueReplace("gml_Object_oPopupGroup_Step_1",
+    File.ReadAllText(Path.Combine(gmlDir, "oPopupGroup_Step_1.replace.gml")));
+
 group.Import();
 
 // The suppression FindReplace must actually have landed: QueueFindReplace
@@ -79,6 +87,19 @@ for (int at = kbText.IndexOf("global.vwaSuppressGameKeys"); at >= 0;
     kbHits++;
 if (kbHits != 3)
     throw new Exception($"scrKeybinds suppression patch: expected 3 occurrences of the flag, found {kbHits}");
+
+// The popup Step replacement must have landed on the real entry (a game
+// update renaming or reshaping it would silently leave the number-commit
+// shortcut alive): the shortcut call must be gone, the click path present.
+var pgCode = Data.Code.ByName("gml_Object_oPopupGroup_Step_1");
+if (pgCode == null)
+    throw new Exception("gml_Object_oPopupGroup_Step_1 not found");
+string pgText = new Underanalyzer.Decompiler.DecompileContext(
+    new GlobalDecompileContext(Data), pgCode, Data.ToolInfo.DecompilerSettings).DecompileToString();
+if (pgText.Contains("keyboardShortcut_choiceExecute"))
+    throw new Exception("oPopupGroup Step_1: number-commit shortcut still present after replace");
+if (!pgText.Contains("detect_choice_click_and_execute"))
+    throw new Exception("oPopupGroup Step_1: click path missing after replace - wrong entry replaced?");
 
 // The import must actually have produced every script's code entry.
 foreach (var path in scriptFiles)

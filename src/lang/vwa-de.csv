@@ -82,3 +82,9 @@ vwa--launch-locked,Das ausgewählte Schiff ist gesperrt. Wähle ein anderes Schi
 vwa--state-on,an
 vwa--state-off,aus
 vwa--difficulty-completed,abgeschlossen
+vwa--screen-dialogue,Dialog
+vwa--action-enc-choice,Zur Option springen
+vwa--enc-no-choice,Keine Option {n}
+vwa--enc-requires-scrap,benötigt {n} {currency}
+vwa--enc-portrait,Porträt: {name}
+vwa--group-rewards,Belohnungen

@@ -2,11 +2,13 @@
 // game screen family lives in its own script: scrVwaMenuMain (main menu,
 // social bar, announcements popup), scrVwaMenuSettings (settings, pause,
 // language, confirmation dialogue), scrVwaMenuCommander (commander
-// select), scrVwaMenuShipSelect (ship select + ship list overlay) - all on
-// the shared machinery in scrVwaWidgets (the generic widget adapter, the
-// oButton activation mirror, the dropdown child screen, the auto-paging
-// list pattern). A new screen family = a new scrVwaMenu* file with its own
-// *_init, called from vwa_menus_init below. This file keeps only the
+// select), scrVwaMenuShipSelect (ship select + ship list overlay),
+// scrVwaMenuEncounter (the encounter dialogue popups - not a menu; keys
+// off oPopup, menuToggle stays 0) - all on the shared machinery in
+// scrVwaWidgets (the generic widget adapter, the oButton activation
+// mirror, the dropdown child screen, the auto-paging list pattern). A new
+// screen family = a new scrVwaMenu* file with its own *_init, called from
+// vwa_menus_init below. This file keeps only the
 // dispatcher, the pieces that span families (the generic name-only
 // fallback for menus with no real graph yet - keybinds; the in-run menus
 // arrive post-foundation), and the family-wide conventions:
@@ -31,6 +33,7 @@ function vwa_menus_init()
     vwa_menu_settings_init();
     vwa_menu_commander_init();
     vwa_menu_ship_init();
+    vwa_menu_encounter_init();
 
     // Name-only fallback for menus with no real graph yet (keybinds 15, the
     // in-run menus). Exclusive with no categories: the covered screen's

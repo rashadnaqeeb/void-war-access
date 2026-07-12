@@ -855,28 +855,18 @@ function vwa_nav_search_text(nd)
     return vwa_ann_first_label(nd);
 }
 
-// Land on a result: focus it and speak NOW with interrupt (like
-// vwa_nav_state_feedback, keystroke feedback cannot wait a frame - and a
-// repeated keystroke re-reads the unchanged landing, which a silent
-// observe would swallow). Rebaselines the announce memory so the tick's
-// observe does not re-speak the move.
-function vwa_nav_search_land(idx)
+// Focus a specific control by structural key and speak the landing NOW,
+// interrupting (like vwa_nav_state_feedback, keystroke feedback cannot wait
+// a frame - and a repeated keystroke re-reads the unchanged landing, which
+// a silent observe would swallow). Rebaselines the announce memory so the
+// tick's observe does not re-speak the move. False = the key is not in the
+// current render (focus unchanged). Callers: the type-ahead landing below,
+// the encounter screen's number-key choice jump (scrVwaMenuEncounter).
+function vwa_nav_focus_speak(scr, skey)
 {
-    var scr = global.vwaFocusedScreen;
-    var nav = global.vwaSearchNav;
-    if (scr == undefined || idx < 0 || idx >= array_length(nav.scopeSkeys))
-    {
-        vwa_log("ERROR: search landing with no screen or bad index "
-            + string(idx));
-        return;
-    }
-    var skey = nav.scopeSkeys[idx];
     if (!vwa_graph_focus(scr.graph, skey))
     {
-        // The control vanished between keystroke and step; the next tick's
-        // staleness check clears the results.
-        vwa_log("search: result " + string(skey) + " no longer in the render");
-        return;
+        return false;
     }
     var nd = vwa_graph_node(scr.graph);
     var spoken = global.vwaNavSpoken;
@@ -890,7 +880,29 @@ function vwa_nav_search_land(idx)
     global.vwaNavSpoken = { screenKey: scr.key, skey: nd.nid.skey, node: nd };
     global.vwaNavLiveCache = vwa_nav_live_resolve(nd);
     global.vwaLineCursor = { screenKey: scr.key, skey: nd.nid.skey, idx: 0 };
-    nav.focusSkey = nd.nid.skey;
+    return true;
+}
+
+// Land on a search result via vwa_nav_focus_speak.
+function vwa_nav_search_land(idx)
+{
+    var scr = global.vwaFocusedScreen;
+    var nav = global.vwaSearchNav;
+    if (scr == undefined || idx < 0 || idx >= array_length(nav.scopeSkeys))
+    {
+        vwa_log("ERROR: search landing with no screen or bad index "
+            + string(idx));
+        return;
+    }
+    var skey = nav.scopeSkeys[idx];
+    if (!vwa_nav_focus_speak(scr, skey))
+    {
+        // The control vanished between keystroke and step; the next tick's
+        // staleness check clears the results.
+        vwa_log("search: result " + string(skey) + " no longer in the render");
+        return;
+    }
+    nav.focusSkey = global.vwaNavSpoken.skey;
 }
 
 function vwa_nav_search_no_match(txt)
