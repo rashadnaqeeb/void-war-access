@@ -54,9 +54,6 @@ vwa--commander-hidden,Comandante oculto
 vwa--state-locked,bloqueado
 vwa--state-new,nuevo
 vwa--not-enough-resonance,Resonance insuficiente
-vwa--page-prev,Página anterior
-vwa--page-next,Página siguiente
-vwa--page-of,Página {n} de {m}
 vwa--page-new,{k} nuevos
 vwa--randomize-name,Nombre aleatorio
 vwa--sheet-stats,"Salud {hp} de {maxhp}, ataque {atk}"
@@ -71,3 +68,15 @@ vwa--sheet-slot-filled,{slot}: {item}: {text}
 vwa--sheet-slot-empty,{slot}: vacía
 vwa--sheet-add-equip,Equipo adicional: {list}
 vwa--sheet-count,{n}x {name}
+vwa--ship-cycler,Nave
+vwa--ship-name,Nombre de la nave
+vwa--ship-level,nivel {n}
+vwa--ship-missile-template,Plantilla de misil ({name})
+vwa--ship-purchase,Comprar
+vwa--stop-ship-details,Detalles de la nave
+vwa--stop-cmdr-difficulty,Comandante y dificultad
+vwa--stop-actions,Acciones
+vwa--launch-locked,La nave seleccionada está bloqueada. Elige otra nave.
+vwa--state-on,activado
+vwa--state-off,desactivado
+vwa--difficulty-completed,completada

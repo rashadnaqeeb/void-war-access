@@ -194,25 +194,59 @@ $newName = (Cmd 'get oCommanderNameBox.text')
 $got = @(SpeechFrom $cur)
 Check 'randomize speaks the fresh name' ($got.Count -ge 1 -and $got[-1] -eq $newName) ($got -join '|')
 
-# Page flip speaks the live page readout (template + live scalar; nested
-# arrays like pageData collapse through PS functions, so use maxPage).
+# Auto-paging (session 12): the FULL commander list is in the graph with
+# no pager nodes; focusing an off-page row flips the game's own page
+# (ensure-visible). Expectations read live: the row set from the render,
+# the page count from the game's own page controls.
+$m = GuiMod
+$rows = @($m.nodes | Where-Object { $_.skey -like 'cmdr:*' })
 $pages = Cmd 'get oUICommanderList.pageControls.maxPage'
-$pageOf = (Cmd 'call vwa_t vwa--page-of').result
-$page2 = $pageOf -replace '\{n\}', '2' -replace '\{m\}', "$pages"
-$page1 = $pageOf -replace '\{n\}', '1' -replace '\{m\}', "$pages"
-FocusNode 'commander-select' 'cmdr-page-next'
-$cur = SpeechNext
-Fire 'nav-activate' | Out-Null
-$got = @(SpeechFrom $cur)
-Check 'page next speaks the new page' ($got.Count -ge 1 -and $got[0] -eq $page2) ($got -join '|')
-FocusNode 'commander-select' 'cmdr-page-prev'
-$cur = SpeechNext
-Fire 'nav-activate' | Out-Null
-$got = @(SpeechFrom $cur)
-Check 'page prev speaks page one' ($got.Count -ge 1 -and $got[0] -eq $page1) ($got -join '|')
+$pagers = @($m.nodes | Where-Object { $_.skey -like 'cmdr-page-*' })
+Check 'no pager nodes in the graph' ($pagers.Count -eq 0) ($pagers.skey -join '|')
+# Full-set coverage is proven by the flip below: the LAST graph row lives
+# on the game's LAST page, so rows necessarily span every page (counting
+# the game-side array here trips the PS 5.1 nested-value collapse).
+FocusNode 'commander-select' $rows[-1].skey
+$pg = Cmd 'get oUICommanderList.currPageIndex'
+Check 'focusing the last commander flips the game to the last page' ($pg -eq ($pages - 1)) "page index $pg of $pages pages"
+FocusNode 'commander-select' $rows[0].skey
+$pg = Cmd 'get oUICommanderList.currPageIndex'
+Check 'focusing the first commander flips back to page one' ($pg -eq 0) "page index $pg"
 
-$r = Cmd 'call vwa_dev_close_commander_select'
-Check 'close helper replied' ($r.result.closed -eq $true) ($r | ConvertTo-Json -Compress)
+# --- ship select: confirm the commander, walk, cycle a hull, the list ---
+FocusNode 'commander-select' 'cmdr-confirm'
+Fire 'nav-activate' | Out-Null
+$m = WaitFocused 'ship-select'
+Check 'ship select opens on the hull cycler' ($m.focusKey -eq 'ship-cycler') $m.focusKey
+Walk 'ship-select' | Out-Null
+
+# One hull cycle: exactly one utterance (the identity of the new hull; the
+# raw-arrow consume means no double step), then a second walk on the OTHER
+# hull proves the cross-room rebuild + focus reconcile.
+FocusNode 'ship-select' 'ship-cycler'
+$cur = SpeechNext
+Fire 'nav-right' | Out-Null
+Start-Sleep -Milliseconds 1200
+$got = @(SpeechFrom $cur)
+Check 'hull cycle speaks exactly one identity line' ($got.Count -eq 1) ($got -join '|')
+$m = GuiMod
+Check 'focus stays on the cycler across the room switch' ($m.focusKey -eq 'ship-cycler') $m.focusKey
+Walk 'ship-select' | Out-Null
+
+# The ship list overlay: open through the real button, walk, activate a
+# hull; the overlay closes itself and ship select regains focus.
+FocusNode 'ship-select' 'ship-view-list'
+Fire 'nav-activate' | Out-Null
+WaitFocused 'ship-list' | Out-Null
+Walk 'ship-list' | Out-Null
+FocusNode 'ship-list' 'hull:0'
+Fire 'nav-activate' | Out-Null
+$m = WaitFocused 'ship-select'
+Check 'hull activation returns focus to ship select' ($m.focused -eq 'ship-select') $m.focused
+
+# Leave through the real Main Menu button.
+FocusNode 'ship-select' 'ship-main-menu'
+Fire 'nav-activate' | Out-Null
 WaitFocused 'main-menu' | Out-Null
 
 # --- the framework survived all of it ---

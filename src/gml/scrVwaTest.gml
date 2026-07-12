@@ -85,6 +85,7 @@ function vwa_dev_selftest()
     vwa_test_graph(tc);
     vwa_test_announce(tc);
     vwa_test_search(tc);
+    vwa_test_ship(tc);
     return { checks: tc.checks, failures: tc.failures };
 }
 
@@ -379,6 +380,156 @@ function vwa_test_search(tc)
     vwa_test_eq(tc, "search: no match leaves no results",
         array_length(st.results), 0);
     vwa_test_ok(tc, "search: stays active on no match", st.active, "inactive");
+}
+
+// The ship composer (scrVwaShip) on live game data. The selftest runs
+// in-game (any room), where oGameData and the meta progression are up but
+// entities may exist only as object indices - exactly the index paths the
+// composers must handle. Behavior checks only: shapes, the visibility
+// rules, agreement with the game getters the composers mirror - never
+// hardcoded composed text. Expectations honor the same live flags the
+// composers read (unlock state, debug keys), so profile state can never
+// fail the test, only composition logic can.
+function vwa_test_ship(tc)
+{
+    // Identity: the first-slot hull (never locked, never hidden - the
+    // game's starting ship) reads name then class; a LOCKED hull (when the
+    // profile has one) hides its name unless debug keys and appends the
+    // locked word; a HIDDEN one is exactly the Unknown Vessel label.
+    var rm = global.shipUnlockOrder_ship1A;
+    var line = vwa_ship_identity_line(rm, 1);
+    var name = vwa_sheet_flatten(hull_get_info(vs_room_get_info(rm, 0), 881));
+    var cls = string(hullClass_to_str(vs_room_get_info(rm, 2)));
+    vwa_test_ok(tc, "ship: identity starts with the hull name",
+        string_pos(name, line) == 1, line);
+    vwa_test_ok(tc, "ship: identity carries the class",
+        string_pos(cls, line) > 0, line);
+    vwa_test_ok(tc, "ship: identity variant letters differ",
+        vwa_ship_identity_line(rm, 1) != vwa_ship_identity_line(rm, 2),
+        line);
+
+    var allShips = playerShipList_all();
+    for (var i = 0; i < array_length(allShips); i++)
+    {
+        var lrm = allShips[i];
+        if (playerShip_checkUnlockState(lrm, 1))
+        {
+            var lline = vwa_ship_identity_line(lrm, 1);
+            vwa_test_ok(tc, "ship: locked identity carries the locked word",
+                string_pos(vwa_t("vwa--state-locked"), lline) > 0, lline);
+            var lname = vwa_sheet_flatten(hull_get_info(vs_room_get_info(lrm, 0), 881));
+            vwa_test_eq(tc, "ship: locked identity name follows debug keys",
+                string_pos(lname, lline) == 1, global.enableDebugKeys ? true : false);
+            break;
+        }
+    }
+    for (var i = 0; i < array_length(allShips); i++)
+    {
+        var hrm = allShips[i];
+        if (vwa_ship_room_hidden(hrm))
+        {
+            vwa_test_eq(tc, "ship: hidden identity is the Unknown Vessel label",
+                vwa_ship_identity_line(hrm, 1), string(global.label_unknownVessel));
+            break;
+        }
+    }
+
+    // Systems, by object index (the tooltip's own no-instance path): head
+    // is the game's name; flavor adds at least one lore line.
+    var sysNames = variable_struct_get_names(oGameData.systemInfo);
+    if (array_length(sysNames) > 0)
+    {
+        var sysObj = asset_get_index(sysNames[0]);
+        var sysLines = vwa_ship_system_lines(sysObj, vwa_ship_opt_flags(false));
+        vwa_test_ok(tc, "ship: system lines non-empty",
+            array_length(sysLines) >= 1, sysNames[0]);
+        if (array_length(sysLines) >= 1)
+        {
+            vwa_test_eq(tc, "ship: system head is the game's name", sysLines[0],
+                vwa_sheet_flatten(system_get_info(sysObj, 171)));
+        }
+        vwa_test_ok(tc, "ship: system flavor adds lore",
+            array_length(vwa_ship_system_lines(sysObj, vwa_ship_opt_flags(true)))
+                > array_length(sysLines), sysNames[0]);
+    }
+
+    // Weapons: a non-ordnance carries the required power line; an ordnance
+    // head goes through the missile-template wrapper.
+    var wpnNames = variable_struct_get_names(oGameData.weaponInfo);
+    var plainDone = false;
+    var ordDone = false;
+    for (var i = 0; i < array_length(wpnNames); i++)
+    {
+        var wObj = asset_get_index(wpnNames[i]);
+        if (!object_exists(wObj) || !objIA(wObj, oWeapon))
+        {
+            continue;
+        }
+        if (!ordDone && objIA(wObj, oOrdnance))
+        {
+            ordDone = true;
+            var oLines = vwa_ship_weapon_lines(wObj, vwa_ship_opt_flags(false));
+            if (array_length(oLines) >= 1)
+            {
+                vwa_test_eq(tc, "ship: ordnance head is the template wrapper",
+                    oLines[0], vwa_sheet_t("vwa--ship-missile-template",
+                        ["name"],
+                        [vwa_sheet_flatten(weapon_get_info(wObj, 1))]));
+            }
+        }
+        else if (!plainDone && !objIA(wObj, oOrdnance))
+        {
+            plainDone = true;
+            var wLines = vwa_ship_weapon_lines(wObj, vwa_ship_opt_flags(false));
+            vwa_test_ok(tc, "ship: weapon lines non-empty",
+                array_length(wLines) >= 2, wpnNames[i]);
+            if (array_length(wLines) >= 2)
+            {
+                vwa_test_eq(tc, "ship: weapon head is the game's name",
+                    wLines[0], vwa_sheet_flatten(weapon_get_info(wObj, 1)));
+                vwa_test_eq(tc, "ship: weapon required power line",
+                    wLines[array_length(wLines) - 1],
+                    string(global.label_requiredPower) + ": "
+                        + string(weapon_get_info(wObj, 6)));
+            }
+        }
+        if (plainDone && ordDone)
+        {
+            break;
+        }
+    }
+    vwa_test_ok(tc, "ship: found a non-ordnance weapon to test", plainDone, "none");
+
+    // Equipment stacks: the count template leads.
+    var itmNames = variable_struct_get_names(oGameData.itemInfo);
+    if (array_length(itmNames) > 0)
+    {
+        var itmObj = asset_get_index(itmNames[0]);
+        var eqLines = vwa_ship_equipment_lines(itmObj, 2);
+        vwa_test_ok(tc, "ship: equipment lines non-empty",
+            array_length(eqLines) >= 1, itmNames[0]);
+        if (array_length(eqLines) >= 1)
+        {
+            vwa_test_eq(tc, "ship: equipment head is the counted name",
+                eqLines[0], vwa_sheet_t("vwa--sheet-count", ["n", "name"],
+                    [2, vwa_sheet_flatten(item_get_info(itmObj, 41))]));
+        }
+    }
+
+    // Modules, by object index: head is the game's name.
+    var mdlNames = variable_struct_get_names(oGameData.moduleInfo);
+    if (array_length(mdlNames) > 0)
+    {
+        var mdlObj = asset_get_index(mdlNames[0]);
+        var mdLines = vwa_ship_module_lines(mdlObj, vwa_ship_opt_flags(false));
+        vwa_test_ok(tc, "ship: module lines non-empty",
+            array_length(mdLines) >= 1, mdlNames[0]);
+        if (array_length(mdLines) >= 1)
+        {
+            vwa_test_eq(tc, "ship: module head is the game's name", mdLines[0],
+                vwa_sheet_flatten(module_get_info(mdlObj, 480)));
+        }
+    }
 }
 
 // ---- the screen walker ----

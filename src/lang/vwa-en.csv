@@ -54,9 +54,6 @@ vwa--commander-hidden,Hidden commander
 vwa--state-locked,locked
 vwa--state-new,new
 vwa--not-enough-resonance,not enough Resonance
-vwa--page-prev,Previous page
-vwa--page-next,Next page
-vwa--page-of,Page {n} of {m}
 vwa--page-new,{k} new
 vwa--randomize-name,Randomize name
 vwa--sheet-stats,"Health {hp} of {maxhp}, attack {atk}"
@@ -71,3 +68,15 @@ vwa--sheet-slot-filled,{slot}: {item}: {text}
 vwa--sheet-slot-empty,{slot}: empty
 vwa--sheet-add-equip,Additional equipment: {list}
 vwa--sheet-count,{n}x {name}
+vwa--ship-cycler,Ship
+vwa--ship-name,Ship name
+vwa--ship-level,level {n}
+vwa--ship-missile-template,Missile Template ({name})
+vwa--ship-purchase,Purchase
+vwa--stop-ship-details,Ship details
+vwa--stop-cmdr-difficulty,Commander and difficulty
+vwa--stop-actions,Actions
+vwa--launch-locked,The selected ship is locked. Choose a different ship.
+vwa--state-on,on
+vwa--state-off,off
+vwa--difficulty-completed,completed

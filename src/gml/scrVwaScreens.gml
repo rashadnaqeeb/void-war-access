@@ -17,6 +17,13 @@
 //   categories input categories this screen keeps live while stacked
 //   exclusive  true = a hard modal: screens below it contribute no input
 //              categories (vwa_live_categories in scrVwaInput honors this)
+//   postDispatch (optional) fn(), run for the FOCUSED screen after the
+//              action dispatch, still in Begin Step - the one slot where a
+//              screen can consume raw game keys its own chords share
+//              (consuming earlier would eat the mod's own dispatch; the
+//              game's raw Step reads still see the cleared key). First
+//              consumer: ship-select's arrow consume against the hull
+//              cycler's raw arrowKeysToCycle.
 //
 // Speech rules implemented here (the invariants): the tick is the ONE place
 // framework speech happens, once per observed change; screen-name
@@ -300,6 +307,21 @@ function vwa_screens_tick()
     {
         vwa_nav_observe(focused);
     }
+}
+
+// The focused screen's postDispatch hook (see the header). Called from
+// vwa_input_tick after the action dispatch; errors land in the tick's own
+// watchdog (which clears suppression and logs loudly).
+function vwa_screens_post_dispatch()
+{
+    var scr = global.vwaFocusedScreen;
+    if (scr == undefined || !variable_struct_exists(scr, "postDispatch")
+        || scr.postDispatch == undefined)
+    {
+        return;
+    }
+    var fn = scr.postDispatch;
+    fn();
 }
 
 // Speak once per observed focus change; while focus rests, watch the

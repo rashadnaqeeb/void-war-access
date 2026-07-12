@@ -213,6 +213,13 @@ function vwa_input_tick()
         // actions dispatch: the speech controls must never go dead while
         // the player is typing (never strand the user).
         vwa_input_dispatch(global.textFieldInputEnabled);
+        // The focused screen's post-dispatch hook (raw-key consumes that
+        // must land AFTER the mod's own chords resolved but BEFORE the
+        // game's Step-event reads; see scrVwaScreens' header).
+        if (variable_global_exists("vwaScreens"))
+        {
+            vwa_screens_post_dispatch();
+        }
         // Release chord state once the main key is up, so the next press is
         // a fresh edge. (Kept while a chord is merely broken by a modifier
         // change: re-completing a held non-repeat chord must not re-fire.)

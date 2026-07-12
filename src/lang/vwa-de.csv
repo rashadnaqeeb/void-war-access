@@ -54,9 +54,6 @@ vwa--commander-hidden,Verborgener Kommandant
 vwa--state-locked,gesperrt
 vwa--state-new,neu
 vwa--not-enough-resonance,nicht genug Resonanz
-vwa--page-prev,Vorherige Seite
-vwa--page-next,Nächste Seite
-vwa--page-of,Seite {n} von {m}
 vwa--page-new,{k} neu
 vwa--randomize-name,Zufälliger Name
 vwa--sheet-stats,"Gesundheit {hp} von {maxhp}, Angriff {atk}"
@@ -71,3 +68,15 @@ vwa--sheet-slot-filled,{slot}: {item}: {text}
 vwa--sheet-slot-empty,{slot}: leer
 vwa--sheet-add-equip,Zusätzliche Ausrüstung: {list}
 vwa--sheet-count,{n}x {name}
+vwa--ship-cycler,Schiff
+vwa--ship-name,Schiffsname
+vwa--ship-level,Stufe {n}
+vwa--ship-missile-template,Raketenvorlage ({name})
+vwa--ship-purchase,Kaufen
+vwa--stop-ship-details,Schiffsdetails
+vwa--stop-cmdr-difficulty,Kommandant und Schwierigkeit
+vwa--stop-actions,Aktionen
+vwa--launch-locked,Das ausgewählte Schiff ist gesperrt. Wähle ein anderes Schiff.
+vwa--state-on,an
+vwa--state-off,aus
+vwa--difficulty-completed,abgeschlossen

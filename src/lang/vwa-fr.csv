@@ -54,9 +54,6 @@ vwa--commander-hidden,Commandant caché
 vwa--state-locked,verrouillé
 vwa--state-new,nouveau
 vwa--not-enough-resonance,Resonance insuffisante
-vwa--page-prev,Page précédente
-vwa--page-next,Page suivante
-vwa--page-of,Page {n} sur {m}
 vwa--page-new,{k} nouveaux
 vwa--randomize-name,Nom aléatoire
 vwa--sheet-stats,"Santé {hp} sur {maxhp}, attaque {atk}"
@@ -71,3 +68,15 @@ vwa--sheet-slot-filled,{slot} : {item} : {text}
 vwa--sheet-slot-empty,{slot} : vide
 vwa--sheet-add-equip,Équipement supplémentaire : {list}
 vwa--sheet-count,{n}x {name}
+vwa--ship-cycler,Vaisseau
+vwa--ship-name,Nom du vaisseau
+vwa--ship-level,niveau {n}
+vwa--ship-missile-template,Modèle de missile ({name})
+vwa--ship-purchase,Acheter
+vwa--stop-ship-details,Détails du vaisseau
+vwa--stop-cmdr-difficulty,Commandant et difficulté
+vwa--stop-actions,Actions
+vwa--launch-locked,Le vaisseau sélectionné est verrouillé. Choisissez un autre vaisseau.
+vwa--state-on,activé
+vwa--state-off,désactivé
+vwa--difficulty-completed,terminée
