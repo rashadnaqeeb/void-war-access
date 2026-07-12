@@ -1594,6 +1594,26 @@ function vwa_ship_variant_number()
     return (vs != undefined) ? vs.selectedIndex + 1 : 1;
 }
 
+// The ship name the GAME paints: the field's text only while the field
+// draws it (oShipMenu_shipName Draw_64's gate - visible and not
+// locked-without-debug), the game's own NO DATA marker otherwise. A hidden
+// hull's field still HOLDS its real name; speaking that would reveal an
+// unrevealed vessel, so every name readout goes through this.
+function vwa_ship_name_visible_text()
+{
+    var f = instance_find(oShipMenu_shipName, 0);
+    if (!instance_exists(f))
+    {
+        return "";
+    }
+    if (playerShip_checkVisibilityInShipMenu()
+        && !(playerShip_checkUnlockState(room, 1) && !global.enableDebugKeys))
+    {
+        return string(f.text);
+    }
+    return string(global.label_noData);
+}
+
 // The identity of the ship the selector is ON (or heading to): selectedRoom
 // is set synchronously BEFORE room_goto, so this is never stale, even on
 // the transition frame (scrVwaShip composes from room-keyed data only).
@@ -1883,7 +1903,9 @@ function vwa_ship_stop_build(bd)
     }
 
     // Randomize name (mirrors oShipMenu_randomShipName's press; the live
-    // value part is the current name, so activation speaks the roll).
+    // value part is the name the game paints, so activation speaks the
+    // roll - and stays NO DATA on a hidden or locked hull, where the game
+    // rolls invisibly behind its NO DATA field).
     var rnd = instance_find(oShipMenu_randomShipName, 0);
     if (instance_exists(rnd))
     {
@@ -1896,8 +1918,7 @@ function vwa_ship_stop_build(bd)
                 }, false),
                 vwa_part_fn("value", function()
                 {
-                    var f = instance_find(oShipMenu_shipName, 0);
-                    return instance_exists(f) ? string(f.text) : "";
+                    return vwa_ship_name_visible_text();
                 }, true)
             ],
             onActivate: method({ inst: rnd }, function()
@@ -2607,7 +2628,9 @@ function vwa_ship_actions_stop_build(bd)
 // Then the overlay's own variant slider (its onPress path re-targets
 // every hull button, no room switch). Hull activation runs the button's
 // full press path: queue the room, flag back to 12, closeMenu - the
-// ship-select screen underneath regains focus on the new hull.
+// ship-select screen underneath regains focus on the new hull. Hidden and
+// coming-soon hulls carry no action (the game's own button is inert on
+// them), so Enter speaks the no-action line.
 function vwa_ship_list_build(bd)
 {
     var mn = instance_find(oShipListMenu, 0);
@@ -2671,7 +2694,7 @@ function vwa_ship_list_build(bd)
 
 function vwa_ship_list_hull_add(bd, mn, btn)
 {
-    vwa_gb_add(bd, vwa_id_ref(btn, "hull:" + string(btn.buttonIndex)), {
+    var cfg = {
         typeKey: "button",
         parts: [
             vwa_part_fn("label", method({ btn: btn }, function()
@@ -2749,10 +2772,18 @@ function vwa_ship_list_hull_add(bd, mn, btn)
                     string(global.label_shipQuestTooltip_unlockTemplate),
                     "[unlockDescription]", string(desc));
             }), false)
-        ],
-        onActivate: method({ inst: btn }, function()
+        ]
+    };
+    // A hidden or coming-soon hull is inert in the game too (its
+    // hoverConditionsMet excludes both and onPress refuses hidden), so the
+    // node carries no action: Enter speaks the standard no-action line
+    // instead of firing a silent no-op.
+    if (!btn.shipHidden && !btn.variantIsComingSoon)
+    {
+        cfg.onActivate = method({ inst: btn }, function()
         {
             vwa_obutton_activate(self.inst);
-        })
-    });
+        });
+    }
+    vwa_gb_add(bd, vwa_id_ref(btn, "hull:" + string(btn.buttonIndex)), cfg);
 }

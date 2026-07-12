@@ -779,7 +779,9 @@ function vwa_dev_walk_sig(w)
 }
 
 // The immediate feedback of one adjust press must be exactly the live parts
-// that changed, in part order (mirrors vwa_nav_state_feedback's own rule).
+// that changed, in part order; when none changed, every non-empty live part
+// (the adjust heartbeat) - mirrors vwa_nav_state_feedback's adjust-path
+// rule.
 function vwa_dev_walk_adjust_feedback(w, name, sigFrom, sigTo)
 {
     var diffs = [];
@@ -789,6 +791,16 @@ function vwa_dev_walk_adjust_feedback(w, name, sigFrom, sigTo)
         if (sigTo[i] != sigFrom[i] && sigTo[i] != "")
         {
             array_push(diffs, sigTo[i]);
+        }
+    }
+    if (array_length(diffs) == 0)
+    {
+        for (var i = 0; i < array_length(sigTo); i++)
+        {
+            if (sigTo[i] != "")
+            {
+                array_push(diffs, sigTo[i]);
+            }
         }
     }
     var okSeq = (array_length(w.tap) == array_length(diffs));
@@ -809,9 +821,14 @@ function vwa_dev_walk_adjust_feedback(w, name, sigFrom, sigTo)
 }
 
 // Net-zero adjust on the screen's first adjustable control: one step out,
-// one step back, value restored, each press's feedback spoken immediately.
-// At the range's top the directions swap; a degenerate range just checks
-// nothing moved.
+// one step back, each press's feedback checked against the rule above.
+// Movement is detected by the live signature, never by silence (a step
+// between identically-rendered values speaks the heartbeat, and a press
+// against the range top speaks it too). After right then left the
+// signature normally sits back at its start - whether the right press
+// moved (left undid it) or hit the top (both pressed into the same end).
+// A signature still off its start means the right press sat on the top
+// and the left press moved down: one restoring right closes the loop.
 function vwa_dev_walk_adjust(w)
 {
     var st = w.scr.navState;
@@ -836,29 +853,23 @@ function vwa_dev_walk_adjust(w)
             "node lost after right");
         return;
     }
-    if (array_length(w.tap) > 0)
+    vwa_dev_walk_adjust_feedback(w, "adjust right", sigBefore, sigAfter);
+    w.tap = [];
+    vwa_nav_move("left");
+    var sigLeft = vwa_dev_walk_sig(w);
+    if (sigLeft == undefined)
     {
-        vwa_dev_walk_adjust_feedback(w, "adjust right", sigBefore, sigAfter);
-        w.tap = [];
-        vwa_nav_move("left");
-        vwa_dev_walk_adjust_feedback(w, "adjust left", sigAfter,
-            vwa_dev_walk_sig(w));
+        vwa_test_ok(w.tc, "walk: adjust node survived adjusting", false,
+            "node lost after left");
+        return;
     }
-    else
+    vwa_dev_walk_adjust_feedback(w, "adjust left", sigAfter, sigLeft);
+    if (vwa_test_join(sigLeft) != vwa_test_join(sigBefore))
     {
-        // No movement right: at the top of the range, go the other way.
-        vwa_nav_move("left");
-        var sigLeft = vwa_dev_walk_sig(w);
-        if (array_length(w.tap) == 0)
-        {
-            vwa_test_ok(w.tc, "walk: degenerate adjust range left the value alone",
-                vwa_test_join(sigLeft) == vwa_test_join(sigBefore),
-                vwa_test_join(sigLeft));
-            return;
-        }
-        vwa_dev_walk_adjust_feedback(w, "adjust left", sigBefore, sigLeft);
         w.tap = [];
         vwa_nav_move("right");
+        vwa_dev_walk_adjust_feedback(w, "adjust restore", sigLeft,
+            vwa_dev_walk_sig(w));
     }
     vwa_test_ok(w.tc, "walk: adjust restored " + w.adjustSkey,
         vwa_test_join(vwa_dev_walk_sig(w)) == vwa_test_join(sigBefore),

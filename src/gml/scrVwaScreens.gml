@@ -32,7 +32,11 @@
 // initial landing after a screen change does not interrupt (it queues
 // behind the screen name); live-part changes do not interrupt. Keystroke
 // feedback (search landings, state feedback, alt+up/down line review)
-// speaks immediately from the handler, interrupting.
+// speaks immediately from the handler, interrupting. State feedback speaks
+// the changed live parts; an ADJUST that changed no live text re-speaks
+// every non-empty live part instead (the heartbeat - identically-rendered
+// neighbors and range ends still answer the key), while an activation
+// with no visible change stays silent, mirroring the game.
 //
 // Announcements are line-structured (session 10): the control summary is
 // one line, each tooltip-kind part its own line (vwa_ann_leaf), and
@@ -585,7 +589,7 @@ function vwa_nav_move(dir)
     {
         if (vwa_graph_adjust(scr.graph, (dir == "right") ? 1 : -1, false))
         {
-            vwa_nav_state_feedback(scr);
+            vwa_nav_state_feedback(scr, true);
             return;
         }
     }
@@ -605,7 +609,7 @@ function vwa_nav_adjust_large(sign)
     }
     if (vwa_graph_adjust(scr.graph, sign, true))
     {
-        vwa_nav_state_feedback(scr);
+        vwa_nav_state_feedback(scr, true);
     }
 }
 
@@ -636,17 +640,24 @@ function vwa_nav_activate()
         vwa_speak([vwa_t("vwa--no-action")], false);
         return;
     }
-    vwa_nav_state_feedback(scr);
+    vwa_nav_state_feedback(scr, false);
 }
 
 // Speak a user-caused value change NOW, interrupting, instead of waiting
 // for the next tick's non-interrupting live-part watch: under typematic
 // key repeat on a slider the queued values would read behind the actual
-// position. Rebaselines the live cache so the watch does not re-speak the
-// change. Rerenders first: an activation that destroyed its
+// position. heartbeat is true on the adjust paths only: when a successful
+// adjust changed no live text - a step between two states that render
+// identically (consecutive hidden hulls on the ship cycler both read
+// Unknown Vessel) or a press against a range end - every non-empty live
+// part is re-spoken, so the key always answers; silence there reads as a
+// dead control. Activation keeps changed-only semantics (its feedback is
+// the callback's own visible effect; when the game shows nothing, silence
+// mirrors that). Rebaselines the live cache so the watch does not re-speak
+// the change. Rerenders first: an activation that destroyed its
 // own control (Cancel closing a dialogue) must not resolve parts through a
 // dead instance - after the rebuild, focus having moved means skip.
-function vwa_nav_state_feedback(scr)
+function vwa_nav_state_feedback(scr, heartbeat)
 {
     var fnAct = scr.isActive;
     if (!fnAct())
@@ -666,6 +677,7 @@ function vwa_nav_state_feedback(scr)
     }
     var liveParts = vwa_ann_live_parts(nd, global.vwaControlTypes);
     var fresh = [];
+    var spoke = false;
     for (var i = 0; i < array_length(liveParts); i++)
     {
         var t = vwa_part_resolve(liveParts[i]);
@@ -674,6 +686,17 @@ function vwa_nav_state_feedback(scr)
             && t != global.vwaNavLiveCache[i] && t != "")
         {
             vwa_speak([t], true);
+            spoke = true;
+        }
+    }
+    if (heartbeat && !spoke)
+    {
+        for (var i = 0; i < array_length(fresh); i++)
+        {
+            if (fresh[i] != "")
+            {
+                vwa_speak([fresh[i]], true);
+            }
         }
     }
     global.vwaNavLiveCache = fresh;
