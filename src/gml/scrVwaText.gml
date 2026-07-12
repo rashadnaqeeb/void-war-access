@@ -28,15 +28,23 @@
 // drops every non-textSafe action, so these win the chords they share with
 // the ui navigator):
 //   up/down       read the whole text
-//   Enter/Escape  stop editing (the default exit clears the game's flag,
-//                 mirroring the fields' own click-away branch)
-// Both are CONSUMED (vwa_input_consume_key) so the game's raw ungated
-// handlers never also act mid-edit (oUICommanderList's Escape leaves the
-// whole commander screen even while a field is being edited). Other keys
-// pass through untouched: the game's own mid-edit quirks (the ship
-// selector cycles hulls on raw arrows) are a per-screen concern for the
-// field screen's adapter, not this layer. A consumed key that stays held
-// re-asserts through OS auto-repeat.
+//   Enter         COMMIT the edit (the adapter's onCommit - the field's own
+//                 Enter branch)
+//   Escape        CANCEL it (the adapter's onCancel - the field's own
+//                 Escape branch, or "do not commit" for fields the game
+//                 gives no cancel; session-12 split, Rashad's call - Escape
+//                 must never silently keep a discarded edit)
+// The default for either, with no adapter or a missing member, is the
+// plain flag clear every field's click-away branch performs - right for
+// fields like oCommanderNameBox whose text is live as typed, where commit
+// and cancel are genuinely the same operation.
+// The pressed key is CONSUMED (vwa_input_consume_key) so the game's raw
+// ungated handlers never also act mid-edit (oUICommanderList's Escape
+// leaves the whole commander screen even while a field is being edited).
+// Other keys pass through untouched: the game's own mid-edit quirks (the
+// ship selector cycles hulls on raw arrows) are a per-screen concern for
+// the field screen's adapter, not this layer. A consumed key that stays
+// held re-asserts through OS auto-repeat.
 //
 // Speech (all through vwa_speak, all interrupting: every line here is
 // direct user-caused feedback):
@@ -47,20 +55,23 @@
 //   per-frame text diff (a deleted space speaks as the word "space")
 // - a change that is neither an append nor an end-deletion (the game
 //   replaced the string): "Text changed" + the new text
-// - exiting, by ANY path (our keys, a field's own Enter/Escape branch, a
-//   mouse click away): "Edit closed" + the final text. The falling edge of
-//   the flag announces, so the game's own exits are never missed.
+// - exiting via CANCEL: "Edit cancelled", alone - the typed text was
+//   discarded, and what the field reverted to is the field's business
+//   (navigation re-reads it); speaking the discarded text would mislead
+// - exiting by ANY other path (Enter, a field's own branches, a mouse
+//   click away): "Edit closed" + the final text. The falling edge of the
+//   flag announces, so the game's own exits are never missed.
 // Known gap: a lone punctuation character is passed through as-is; whether
 // the screen reader voices it depends on its symbol level.
 //
 // vwa_text_begin(adapter) is the entry point for a textfield control's
-// onActivate (and the dev driver). adapter = { onEnter, onExit }
-// zero-argument methods ("exit"/"end" are GML keywords, unusable as member
-// names) mirroring the field's own click-to-edit and exit branches;
-// undefined means the plain global-flag default, which matches
-// oCommanderNameBox (whose only edit state IS the flag). begin() consumes
-// Enter so the activating press cannot bounce straight back out through a
-// field's own keyboard_check_pressed(vk_enter) exit branch - and therefore
+// onActivate (and the dev driver). adapter = { onEnter, onCommit,
+// onCancel } zero-argument methods ("exit"/"end" are GML keywords,
+// unusable as member names) mirroring the field's own click-to-edit,
+// Enter-commit, and Escape-cancel branches; undefined (or a missing
+// member) means the plain global-flag default. begin() consumes Enter so
+// the activating press cannot bounce straight back out through a field's
+// own keyboard_check_pressed(vk_enter) exit branch - and therefore
 // holding Enter until OS auto-repeat kicks in exits again; a tap is the
 // expected use.
 //
@@ -76,7 +87,8 @@ function vwa_text_init()
         pending: false,     // flag is up but oTextField has not appeared yet
         pendingTicks: 0,
         lastText: "",       // diff baseline while active
-        adapter: undefined  // { onEnter, onExit } while vwa_text_begin drove entry
+        adapter: undefined, // { onEnter, onCommit, onCancel } while vwa_text_begin drove entry
+        cancelled: false    // the exit under way is our cancel (falling-edge wording)
     };
     vwa_register_text_actions();
     vwa_log("text: layer initialized");
@@ -138,17 +150,28 @@ function vwa_text_tick()
     {
         if (st.active)
         {
-            // Falling edge, by any path (our exit keys, a field's own
-            // Enter/Escape branch, a mouse click away).
-            vwa_speak([vwa_t("vwa--text-edit-closed"),
-                       (st.lastText == "") ? vwa_t("vwa--text-blank") : st.lastText],
-                true);
+            // Falling edge, by any path (our commit/cancel keys, a field's
+            // own branches, a mouse click away). A cancel discarded the
+            // typed text, so it announces alone - the reverted value is
+            // re-readable from the field's node; the last TYPED text would
+            // mislead. Every other exit keeps the final text.
+            if (st.cancelled)
+            {
+                vwa_speak([vwa_t("vwa--text-edit-cancelled")], true);
+            }
+            else
+            {
+                vwa_speak([vwa_t("vwa--text-edit-closed"),
+                           (st.lastText == "") ? vwa_t("vwa--text-blank") : st.lastText],
+                    true);
+            }
         }
         st.active = false;
         st.pending = false;
         st.pendingTicks = 0;
         st.adapter = undefined;
         st.lastText = "";
+        st.cancelled = false;
         return;
     }
 
@@ -246,12 +269,17 @@ function vwa_text_read_all()
     vwa_speak([t], true);
 }
 
-// Stop editing from the keyboard. The adapter's onExit mirrors the field's
-// own close branch; the default is the flag clear every field's click-away
-// path performs. Both Enter and Escape land here (and both get consumed:
-// clearing an un-pressed key is a no-op), so a field screen whose game
-// object distinguishes commit from cancel supplies an adapter instead.
-function vwa_text_exit()
+// Stop editing from the keyboard, in one of two ways. Commit (Enter) runs
+// the adapter's onCommit - the field's own Enter branch; cancel (Escape)
+// runs onCancel - the field's own Escape branch, or plain don't-commit
+// where the game has none. The default for a missing member (or no
+// adapter) is the flag clear every field's click-away path performs -
+// commit and cancel are the same operation for a field whose text is live
+// as typed (oCommanderNameBox). The pressed key is consumed either way
+// (consuming the other, un-pressed key is a no-op kept for symmetry with
+// the old single-exit behavior). The falling edge announces on the next
+// tick; st.cancelled picks its wording.
+function vwa_text_exit_run(memberName, wasCancel)
 {
     var st = global.vwaText;
     if (!st.active && !st.pending)
@@ -260,11 +288,12 @@ function vwa_text_exit()
     }
     vwa_input_consume_key(vk_enter);
     vwa_input_consume_key(vk_escape);
+    st.cancelled = wasCancel;
     var exited = false;
-    if (st.adapter != undefined && variable_struct_exists(st.adapter, "onExit")
-        && st.adapter.onExit != undefined)
+    if (st.adapter != undefined && variable_struct_exists(st.adapter, memberName)
+        && variable_struct_get(st.adapter, memberName) != undefined)
     {
-        var fnExit = st.adapter.onExit;
+        var fnExit = variable_struct_get(st.adapter, memberName);
         fnExit();
         exited = true;
     }
@@ -272,7 +301,16 @@ function vwa_text_exit()
     {
         global.textFieldInputEnabled = false;
     }
-    // The falling edge announces on the next tick.
+}
+
+function vwa_text_commit()
+{
+    vwa_text_exit_run("onCommit", false);
+}
+
+function vwa_text_cancel()
+{
+    vwa_text_exit_run("onCancel", true);
 }
 
 // ---- actions ----
@@ -289,13 +327,18 @@ function vwa_register_text_actions()
         {
             vwa_text_read_all();
         });
-    vwa_action_register("text-exit", "vwa--action-text-exit", "global",
-        [vwa_bind(vk_enter, false, false, false), vwa_bind(vk_escape, false, false, false)],
-        false, function()
+    vwa_action_register("text-commit", "vwa--action-text-commit", "global",
+        vwa_bind(vk_enter, false, false, false), false, function()
         {
-            vwa_text_exit();
+            vwa_text_commit();
+        });
+    vwa_action_register("text-cancel", "vwa--action-text-cancel", "global",
+        vwa_bind(vk_escape, false, false, false), false, function()
+        {
+            vwa_text_cancel();
         });
 
     variable_struct_get(global.vwaActions, "text-read").textSafe = true;
-    variable_struct_get(global.vwaActions, "text-exit").textSafe = true;
+    variable_struct_get(global.vwaActions, "text-commit").textSafe = true;
+    variable_struct_get(global.vwaActions, "text-cancel").textSafe = true;
 }

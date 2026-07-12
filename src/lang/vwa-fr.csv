@@ -41,11 +41,13 @@ vwa--group-social,Liens sociaux
 vwa--role-edit,champ de saisie
 vwa--text-editing,Modification
 vwa--text-edit-closed,Modification terminée
+vwa--text-edit-cancelled,Modification annulée
 vwa--text-changed,Texte modifié
 vwa--text-blank,vide
 vwa--char-space,espace
 vwa--action-text-read,Lire le texte
-vwa--action-text-exit,Terminer la modification
+vwa--action-text-commit,Valider la modification
+vwa--action-text-cancel,Annuler la modification
 vwa--action-line-prev,Ligne précédente de l'annonce
 vwa--action-line-next,Ligne suivante de l'annonce
 vwa--line-top,Début

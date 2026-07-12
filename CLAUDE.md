@@ -187,7 +187,8 @@ activates, **Tab/Shift+Tab** cycle control groups, **Home/End** group ends,
 **Alt+up/down** line review, **letters** type-ahead search, **Escape**
 nav-back (consumed only when the mod actually acts; otherwise the game's
 own Escape runs untouched). Text edit mode: **up/down** read the whole
-text, **Enter/Escape** stop editing.
+text, **Enter** commits the edit, **Escape** cancels it (same operation on
+fields whose text is live as typed).
 
 The authoritative behavior models live in the script headers: submenus and
 jump edges in scrVwaGraph, type-ahead matching in scrVwaSearch, the

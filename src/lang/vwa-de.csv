@@ -41,11 +41,13 @@ vwa--group-social,Soziale Links
 vwa--role-edit,Eingabefeld
 vwa--text-editing,Bearbeiten
 vwa--text-edit-closed,Bearbeitung beendet
+vwa--text-edit-cancelled,Bearbeitung abgebrochen
 vwa--text-changed,Text geändert
 vwa--text-blank,leer
 vwa--char-space,Leerzeichen
 vwa--action-text-read,Text vorlesen
-vwa--action-text-exit,Bearbeitung beenden
+vwa--action-text-commit,Bearbeitung übernehmen
+vwa--action-text-cancel,Bearbeitung abbrechen
 vwa--action-line-prev,Vorherige Ansagezeile
 vwa--action-line-next,Nächste Ansagezeile
 vwa--line-top,Anfang

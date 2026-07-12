@@ -178,10 +178,10 @@ Check 'Enter enters text edit mode' ([bool]$ts.active -and [bool]$ts.flag) ($ts 
 Cmd 'call vwa_dev_type abc' | Out-Null
 $ts = (Cmd 'call vwa_dev_text_state').result
 Check 'typed buffer survives mid-edit (type-ahead drain stays off)' ($ts.kbString -like '*abc') $ts.kbString
-Fire 'text-exit' | Out-Null
+Fire 'text-commit' | Out-Null
 Start-Sleep -Milliseconds 300
 $ts = (Cmd 'call vwa_dev_text_state').result
-Check 'text-exit leaves edit mode' (-not [bool]$ts.active) ($ts | ConvertTo-Json -Compress)
+Check 'text-commit leaves edit mode' (-not [bool]$ts.active) ($ts | ConvertTo-Json -Compress)
 $m = GuiMod
 Check 'screen survived the edit exit' ($m.focused -eq 'commander-select') $m.focused
 
@@ -219,6 +219,28 @@ Fire 'nav-activate' | Out-Null
 $m = WaitFocused 'ship-select'
 Check 'ship select opens on the hull cycler' ($m.focusKey -eq 'ship-cycler') $m.focusKey
 Walk 'ship-select' | Out-Null
+
+# The ship name's commit/cancel split (session 12): Enter runs the field's
+# own set_name, Escape discards. Expectations read back from the game; the
+# injected value is state, not a speech expectation.
+FocusNode 'ship-select' 'ship-name'
+Fire 'nav-activate' | Out-Null
+Start-Sleep -Milliseconds 400
+Cmd 'set oTextField.text "VWA Smoke"' | Out-Null
+Fire 'text-commit' | Out-Null
+Start-Sleep -Milliseconds 300
+$nm = Cmd 'get oHull.customHullName'
+Check 'ship name commit writes the custom hull name' ($nm -eq 'VWA Smoke') $nm
+Fire 'nav-activate' | Out-Null
+Start-Sleep -Milliseconds 400
+Cmd 'set oTextField.text "Discarded"' | Out-Null
+Fire 'text-cancel' | Out-Null
+Start-Sleep -Milliseconds 300
+$nm = Cmd 'get oHull.customHullName'
+Check 'ship name cancel leaves the custom hull name untouched' ($nm -eq 'VWA Smoke') $nm
+$ts = (Cmd 'call vwa_dev_text_state').result
+Check 'text-cancel leaves edit mode' (-not [bool]$ts.active) ($ts | ConvertTo-Json -Compress)
+Cmd 'call oShipMenu_shipName.reset_name' | Out-Null
 
 # One hull cycle: exactly one utterance (the identity of the new hull; the
 # raw-arrow consume means no double step), then a second walk on the OTHER

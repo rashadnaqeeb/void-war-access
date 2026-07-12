@@ -41,11 +41,13 @@ vwa--group-social,Enlaces sociales
 vwa--role-edit,campo de edición
 vwa--text-editing,Editando
 vwa--text-edit-closed,Edición terminada
+vwa--text-edit-cancelled,Edición cancelada
 vwa--text-changed,Texto cambiado
 vwa--text-blank,vacío
 vwa--char-space,espacio
 vwa--action-text-read,Leer el texto
-vwa--action-text-exit,Terminar la edición
+vwa--action-text-commit,Confirmar la edición
+vwa--action-text-cancel,Cancelar la edición
 vwa--action-line-prev,Línea anterior del anuncio
 vwa--action-line-next,Línea siguiente del anuncio
 vwa--line-top,Principio

@@ -41,11 +41,13 @@ vwa--group-social,Social links
 vwa--role-edit,edit
 vwa--text-editing,Editing
 vwa--text-edit-closed,Edit closed
+vwa--text-edit-cancelled,Edit cancelled
 vwa--text-changed,Text changed
 vwa--text-blank,blank
 vwa--char-space,space
 vwa--action-text-read,Read the text
-vwa--action-text-exit,Stop editing
+vwa--action-text-commit,Commit the edit
+vwa--action-text-cancel,Cancel the edit
 vwa--action-line-prev,Previous announcement line
 vwa--action-line-next,Next announcement line
 vwa--line-top,Top

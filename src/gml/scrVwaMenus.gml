@@ -1800,12 +1800,11 @@ function vwa_ship_stop_build(bd)
     // The ship name field. Editable exactly when the game's field is
     // (visible and not locked-without-debug: oShipMenu_shipName Draw_64);
     // otherwise a NO DATA label, mirroring what the game paints. The edit
-    // adapter mirrors the field's own click-to-edit and Enter-commit
-    // branches; commit runs the game's stored set_name (writes
-    // customHullName and saves). Keyboard Escape also commits - the text
-    // layer cannot distinguish the two exits (both land in vwa_text_exit),
-    // and committing what a blind player just typed beats silently
-    // discarding it.
+    // adapter mirrors all three of the field's own branches: click-to-edit
+    // on entry, the Enter branch on commit (the game's stored set_name -
+    // writes customHullName and saves), and the Escape branch on cancel
+    // (flags only, nothing written; the field's own Step then repaints the
+    // stored name while no custom name is set - its behavior, mirrored).
     var sn = instance_find(oShipMenu_shipName, 0);
     if (instance_exists(sn))
     {
@@ -1839,7 +1838,7 @@ function vwa_ship_stop_build(bd)
                             global.textFieldInputEnabled = true;
                             self.fld.UIFocus = true;
                         }),
-                        onExit: method({ fld: fld }, function()
+                        onCommit: method({ fld: fld }, function()
                         {
                             global.textFieldInputEnabled = false;
                             if (instance_exists(self.fld))
@@ -1850,7 +1849,15 @@ function vwa_ship_stop_build(bd)
                             }
                             else
                             {
-                                vwa_log("ERROR: ship name field gone on edit exit");
+                                vwa_log("ERROR: ship name field gone on edit commit");
+                            }
+                        }),
+                        onCancel: method({ fld: fld }, function()
+                        {
+                            global.textFieldInputEnabled = false;
+                            if (instance_exists(self.fld))
+                            {
+                                self.fld.UIFocus = false;
                             }
                         })
                     });
@@ -2083,8 +2090,11 @@ function vwa_ship_crew_section(bd)
 
 // Enter on a crew node: rename through the text edit layer. The adapter
 // mirrors the crew button's own click-to-edit branch (Draw_64) on entry
-// and its Enter-commit branch on exit (assign crewName, save via the
-// game's shipSelect_saveCrewNames).
+// and its Enter-commit branch on commit (assign crewName, save via the
+// game's shipSelect_saveCrewNames). The game gives crew rename NO cancel
+// path (only mouse/Enter commits), so cancel is simply not-committing:
+// crewName is only ever written on commit, and clearing the edit state
+// leaves the original name standing.
 function vwa_ship_crew_rename(cb, idx)
 {
     if (!instance_exists(cb) || idx >= array_length(cb.crewList)
@@ -2114,7 +2124,7 @@ function vwa_ship_crew_rename(cb, idx)
             }
             c.UIFocus = true;
         }),
-        onExit: method({ cb: cb }, function()
+        onCommit: method({ cb: cb }, function()
         {
             var c = self.cb;
             global.textFieldInputEnabled = false;
@@ -2129,6 +2139,14 @@ function vwa_ship_crew_rename(cb, idx)
             {
                 vwa_log("ERROR: crew rename commit: row gone");
             }
+            c.editCrewNameStr = "";
+            c.indexToEdit = -4;
+        }),
+        onCancel: method({ cb: cb }, function()
+        {
+            var c = self.cb;
+            global.textFieldInputEnabled = false;
+            c.UIFocus = false;
             c.editCrewNameStr = "";
             c.indexToEdit = -4;
         })
