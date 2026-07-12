@@ -100,9 +100,10 @@ the hard rules.
   activation mirror, dropdown child screen, auto-paging), `scrVwaMenus`
   (screen registration dispatcher + generic fallback) with one
   `scrVwaMenu*` file per screen family (Main, Settings, Commander,
-  ShipSelect - a new game screen family gets its own file), `scrVwaDev`
-  and `scrVwaTest` (dev builds only). `*.append.gml` appends to the named
-  code entry (`*.dev.append.gml` = dev-only).
+  ShipSelect - a new game screen family gets its own file), `scrVwaDev`,
+  `scrVwaDevScreens` (synthetic test screens), and `scrVwaTest` (dev builds
+  only). `*.append.gml` appends to the named code entry (`*.dev.append.gml`
+  = dev-only).
 - `src/lang/` - mod strings as `vwa--` CSV rows, merged into the game's lang
   CSVs at build time.
 - `tools/` - build + launch scripts, UTMT CLI, decompile scripts.
