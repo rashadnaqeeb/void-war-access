@@ -8,7 +8,9 @@
 // CLI scripts - CodeImportGroup is the supported path.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UndertaleModLib.Compiler;
 
 EnsureDataLoaded();
@@ -17,55 +19,21 @@ string gmlDir = Path.Combine(Environment.CurrentDirectory, "src", "gml");
 
 var group = new CodeImportGroup(Data);
 
-// New global script: logging, localization, the speech chokepoint.
-group.QueueReplace("gml_GlobalScript_scrVwaCore",
-    File.ReadAllText(Path.Combine(gmlDir, "scrVwaCore.gml")));
-
-// New global script: the input layer (actions, categories, suppression).
-group.QueueReplace("gml_GlobalScript_scrVwaInput",
-    File.ReadAllText(Path.Combine(gmlDir, "scrVwaInput.gml")));
-
-// New global scripts: the framework core (session 4) - control graph,
-// announcement composition, type-ahead matcher, screen layer + navigator.
-group.QueueReplace("gml_GlobalScript_scrVwaGraph",
-    File.ReadAllText(Path.Combine(gmlDir, "scrVwaGraph.gml")));
-group.QueueReplace("gml_GlobalScript_scrVwaAnnounce",
-    File.ReadAllText(Path.Combine(gmlDir, "scrVwaAnnounce.gml")));
-group.QueueReplace("gml_GlobalScript_scrVwaSearch",
-    File.ReadAllText(Path.Combine(gmlDir, "scrVwaSearch.gml")));
-group.QueueReplace("gml_GlobalScript_scrVwaScreens",
-    File.ReadAllText(Path.Combine(gmlDir, "scrVwaScreens.gml")));
-
-// New global script: the text edit layer (session 9) - edit-mode tracker,
-// review cursor, keyboard exit for the game's text fields.
-group.QueueReplace("gml_GlobalScript_scrVwaText",
-    File.ReadAllText(Path.Combine(gmlDir, "scrVwaText.gml")));
-
-// New global script: the crew sheet composer (session 10) - categorized
-// spoken lines for a crew instance; the commander select screen consumes it.
-group.QueueReplace("gml_GlobalScript_scrVwaSheet",
-    File.ReadAllText(Path.Combine(gmlDir, "scrVwaSheet.gml")));
-
-// New global script: the ship composer (session 12) - spoken lines for
-// hull identity, systems, weapons, equipment, modules; the ship select
-// screen consumes it (the in-run ship viewer is the intended second).
-group.QueueReplace("gml_GlobalScript_scrVwaShip",
-    File.ReadAllText(Path.Combine(gmlDir, "scrVwaShip.gml")));
-
-// New global script: the real game screens (session 5) - main menu,
-// announcements popup, game-menu placeholders.
-group.QueueReplace("gml_GlobalScript_scrVwaMenus",
-    File.ReadAllText(Path.Combine(gmlDir, "scrVwaMenus.gml")));
-
-// Dev-driver eval-lite interpreter (dev builds only; the release build
-// script will omit this file and the dev pump append).
-group.QueueReplace("gml_GlobalScript_scrVwaDev",
-    File.ReadAllText(Path.Combine(gmlDir, "scrVwaDev.gml")));
-
-// In-game test module (session 11): pure-module selftest + the screen
-// walker. Dev builds only, like scrVwaDev.
-group.QueueReplace("gml_GlobalScript_scrVwaTest",
-    File.ReadAllText(Path.Combine(gmlDir, "scrVwaTest.gml")));
+// Every src/gml/scr*.gml file becomes one new global script,
+// gml_GlobalScript_<basename>. Adding a script is dropping a file in
+// src/gml - no build-code change. Dev-only scripts are listed here so a
+// future release build can skip them; the dev build imports everything.
+var devOnlyScripts = new HashSet<string> { "scrVwaDev", "scrVwaTest" };
+var scriptFiles = Directory.GetFiles(gmlDir, "scr*.gml")
+    .OrderBy(p => Path.GetFileName(p), StringComparer.Ordinal)
+    .ToList();
+if (scriptFiles.Count == 0)
+    throw new Exception("no src/gml/scr*.gml files found - wrong working directory?");
+foreach (var path in scriptFiles)
+{
+    var name = Path.GetFileNameWithoutExtension(path);
+    group.QueueReplace("gml_GlobalScript_" + name, File.ReadAllText(path));
+}
 
 // Boot patch: shim load, input-layer init, boot announcement, at the end of
 // oInitGlobals Create.
@@ -112,30 +80,12 @@ for (int at = kbText.IndexOf("global.vwaSuppressGameKeys"); at >= 0;
 if (kbHits != 3)
     throw new Exception($"scrKeybinds suppression patch: expected 3 occurrences of the flag, found {kbHits}");
 
-// The import must actually have produced the new scripts' code entries.
-if (Data.Code.ByName("gml_GlobalScript_scrVwaCore") == null)
-    throw new Exception("gml_GlobalScript_scrVwaCore was not created by the import");
-if (Data.Code.ByName("gml_GlobalScript_scrVwaInput") == null)
-    throw new Exception("gml_GlobalScript_scrVwaInput was not created by the import");
-if (Data.Code.ByName("gml_GlobalScript_scrVwaGraph") == null)
-    throw new Exception("gml_GlobalScript_scrVwaGraph was not created by the import");
-if (Data.Code.ByName("gml_GlobalScript_scrVwaAnnounce") == null)
-    throw new Exception("gml_GlobalScript_scrVwaAnnounce was not created by the import");
-if (Data.Code.ByName("gml_GlobalScript_scrVwaSearch") == null)
-    throw new Exception("gml_GlobalScript_scrVwaSearch was not created by the import");
-if (Data.Code.ByName("gml_GlobalScript_scrVwaScreens") == null)
-    throw new Exception("gml_GlobalScript_scrVwaScreens was not created by the import");
-if (Data.Code.ByName("gml_GlobalScript_scrVwaText") == null)
-    throw new Exception("gml_GlobalScript_scrVwaText was not created by the import");
-if (Data.Code.ByName("gml_GlobalScript_scrVwaSheet") == null)
-    throw new Exception("gml_GlobalScript_scrVwaSheet was not created by the import");
-if (Data.Code.ByName("gml_GlobalScript_scrVwaShip") == null)
-    throw new Exception("gml_GlobalScript_scrVwaShip was not created by the import");
-if (Data.Code.ByName("gml_GlobalScript_scrVwaMenus") == null)
-    throw new Exception("gml_GlobalScript_scrVwaMenus was not created by the import");
-if (Data.Code.ByName("gml_GlobalScript_scrVwaDev") == null)
-    throw new Exception("gml_GlobalScript_scrVwaDev was not created by the import");
-if (Data.Code.ByName("gml_GlobalScript_scrVwaTest") == null)
-    throw new Exception("gml_GlobalScript_scrVwaTest was not created by the import");
+// The import must actually have produced every script's code entry.
+foreach (var path in scriptFiles)
+{
+    var name = Path.GetFileNameWithoutExtension(path);
+    if (Data.Code.ByName("gml_GlobalScript_" + name) == null)
+        throw new Exception("gml_GlobalScript_" + name + " was not created by the import");
+}
 
-ScriptMessage("vw-access GML import OK");
+ScriptMessage("vw-access GML import OK (" + scriptFiles.Count + " scripts)");

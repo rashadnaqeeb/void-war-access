@@ -88,17 +88,21 @@ the hard rules.
 
 ## Layout
 
-- `src/gml/` - GML source fragments assembled by build-mod, one script each.
+- `src/gml/` - GML source fragments, one script each; build-mod globs
+  `scr*.gml`, so a new script is just a new file (no build-code change).
   `scrVwaCore` (speech chokepoint, logging, shim binding), `scrVwaInput`
   (action registry, suppression; the ONE sanctioned home of raw
   `keyboard_check`), `scrVwaGraph` (control graph + navigation engine;
   PURE), `scrVwaAnnounce` (announcement compose; PURE), `scrVwaSearch`
   (type-ahead matcher; PURE), `scrVwaScreens` (screen registry/stack,
   navigator, line review), `scrVwaText` (text edit layer), `scrVwaSheet`
-  (crew sheet composer), `scrVwaMenus` (the real game screens + the generic
-  widget adapter), `scrVwaDev` and `scrVwaTest` (dev builds only).
-  `*.append.gml` appends to the named code entry (`*.dev.append.gml` =
-  dev-only).
+  (crew sheet composer), `scrVwaWidgets` (generic widget adapter, oButton
+  activation mirror, dropdown child screen, auto-paging), `scrVwaMenus`
+  (screen registration dispatcher + generic fallback) with one
+  `scrVwaMenu*` file per screen family (Main, Settings, Commander,
+  ShipSelect - a new game screen family gets its own file), `scrVwaDev`
+  and `scrVwaTest` (dev builds only). `*.append.gml` appends to the named
+  code entry (`*.dev.append.gml` = dev-only).
 - `src/lang/` - mod strings as `vwa--` CSV rows, merged into the game's lang
   CSVs at build time.
 - `tools/` - build + launch scripts, UTMT CLI, decompile scripts.
@@ -193,8 +197,10 @@ fields whose text is live as typed).
 The authoritative behavior models live in the script headers: submenus and
 jump edges in scrVwaGraph, type-ahead matching in scrVwaSearch, the
 type-ahead key handling and the line review in scrVwaScreens, the text edit
-model in scrVwaText, the crew sheet structure in scrVwaSheet, the real game
-screens in scrVwaMenus.
+model in scrVwaText, the crew sheet structure in scrVwaSheet, the widget
+adapter and auto-paging in scrVwaWidgets, the real game screens in the
+scrVwaMenu* family files (dispatcher and menuToggle registry in
+scrVwaMenus).
 
 ## Hard rules (the audit command checks these)
 
