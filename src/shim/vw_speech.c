@@ -33,7 +33,7 @@
 #include "../../vendor/prism/prism.h"
 #include "vw_protocol.h"
 
-#define VW_SHIM_VERSION "0.3.0"
+#define VW_SHIM_VERSION "0.4.0"
 #define VW_DEFAULT_PORT 8772
 #define VW_CMD_TIMEOUT_MS 5000
 #define VW_EXPORT __declspec(dllexport)
@@ -70,6 +70,18 @@ static volatile LONG g_running = 0;
 static int g_bg_on = 0;
 static WNDPROC g_orig_wndproc = NULL;
 static HWND g_game_hwnd = NULL;
+
+// Agent-drive quiet window: while the dev driver is actively DRIVING the
+// game (POST /cmd or POST /input within the last g_quiet_ms), speech is
+// captured to the ring and both speech logs but NOT voiced, so an
+// unattended test run does not bombard the player sitting at the machine.
+// GET endpoints never arm it - pure observation (an agent tailing /speech
+// or /gui/mod) must not mute the player's own testing. The window expires
+// on its own, so a crashed or wedged agent can never leave speech muted
+// (never strand the user). quiet=<ms> in vw_speech.cfg; 0 disables.
+static int g_quiet_ms = 3000;
+static ULONGLONG g_last_drive_tick = 0; // under g_lock (written by HTTP thread)
+static int g_quiet_was_on = 0;          // main thread only, for transition logs
 
 // Prism, loaded dynamically so a missing prism.dll degrades instead of
 // breaking our own DLL load.
@@ -157,6 +169,8 @@ static void read_config_file(void)
             g_dev_on = val == 0;
         else if (strcmp(line, "bg") == 0)
             g_bg_on = val != 0;
+        else if (strcmp(line, "quiet") == 0 && val >= 0)
+            g_quiet_ms = val;
     }
     fclose(f);
 }
@@ -440,11 +454,16 @@ static void handle_health(SOCKET s)
     EnterCriticalSection(&g_lock);
     unsigned long long spoken = (unsigned long long)g_ring.total;
     ULONGLONG last_poll = g_last_poll_tick;
+    ULONGLONG last_drive = g_last_drive_tick;
     // vw_reset_speech rewrites g_backend_desc under g_lock; copy it out here
     // so this thread never reads a half-written buffer.
     memcpy(backend, g_backend_desc, sizeof backend);
     LeaveCriticalSection(&g_lock);
-    long long pump_age = last_poll ? (long long)(GetTickCount64() - last_poll) : -1;
+    ULONGLONG now = GetTickCount64();
+    long long pump_age = last_poll ? (long long)(now - last_poll) : -1;
+    long long quiet_left = 0;
+    if (g_quiet_ms > 0 && last_drive && now - last_drive < (ULONGLONG)g_quiet_ms)
+        quiet_left = g_quiet_ms - (long long)(now - last_drive);
 
     VwBuf b;
     vwp_buf_init(&b);
@@ -454,9 +473,9 @@ static void handle_health(SOCKET s)
     vwp_json_escape(&b, backend);
     vwp_buf_appendf(&b,
                     "\",\"spoken\":%llu,\"pumpAgeMs\":%lld,\"port\":%d,"
-                    "\"bgKeepalive\":%s}",
+                    "\"bgKeepalive\":%s,\"quietMsLeft\":%lld}",
                     spoken, pump_age, g_port,
-                    g_game_hwnd ? "true" : "false");
+                    g_game_hwnd ? "true" : "false", quiet_left);
     if (!b.oom)
         http_respond(s, "200 OK", "application/json", b.data, b.len);
     vwp_buf_free(&b);
@@ -636,6 +655,19 @@ static void handle_input(SOCKET s, const char *body, size_t body_len)
     free(cmd);
 }
 
+// Arm (or refresh) the agent-drive quiet window. Called on the HTTP thread
+// around every driving POST - before dispatch so the speech the command
+// causes is already covered, and after so a command that ran long (the pump
+// answers within 5s worst case) still gets its trailing speech covered.
+static void mark_agent_drive(void)
+{
+    if (g_quiet_ms <= 0)
+        return;
+    EnterCriticalSection(&g_lock);
+    g_last_drive_tick = GetTickCount64();
+    LeaveCriticalSection(&g_lock);
+}
+
 static void handle_connection(SOCKET s)
 {
     DWORD timeout = 2000;
@@ -675,8 +707,11 @@ static void handle_connection(SOCKET s)
             handle_health(s);
         else if (strcmp(req.method, "GET") == 0 && strcmp(req.path, "/speech") == 0)
             handle_speech(s, req.query);
-        else if (strcmp(req.method, "POST") == 0 && strcmp(req.path, "/cmd") == 0)
+        else if (strcmp(req.method, "POST") == 0 && strcmp(req.path, "/cmd") == 0) {
+            mark_agent_drive();
             handle_cmd(s, req.body, req.body_len);
+            mark_agent_drive();
+        }
         else if (strcmp(req.method, "GET") == 0 && strcmp(req.path, "/gui/raw") == 0) {
             // sugar over the eval-lite command; ?obj=oThing narrows the dump
             char obj[80], cmd[96];
@@ -690,8 +725,11 @@ static void handle_connection(SOCKET s)
             handle_gml(s, "screenshot");
         else if (strcmp(req.method, "GET") == 0 && strcmp(req.path, "/state") == 0)
             handle_gml(s, "state"); // input layer: live categories, actions, shadowing
-        else if (strcmp(req.method, "POST") == 0 && strcmp(req.path, "/input") == 0)
+        else if (strcmp(req.method, "POST") == 0 && strcmp(req.path, "/input") == 0) {
+            mark_agent_drive();
             handle_input(s, req.body, req.body_len);
+            mark_agent_drive();
+        }
         else if (strcmp(req.method, "GET") == 0 && strcmp(req.path, "/log") == 0)
             handle_log(s, req.query); // tail a log file (shim/mod/speech)
         else
@@ -803,8 +841,8 @@ VW_EXPORT double vw_init(void)
 
     read_config_file();
     read_config_env();
-    vw_logf("init: shim %s starting (dev=%d port=%d dir=%s)",
-            VW_SHIM_VERSION, g_dev_on, g_port, g_dll_dir);
+    vw_logf("init: shim %s starting (dev=%d port=%d quiet=%dms dir=%s)",
+            VW_SHIM_VERSION, g_dev_on, g_port, g_quiet_ms, g_dll_dir);
 
     double tier = 0;
     if (load_prism())
@@ -830,7 +868,8 @@ VW_EXPORT double vw_init(void)
 }
 
 // Speak text. interrupt != 0 cuts off current speech. Always captured to the
-// ring first, so /speech and the log see every line even with no backend.
+// ring first, so /speech and the log see every line even with no backend or
+// inside the agent-drive quiet window (which returns 0, captured only).
 // Returns 1 voiced, 0 captured only, -1 backend error, -2 not initialized.
 VW_EXPORT double vw_speak(const char *text, double interrupt)
 {
@@ -838,7 +877,18 @@ VW_EXPORT double vw_speak(const char *text, double interrupt)
         return -2;
     EnterCriticalSection(&g_lock);
     vwp_ring_push(&g_ring, text);
+    ULONGLONG drive = g_last_drive_tick;
     LeaveCriticalSection(&g_lock);
+
+    int quiet = g_quiet_ms > 0 && drive != 0 &&
+                GetTickCount64() - drive < (ULONGLONG)g_quiet_ms;
+    if (quiet != g_quiet_was_on) {
+        g_quiet_was_on = quiet;
+        vw_logf("quiet: agent-drive window %s",
+                quiet ? "active; capturing without voicing" : "over; voicing again");
+    }
+    if (quiet)
+        return 0;
     return backend_speak(text, interrupt != 0);
 }
 

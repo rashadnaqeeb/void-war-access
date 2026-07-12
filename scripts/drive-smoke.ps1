@@ -111,6 +111,14 @@ $gui = Invoke-RestMethod "$base/gui/raw" -TimeoutSec 10
 Check 'gui/raw room' ($gui.room -eq 'rmMainMenu') $gui.room
 Check 'gui/raw lists main menu' ($null -ne $gui.families.oMainMenuControls) 'missing family'
 
+# --- agent-drive quiet window: a POST arms it; GETs alone let it expire ---
+Cmd 'ping' | Out-Null
+$hq = Invoke-RestMethod "$base/health" -TimeoutSec 5
+Check 'quiet window armed by a POST' ($hq.quietMsLeft -gt 0) $hq.quietMsLeft
+Start-Sleep -Milliseconds ([int]$hq.quietMsLeft + 500)
+$hq = Invoke-RestMethod "$base/health" -TimeoutSec 5
+Check 'quiet window expired with only GETs' ($hq.quietMsLeft -eq 0) $hq.quietMsLeft
+
 # --- /screenshot: file exists and is a PNG ---
 $shot = Invoke-RestMethod "$base/screenshot" -TimeoutSec 8
 $png = $shot.path

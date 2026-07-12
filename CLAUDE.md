@@ -75,7 +75,13 @@ the hard rules.
   unit-tested host-side (`src/shim/tests/`).
 - Speech is always voiced; there is no speech-off mode. Every line is also
   captured to the ring, so `/speech` and the speech log see everything even
-  with no usable Prism.
+  with no usable Prism. Sole exception, dev-driven runs: the agent-drive
+  quiet window (a POST to `/cmd` or `/input` mutes VOICING for the next few
+  seconds, refreshed per request; capture is unaffected), so smoke runs
+  don't bombard whoever is at the machine while the player's own keys still
+  speak. GETs never arm it; it self-expires (never strand the user).
+  `quiet=<ms>` in the cfg, run-game `-QuietMs` (0 disables), `/health`
+  reports `quietMsLeft`.
 - The shim punctuates lines on the way into Prism (a line with no
   terminating punctuation gains a period, so the synthesizer sentence-breaks
   at newlines); the ring and both speech logs keep the raw chokepoint text.

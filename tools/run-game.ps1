@@ -17,6 +17,9 @@
 # -WaitMainMenu  after /health, keep waiting until /gui/mod shows the
 #            main-menu screen on the stack (the game has finished booting
 #            into rmMainMenu and the mod sees it)
+# -QuietMs   agent-drive quiet window in ms (default 3000): speech while the
+#            dev driver is POSTing is captured but not voiced, so smoke runs
+#            do not bombard whoever is at the machine. 0 voices everything.
 #
 # The game boot-freezes until its window gains focus once (runner-level,
 # verified), but Steam's -applaunch focuses it automatically, so /health
@@ -28,7 +31,8 @@ param(
     [switch]$NoBuild,
     [switch]$NoBg,      # disable the focus-pause keepalive (diagnostic / release-parity)
     [switch]$WaitMainMenu,
-    [int]$HealthTimeoutSec = 300
+    [int]$HealthTimeoutSec = 300,
+    [int]$QuietMs = 3000  # agent-drive quiet window (POST-driven speech captured, not voiced); 0 = voice everything
 )
 
 $ErrorActionPreference = 'Stop'
@@ -74,7 +78,7 @@ try {
 
     # --- shim config (Steam does not forward this shell's env to the game) ---
     $bgVal = if ($NoBg) { 0 } else { 1 }
-    Set-Content "$repo\build\vw_speech.cfg" @("port=$port", 'nodev=0', "bg=$bgVal")
+    Set-Content "$repo\build\vw_speech.cfg" @("port=$port", 'nodev=0', "bg=$bgVal", "quiet=$QuietMs")
 
     # --- launch through Steam (direct exe launch fails the Steamworks check) ---
     Write-Host "run-game: launching (port=$port)..."
