@@ -67,9 +67,9 @@ Greenfield project: committing to `main` is fine.
   usable Prism the shim is capture-only and the GML side still writes the
   speech log. Pure protocol logic lives in `vw_protocol.c` (no OS deps),
   unit-tested host-side (`src/shim/tests/`).
-- Speech is OFF by default in dev launches (capture-only) so unattended runs
-  don't drive the screen reader; `-Speech` voices it. `/speech` taps
-  upstream of the gate and captures everything regardless.
+- Speech is always voiced; there is no speech-off mode. Every line is also
+  captured to the ring, so `/speech` and the speech log see everything even
+  with no usable Prism.
 
 ## Layout
 
@@ -110,7 +110,7 @@ any other form won't match the permission rule.
   with `taskkill //F //IM "Void War.exe"` (the launcher wakes and cleans
   up); cancelling the background task instead ORPHANS the game.
   `-WaitMainMenu` blocks until /gui/mod shows the main menu - use before
-  smoke runs. `-Speech` voices output; `-NoBg` disables the keepalive.
+  smoke runs. `-NoBg` disables the keepalive.
 - **Background-run:** the shim subclasses the game window's WndProc so
   unattended runs never pause. The documented freeze is a BOOT freeze that
   Steam's `-applaunch` clears itself; if `/health` still stalls, ask Rashad

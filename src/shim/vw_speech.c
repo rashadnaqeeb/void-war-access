@@ -19,7 +19,7 @@
 // Configuration comes from vw_speech.cfg next to this DLL (written by the
 // launcher; Steam does not forward the launcher's environment to the game),
 // overridable by env vars when present: VWACCESS_DEV_PORT, VWACCESS_NO_DEV,
-// VWACCESS_SPEECH.
+// VWACCESS_BG.
 
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
@@ -48,7 +48,6 @@ static VwCmdSlot g_cmd;
 
 static int g_inited = 0;
 static double g_init_result = -1;
-static int g_speech_on = 0;
 static int g_dev_on = 1;
 static int g_port = VW_DEFAULT_PORT;
 static ULONGLONG g_last_poll_tick = 0;   // 0 = never polled
@@ -154,8 +153,6 @@ static void read_config_file(void)
         int val = atoi(eq + 1);
         if (strcmp(line, "port") == 0 && val > 0 && val < 65536)
             g_port = val;
-        else if (strcmp(line, "speech") == 0)
-            g_speech_on = val != 0;
         else if (strcmp(line, "nodev") == 0)
             g_dev_on = val == 0;
         else if (strcmp(line, "bg") == 0)
@@ -174,8 +171,6 @@ static void read_config_env(void)
     }
     if (GetEnvironmentVariableA("VWACCESS_NO_DEV", v, sizeof v) > 0 && atoi(v) != 0)
         g_dev_on = 0;
-    if (GetEnvironmentVariableA("VWACCESS_SPEECH", v, sizeof v) > 0)
-        g_speech_on = atoi(v) != 0;
     if (GetEnvironmentVariableA("VWACCESS_BG", v, sizeof v) > 0)
         g_bg_on = atoi(v) != 0;
 }
@@ -365,12 +360,10 @@ static void unload_speech_backends(void)
     }
 }
 
-// Speak on the active backend. Returns 1 voiced, 0 not voiced (gate off /
-// no backend), -1 backend error (logged).
+// Speak on the active backend. Returns 1 voiced, 0 not voiced (no backend),
+// -1 backend error (logged).
 static int backend_speak(const char *text, int interrupt)
 {
-    if (!g_speech_on)
-        return 0;
     if (g_prism_backend) {
         PrismError e;
         // Prefer output (speech + braille) when the backend supports it.
@@ -445,9 +438,9 @@ static void handle_health(SOCKET s)
                     VW_SHIM_VERSION);
     vwp_json_escape(&b, backend);
     vwp_buf_appendf(&b,
-                    "\",\"speechOn\":%s,\"spoken\":%llu,\"pumpAgeMs\":%lld,\"port\":%d,"
+                    "\",\"spoken\":%llu,\"pumpAgeMs\":%lld,\"port\":%d,"
                     "\"bgKeepalive\":%s}",
-                    g_speech_on ? "true" : "false", spoken, pump_age, g_port,
+                    spoken, pump_age, g_port,
                     g_game_hwnd ? "true" : "false");
     if (!b.oom)
         http_respond(s, "200 OK", "application/json", b.data, b.len);
@@ -795,18 +788,14 @@ VW_EXPORT double vw_init(void)
 
     read_config_file();
     read_config_env();
-    vw_logf("init: shim %s starting (speech=%d dev=%d port=%d dir=%s)",
-            VW_SHIM_VERSION, g_speech_on, g_dev_on, g_port, g_dll_dir);
+    vw_logf("init: shim %s starting (dev=%d port=%d dir=%s)",
+            VW_SHIM_VERSION, g_dev_on, g_port, g_dll_dir);
 
     double tier = 0;
-    if (g_speech_on) {
-        if (load_prism())
-            tier = 2;
-        else
-            snprintf(g_backend_desc, sizeof g_backend_desc, "none (prism failed)");
-    } else {
-        snprintf(g_backend_desc, sizeof g_backend_desc, "off (capture only)");
-    }
+    if (load_prism())
+        tier = 2;
+    else
+        snprintf(g_backend_desc, sizeof g_backend_desc, "none (prism failed)");
 
     if (g_dev_on) {
         if (!start_server())
@@ -826,7 +815,7 @@ VW_EXPORT double vw_init(void)
 }
 
 // Speak text. interrupt != 0 cuts off current speech. Always captured to the
-// ring; voiced only when the speech gate is on.
+// ring first, so /speech and the log see every line even with no backend.
 // Returns 1 voiced, 0 captured only, -1 backend error, -2 not initialized.
 VW_EXPORT double vw_speak(const char *text, double interrupt)
 {
@@ -870,14 +859,10 @@ VW_EXPORT double vw_reset_speech(void)
     EnterCriticalSection(&g_lock);
     unload_speech_backends();
     double tier = 0;
-    if (g_speech_on) {
-        if (load_prism())
-            tier = 2;
-        else
-            snprintf(g_backend_desc, sizeof g_backend_desc, "none (prism failed)");
-    } else {
-        snprintf(g_backend_desc, sizeof g_backend_desc, "off (capture only)");
-    }
+    if (load_prism())
+        tier = 2;
+    else
+        snprintf(g_backend_desc, sizeof g_backend_desc, "none (prism failed)");
     LeaveCriticalSection(&g_lock);
     g_init_result = tier;
     vw_logf("reset: done, backend=%s tier=%d", g_backend_desc, (int)tier);

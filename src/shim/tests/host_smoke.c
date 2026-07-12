@@ -9,7 +9,8 @@
 //   curl -X POST --data "say hello" http://127.0.0.1:8772/cmd
 //
 // Usage: host_smoke.exe <path-to-vw_speech.dll> [seconds-to-run]
-// Speech stays capture-only unless vw_speech.cfg next to the DLL enables it.
+// Speech is voiced whenever Prism finds a backend; every line is also
+// captured to the ring, so /speech works even with no usable Prism.
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

@@ -11,8 +11,6 @@
 # without relaunching, taskkill "Void War.exe" - the launcher then wakes,
 # reports the exit, and releases the lock cleanly.
 #
-# -Speech    voice output through the screen reader (default: capture-only,
-#            so unattended runs don't drive the user's screen reader)
 # -NoBuild   launch whatever is already in build\ (re-test the exact binary)
 # -NoBg      disable the shim's focus-pause keepalive (diagnostic / to test a
 #            release-parity launch)
@@ -27,7 +25,6 @@
 # (see -NoBg); the autonomous loop runs unattended.
 
 param(
-    [switch]$Speech,
     [switch]$NoBuild,
     [switch]$NoBg,      # disable the focus-pause keepalive (diagnostic / release-parity)
     [switch]$WaitMainMenu,
@@ -76,12 +73,11 @@ try {
     }
 
     # --- shim config (Steam does not forward this shell's env to the game) ---
-    $speechVal = if ($Speech) { 1 } else { 0 }
     $bgVal = if ($NoBg) { 0 } else { 1 }
-    Set-Content "$repo\build\vw_speech.cfg" @("port=$port", "speech=$speechVal", 'nodev=0', "bg=$bgVal")
+    Set-Content "$repo\build\vw_speech.cfg" @("port=$port", 'nodev=0', "bg=$bgVal")
 
     # --- launch through Steam (direct exe launch fails the Steamworks check) ---
-    Write-Host "run-game: launching (speech=$speechVal, port=$port)..."
+    Write-Host "run-game: launching (port=$port)..."
     & $steam -applaunch 2853590 -game "$repo\build\data-test.win" -debugoutput "$repo\build\debug-out.txt"
 
     $deadline = (Get-Date).AddSeconds(60)
@@ -112,7 +108,7 @@ try {
     if (-not $health) {
         throw "no /health answer within ${HealthTimeoutSec}s (window never focused? shim failed? see build\vw_speech.log)"
     }
-    Write-Host "run-game: HEALTHY backend=$($health.backend) speechOn=$($health.speechOn) spoken=$($health.spoken)"
+    Write-Host "run-game: HEALTHY backend=$($health.backend) spoken=$($health.spoken)"
 
     # --- optionally wait for the main menu screen (boot reaches rmMainMenu) ---
     if ($WaitMainMenu) {
