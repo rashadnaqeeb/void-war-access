@@ -46,3 +46,28 @@ vwa--text-blank,vacío
 vwa--char-space,espacio
 vwa--action-text-read,Leer el texto
 vwa--action-text-exit,Terminar la edición
+vwa--action-line-prev,Línea anterior del anuncio
+vwa--action-line-next,Línea siguiente del anuncio
+vwa--line-top,Principio
+vwa--line-bottom,Final
+vwa--commander-hidden,Comandante oculto
+vwa--state-locked,bloqueado
+vwa--state-new,nuevo
+vwa--not-enough-resonance,Resonance insuficiente
+vwa--page-prev,Página anterior
+vwa--page-next,Página siguiente
+vwa--page-of,Página {n} de {m}
+vwa--page-new,{k} nuevos
+vwa--randomize-name,Nombre aleatorio
+vwa--sheet-stats,"Salud {hp} de {maxhp}, ataque {atk}"
+vwa--sheet-type,Tipo: {list}
+vwa--sheet-trait,Rasgo: {text}
+vwa--sheet-innate,Habilidad innata: {name}: {text}
+vwa--slot-armor,Ranura de armadura
+vwa--slot-weapon,Ranura de arma
+vwa--slot-tool,Ranura de herramienta
+vwa--slot-psychic,Ranura psíquica
+vwa--sheet-slot-filled,{slot}: {item}: {text}
+vwa--sheet-slot-empty,{slot}: vacía
+vwa--sheet-add-equip,Equipo adicional: {list}
+vwa--sheet-count,{n}x {name}

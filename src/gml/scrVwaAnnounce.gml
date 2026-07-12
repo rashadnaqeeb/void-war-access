@@ -3,12 +3,13 @@
 // path-diff compose that turns a focus change into spoken parts.
 // Imported by tools/build-mod.csx as a new global script. Ships in release.
 //
-// PURE MODULE: composition returns ARRAYS OF STRINGS for vwa_speak (the
-// chokepoint joins; composition discipline). It never speaks and reads no
-// game globals; localized wording (role words, "n of m") arrives through
-// the types registry and hooks struct the caller passes in
-// (scrVwaScreens builds those from vwa_t at speak time, so a language
-// change re-resolves everything).
+// PURE MODULE: composition returns LINE-STRUCTURED PARTS for vwa_speak -
+// arrays whose elements are arrays of strings, one per spoken line (the
+// chokepoint joins within lines with ", " and lines with "\n"; composition
+// discipline). It never speaks and reads no game globals; localized wording
+// (role words, "n of m") arrives through the types registry and hooks
+// struct the caller passes in (scrVwaScreens builds those from vwa_t at
+// speak time, so a language change re-resolves everything).
 //
 // A part: {kind, live, text, fn}. kind is one of the well-known strings
 // "label" / "role" / "value" / "selected" / "enabled" / "tooltip" /
@@ -144,15 +145,22 @@ function vwa_ann_live_parts(nd, types)
     return out;
 }
 
-// A node's own readout as resolved strings: effective parts (non-empty
-// ones), then a submenu header's child count, then the auto-stamped
-// "n of m" when the node has siblings and the hooks provide the wording.
+// A node's own readout as LINES: an array whose elements are arrays of
+// resolved strings (Rashad's line model, session 10 - the chokepoint joins
+// within a line with ", " and lines with "\n"; the alt+up/down line review
+// in scrVwaScreens steps these same lines). Line 1 is the control summary:
+// the group word, every non-tooltip effective part, a submenu header's
+// child count, and the auto-stamped "n of m". Every tooltip-kind part gets
+// its own line after it (a button with a tooltip is two lines; a crew
+// sheet is one line per sheet entry). Empty resolutions vanish; an
+// all-empty node returns [].
 // hooks: {posText: fn(i, n) -> string, groupText: fn() -> string (the
 // generic word for an unnamed row group), submenuItemsText: fn(k) ->
 // string (a header's "k items")}.
 function vwa_ann_leaf(nd, types, hooks)
 {
-    var out = [];
+    var summary = [];
+    var tips = [];
     // A synthesized row group with an empty label speaks the localized
     // generic group word instead, so an unnamed radio row still announces
     // itself before its landing member.
@@ -163,16 +171,24 @@ function vwa_ann_leaf(nd, types, hooks)
         var gt = gfn();
         if (gt != "")
         {
-            array_push(out, gt);
+            array_push(summary, gt);
         }
     }
     var eff = vwa_ann_effective(nd, types);
     for (var i = 0; i < array_length(eff); i++)
     {
         var t = vwa_part_resolve(eff[i]);
-        if (t != "")
+        if (t == "")
         {
-            array_push(out, t);
+            continue;
+        }
+        if (eff[i].kind == "tooltip")
+        {
+            array_push(tips, [t]);
+        }
+        else
+        {
+            array_push(summary, t);
         }
     }
     // A submenu header speaks its child count - what right arrow commits
@@ -185,7 +201,7 @@ function vwa_ann_leaf(nd, types, hooks)
         var it = ifn(vwa_opt(nd, "childCount", 0));
         if (it != "")
         {
-            array_push(out, it);
+            array_push(summary, it);
         }
     }
     if (nd.posCount > 1 && hooks != undefined && hooks.posText != undefined
@@ -195,8 +211,17 @@ function vwa_ann_leaf(nd, types, hooks)
         var pt = posFn(nd.posIndex, nd.posCount);
         if (pt != "")
         {
-            array_push(out, pt);
+            array_push(summary, pt);
         }
+    }
+    var out = [];
+    if (array_length(summary) > 0)
+    {
+        array_push(out, summary);
+    }
+    for (var i = 0; i < array_length(tips); i++)
+    {
+        array_push(out, tips[i]);
     }
     return out;
 }
@@ -234,12 +259,13 @@ function vwa_ann_path(nd)
     return path;
 }
 
-// The spoken parts for landing on toNd having come from fromNd (undefined =
+// The spoken LINES for landing on toNd having come from fromNd (undefined =
 // from nothing: the full path reads). Newly entered levels read
 // outermost-first, then the landing control; sibling moves share the whole
 // prefix and read just the control; a level whose label duplicates the next
 // level's label is skipped. transLabel is the crossed edge's spoken line
-// ("" / undefined = none). Returns an array of strings ([] = say nothing).
+// ("" / undefined = none). Returns line-structured parts for vwa_speak
+// (each element an array of strings; [] = say nothing).
 function vwa_ann_compose(fromNd, toNd, types, hooks, transLabel)
 {
     if (toNd == undefined)
@@ -261,7 +287,7 @@ function vwa_ann_compose(fromNd, toNd, types, hooks, transLabel)
     var out = [];
     if (transLabel != undefined && transLabel != "")
     {
-        array_push(out, transLabel);
+        array_push(out, [transLabel]);
     }
 
     if (i >= array_length(toPath))

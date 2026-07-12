@@ -1651,15 +1651,38 @@ function vwa_dev_gui_mod()
                 }
                 out += vwa_json_str(chain[j].nid.skey);
             }
-            out += "],\"parts\":[";
+            // lines mirrors the announcement's line structure (vwa_ann_leaf:
+            // summary line, then one line per tooltip/sheet part); parts is
+            // the same content flattened, kept for older smoke helpers.
+            out += "],\"lines\":[";
             var leaf = vwa_ann_leaf(nd, global.vwaControlTypes, global.vwaAnnHooks);
+            var flat = [];
             for (var j = 0; j < array_length(leaf); j++)
             {
                 if (j > 0)
                 {
                     out += ",";
                 }
-                out += vwa_json_str(leaf[j]);
+                out += "[";
+                for (var p = 0; p < array_length(leaf[j]); p++)
+                {
+                    if (p > 0)
+                    {
+                        out += ",";
+                    }
+                    out += vwa_json_str(leaf[j][p]);
+                    array_push(flat, leaf[j][p]);
+                }
+                out += "]";
+            }
+            out += "],\"parts\":[";
+            for (var j = 0; j < array_length(flat); j++)
+            {
+                if (j > 0)
+                {
+                    out += ",";
+                }
+                out += vwa_json_str(flat[j]);
             }
             out += "],\"edges\":{";
             var dirs = variable_struct_get_names(nd.trans);

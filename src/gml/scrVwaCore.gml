@@ -98,28 +98,59 @@ function vwa_shim_init()
 }
 
 // THE speech chokepoint. Every spoken string in the mod flows through here:
-// feature code hands over an array of parts (strings, or structs with a
-// .text field); joining happens here and nowhere else. Each line is appended
-// to vwa-speech.log in the save dir before the shim is involved, so speech
-// is diagnosable even with no DLL at all.
+// feature code hands over an array of parts; joining happens here and
+// nowhere else. Two shapes (Rashad's line model, session 10):
+// - flat: every element a string (or struct with .text) - ONE spoken line,
+//   parts joined with ", " (the classic announcement).
+// - line-structured: ANY element being an array makes every element a LINE
+//   (a flat element is a one-part line); parts join with ", " within a
+//   line, lines join with "\n". Newlines are what the alt+up/down line
+//   review steps through, and screen readers pause at them.
+// Each utterance is appended to vwa-speech.log in the save dir before the
+// shim is involved, so speech is diagnosable even with no DLL at all
+// (a multi-line utterance is one log entry per line, indented after the
+// first, so the log stays one-utterance-per-entry greppable).
 function vwa_speak(parts, interrupt)
 {
     var text = "";
     if (is_array(parts))
     {
+        var lined = false;
         for (var i = 0; i < array_length(parts); i++)
         {
-            var part = parts[i];
-            var s = is_struct(part) ? string(part.text) : string(part);
-            if (s == "")
+            if (is_array(parts[i]))
+            {
+                lined = true;
+                break;
+            }
+        }
+        for (var i = 0; i < array_length(parts); i++)
+        {
+            var line = is_array(parts[i]) ? parts[i] : [parts[i]];
+            var lineText = "";
+            for (var j = 0; j < array_length(line); j++)
+            {
+                var part = line[j];
+                var s = is_struct(part) ? string(part.text) : string(part);
+                if (s == "")
+                {
+                    continue;
+                }
+                if (lineText != "")
+                {
+                    lineText += ", ";
+                }
+                lineText += s;
+            }
+            if (lineText == "")
             {
                 continue;
             }
             if (text != "")
             {
-                text += ", ";
+                text += lined ? "\n" : ", ";
             }
-            text += s;
+            text += lineText;
         }
     }
     else
@@ -135,7 +166,7 @@ function vwa_speak(parts, interrupt)
     }
 
     var f = file_text_open_append("vwa-speech.log");
-    file_text_write_string(f, text);
+    file_text_write_string(f, string_replace_all(text, "\n", "\n  "));
     file_text_writeln(f);
     file_text_close(f);
 

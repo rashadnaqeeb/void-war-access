@@ -81,11 +81,13 @@ Greenfield project: committing to `main` is fine.
   `scrVwaGraph` (control graph, builder, navigation engine; PURE),
   `scrVwaAnnounce` (announcement parts, path-diff compose; PURE),
   `scrVwaSearch` (type-ahead matcher; PURE), `scrVwaScreens` (screen
-  registry and stack, navigator, type-ahead glue), `scrVwaText` (text edit
-  layer: edit-mode tracker, edit feedback, keyboard exit), `scrVwaMenus`
-  (the real game screens + the generic widget adapter), `scrVwaDev` (dev
-  driver, dev builds only). `*.append.gml` appends to the named code entry
-  (`*.dev.append.gml` = dev-only).
+  registry and stack, navigator, type-ahead glue, alt-arrow line review),
+  `scrVwaText` (text edit layer: edit-mode tracker, edit feedback, keyboard
+  exit), `scrVwaSheet` (crew sheet composer: a crew instance's categorized
+  spoken lines - stats/type/traits/innate/slots/extras - reused by every
+  crew-reading surface), `scrVwaMenus` (the real game screens + the generic
+  widget adapter), `scrVwaDev` (dev driver, dev builds only). `*.append.gml`
+  appends to the named code entry (`*.dev.append.gml` = dev-only).
 - `src/lang/` - mod strings as `vwa--` CSV rows, merged into the game's lang
   CSVs at build time.
 - `tools/` - build + launch scripts, UTMT CLI, decompile scripts.
@@ -169,11 +171,15 @@ screen is focused): **arrows** navigate (left/right adjust sliders first),
 **Enter** activates, **Tab/Shift+Tab** cycle control groups, **Home/End**
 jump to the group's first/last control, **Ctrl+left/right** large slider
 steps, **Ctrl+up/down** submenu jumps (grid screens will reuse the chord
-for region jumps), **letters** (and space once a buffer exists) type-ahead
+for region jumps), **Alt+up/down** line review (announcements are
+line-structured: control summary first, then each tooltip/sheet line; the
+chord re-speaks one line per press, resolved live, with Top/Bottom at the
+ends), **letters** (and space once a buffer exists) type-ahead
 search over the focused Tab stop, **Escape** nav-back (consumed ONLY when
 an active search clears or a screen claims it via onBack; otherwise the
 game's own Escape runs untouched). Tooltips have NO key: a widget's
-tooltipStr is an announcement part, read inline with the control. Actions
+tooltipStr is an announcement part, read inline with the control - on its
+own line, steppable by the line review. Actions
 carry a bindings LIST (any chord fires); screens can opt out of type-ahead
 via `allowsTypeahead: false` (reserve it for screens whose letters are
 hotkeys).
@@ -187,8 +193,11 @@ a cursor that cannot place edits teaches a false model.
 
 The behavior models live in the script headers: submenus and
 jump edges in scrVwaGraph, type-ahead matching in scrVwaSearch, the
-type-ahead key handling in scrVwaScreens, the text edit model (and the
-game's text-field mechanics it wraps) in scrVwaText.
+type-ahead key handling and the line review in scrVwaScreens, the text
+edit model (and the game's text-field mechanics it wraps) in scrVwaText,
+the crew sheet structure (Rashad's categorized read: stats, type, traits,
+innate abilities, one line per equipment slot, extras) in scrVwaSheet, the
+commander select screen in scrVwaMenus.
 
 ## Hard rules (the audit command checks these)
 
@@ -201,7 +210,9 @@ game's text-field mechanics it wraps) in scrVwaText.
   inert); the part-resolve guard in scrVwaAnnounce (logs, speaks "error");
   `vwa_shim_init`'s log-only degrade when the DLL is absent.
 - **One speech chokepoint.** All speech flows through `vwa_speak(parts,
-  interrupt)`; parts is an ARRAY; joining happens only there. No direct shim
+  interrupt)`; parts is an ARRAY (flat = one spoken line; any element being
+  an array makes every element a LINE - the shape the alt-arrow line review
+  steps); joining happens only there. No direct shim
   calls from feature code (sanctioned non-speech shim calls: the input
   layer's typematic delay/rate reads, the dev pump's poll/reply, the Game
   End teardown via `vwa_shim_shutdown`).

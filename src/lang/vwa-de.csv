@@ -46,3 +46,28 @@ vwa--text-blank,leer
 vwa--char-space,Leerzeichen
 vwa--action-text-read,Text vorlesen
 vwa--action-text-exit,Bearbeitung beenden
+vwa--action-line-prev,Vorherige Ansagezeile
+vwa--action-line-next,Nächste Ansagezeile
+vwa--line-top,Anfang
+vwa--line-bottom,Ende
+vwa--commander-hidden,Verborgener Kommandant
+vwa--state-locked,gesperrt
+vwa--state-new,neu
+vwa--not-enough-resonance,nicht genug Resonanz
+vwa--page-prev,Vorherige Seite
+vwa--page-next,Nächste Seite
+vwa--page-of,Seite {n} von {m}
+vwa--page-new,{k} neu
+vwa--randomize-name,Zufälliger Name
+vwa--sheet-stats,"Gesundheit {hp} von {maxhp}, Angriff {atk}"
+vwa--sheet-type,Typ: {list}
+vwa--sheet-trait,Eigenschaft: {text}
+vwa--sheet-innate,Angeborene Fähigkeit: {name}: {text}
+vwa--slot-armor,Rüstungsplatz
+vwa--slot-weapon,Waffenplatz
+vwa--slot-tool,Werkzeugplatz
+vwa--slot-psychic,Psi-Platz
+vwa--sheet-slot-filled,{slot}: {item}: {text}
+vwa--sheet-slot-empty,{slot}: leer
+vwa--sheet-add-equip,Zusätzliche Ausrüstung: {list}
+vwa--sheet-count,{n}x {name}

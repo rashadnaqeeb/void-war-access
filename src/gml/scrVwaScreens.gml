@@ -23,7 +23,15 @@
 // announcements never interrupt; a focus move within a screen interrupts
 // (genuine focus movement, so key repeat reads the landing item); the
 // initial landing after a screen change does not interrupt (it queues
-// behind the screen name); live-part changes do not interrupt.
+// behind the screen name); live-part changes do not interrupt. Keystroke
+// feedback (search landings, state feedback, alt+up/down line review)
+// speaks immediately from the handler, interrupting.
+//
+// Announcements are line-structured (session 10): the control summary is
+// one line, each tooltip-kind part its own line (vwa_ann_leaf), and
+// vwa_speak renders lines as newlines. Alt+up/down step the focused
+// control's lines one per press (vwa_nav_line_step), re-resolved live at
+// every press; past the ends speaks a boundary word.
 
 function vwa_screens_init()
 {
@@ -34,6 +42,12 @@ function vwa_screens_init()
     // it was spoken from (its parent chain feeds the next path diff).
     global.vwaNavSpoken = { screenKey: undefined, skey: undefined, node: undefined };
     global.vwaNavLiveCache = [];     // resolved texts of the focused node's live parts
+    // Alt+up/down line review: a cursor over the focused node's announcement
+    // lines. Keyed to the focus it belongs to; every focus announcement
+    // resets it to line 0 (the summary line, the one just heard). The lines
+    // themselves are re-resolved from the live node at every press - the
+    // cursor is the only state (never cache game state).
+    global.vwaLineCursor = { screenKey: undefined, skey: undefined, idx: 0 };
     // Type-ahead: the pure matcher state (scrVwaSearch) plus the glue that
     // ties results back to graph nodes. scopeSkeys/scopeNames are the
     // focused Tab stop's nodes as captured at the last keystroke (results
@@ -253,6 +267,17 @@ function vwa_screens_tick()
     {
         return;
     }
+    // A screen that just gained focus waits one tick before its landing
+    // announcement: our tick runs in Begin Step, and on a screen's first
+    // frame the game's freshly created instances have not had their first
+    // Step yet - announcing now reads half-initialized state (bit us: the
+    // commander rows spoke the oCrew parent's default maxHP and an empty
+    // ability list). The screen name above still speaks on the change tick;
+    // the landing follows one frame later, settled.
+    if (focKey != prevKey)
+    {
+        return;
+    }
 
     // Rebuild the focused screen's graph from live state and reconcile
     // focus into it (immediate mode - every frame, so controls appearing,
@@ -301,6 +326,7 @@ function vwa_nav_observe(scr)
         }
         global.vwaNavSpoken = { screenKey: scr.key, skey: nd.nid.skey, node: nd };
         global.vwaNavLiveCache = vwa_nav_live_resolve(nd);
+        global.vwaLineCursor = { screenKey: scr.key, skey: nd.nid.skey, idx: 0 };
         return;
     }
 
@@ -418,6 +444,20 @@ function vwa_register_nav_actions()
         {
             vwa_nav_move_ends(1);
         });
+    // Alt+up/down: line review over the focused control's announcement.
+    // Landing speaks the whole thing; these step back through it one line
+    // per press (the summary line, then each tooltip/sheet line). Lines are
+    // re-resolved live at every press.
+    vwa_action_register("nav-line-prev", "vwa--action-line-prev", "ui",
+        vwa_bind(vk_up, false, false, true), true, function()
+        {
+            vwa_nav_line_step(-1);
+        });
+    vwa_action_register("nav-line-next", "vwa--action-line-next", "ui",
+        vwa_bind(vk_down, false, false, true), true, function()
+        {
+            vwa_nav_line_step(1);
+        });
     // Back is opt-in per screen: a screen declaring onBack (fn() -> bool)
     // gets first claim on Escape; returning true consumes the press so the
     // game's own raw Escape handlers underneath do not also fire (a dropdown
@@ -430,6 +470,59 @@ function vwa_register_nav_actions()
         {
             vwa_nav_back();
         });
+}
+
+// One alt-arrow press: move the line cursor and speak the landed line
+// (interrupting - direct user-caused feedback). The lines come fresh from
+// vwa_ann_leaf on the focused node, so a live value change since the
+// landing reads current, not as-spoken. Past either end speaks the
+// localized boundary word and stays. Focus having moved since the last
+// announcement resets to the top implicitly (the cursor is re-keyed by the
+// announce points).
+function vwa_nav_line_step(dirNum)
+{
+    var scr = global.vwaFocusedScreen;
+    if (scr == undefined)
+    {
+        return;
+    }
+    if (!vwa_graph_rerender(scr.graph))
+    {
+        return;
+    }
+    var nd = vwa_graph_node(scr.graph);
+    if (nd == undefined)
+    {
+        return;
+    }
+    var lines = vwa_ann_leaf(nd, global.vwaControlTypes, global.vwaAnnHooks);
+    if (array_length(lines) == 0)
+    {
+        return;
+    }
+    var cur = global.vwaLineCursor;
+    if (cur.screenKey != scr.key || cur.skey != nd.nid.skey)
+    {
+        // The cursor belonged to another focus (or nothing): rebase here.
+        global.vwaLineCursor = { screenKey: scr.key, skey: nd.nid.skey, idx: 0 };
+        cur = global.vwaLineCursor;
+    }
+    // The line set can reshape between presses (live game state); clamp
+    // before stepping so the step is relative to a real line.
+    cur.idx = clamp(cur.idx, 0, array_length(lines) - 1);
+    var next = cur.idx + dirNum;
+    if (next < 0)
+    {
+        vwa_speak([vwa_t("vwa--line-top")], true);
+        return;
+    }
+    if (next >= array_length(lines))
+    {
+        vwa_speak([vwa_t("vwa--line-bottom")], true);
+        return;
+    }
+    cur.idx = next;
+    vwa_speak([lines[next]], true);
 }
 
 function vwa_nav_back()
@@ -751,6 +844,7 @@ function vwa_nav_search_land(idx)
     }
     global.vwaNavSpoken = { screenKey: scr.key, skey: nd.nid.skey, node: nd };
     global.vwaNavLiveCache = vwa_nav_live_resolve(nd);
+    global.vwaLineCursor = { screenKey: scr.key, skey: nd.nid.skey, idx: 0 };
     nav.focusSkey = nd.nid.skey;
 }
 

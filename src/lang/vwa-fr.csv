@@ -46,3 +46,28 @@ vwa--text-blank,vide
 vwa--char-space,espace
 vwa--action-text-read,Lire le texte
 vwa--action-text-exit,Terminer la modification
+vwa--action-line-prev,Ligne précédente de l'annonce
+vwa--action-line-next,Ligne suivante de l'annonce
+vwa--line-top,Début
+vwa--line-bottom,Fin
+vwa--commander-hidden,Commandant caché
+vwa--state-locked,verrouillé
+vwa--state-new,nouveau
+vwa--not-enough-resonance,Resonance insuffisante
+vwa--page-prev,Page précédente
+vwa--page-next,Page suivante
+vwa--page-of,Page {n} sur {m}
+vwa--page-new,{k} nouveaux
+vwa--randomize-name,Nom aléatoire
+vwa--sheet-stats,"Santé {hp} sur {maxhp}, attaque {atk}"
+vwa--sheet-type,Type : {list}
+vwa--sheet-trait,Trait : {text}
+vwa--sheet-innate,Capacité innée : {name} : {text}
+vwa--slot-armor,Emplacement d'armure
+vwa--slot-weapon,Emplacement d'arme
+vwa--slot-tool,Emplacement d'outil
+vwa--slot-psychic,Emplacement psychique
+vwa--sheet-slot-filled,{slot} : {item} : {text}
+vwa--sheet-slot-empty,{slot} : vide
+vwa--sheet-add-equip,Équipement supplémentaire : {list}
+vwa--sheet-count,{n}x {name}

@@ -46,3 +46,28 @@ vwa--text-blank,blank
 vwa--char-space,space
 vwa--action-text-read,Read the text
 vwa--action-text-exit,Stop editing
+vwa--action-line-prev,Previous announcement line
+vwa--action-line-next,Next announcement line
+vwa--line-top,Top
+vwa--line-bottom,Bottom
+vwa--commander-hidden,Hidden commander
+vwa--state-locked,locked
+vwa--state-new,new
+vwa--not-enough-resonance,not enough Resonance
+vwa--page-prev,Previous page
+vwa--page-next,Next page
+vwa--page-of,Page {n} of {m}
+vwa--page-new,{k} new
+vwa--randomize-name,Randomize name
+vwa--sheet-stats,"Health {hp} of {maxhp}, attack {atk}"
+vwa--sheet-type,Type: {list}
+vwa--sheet-trait,Trait: {text}
+vwa--sheet-innate,Innate ability: {name}: {text}
+vwa--slot-armor,Armor slot
+vwa--slot-weapon,Weapon slot
+vwa--slot-tool,Tool slot
+vwa--slot-psychic,Psychic slot
+vwa--sheet-slot-filled,{slot}: {item}: {text}
+vwa--sheet-slot-empty,{slot}: empty
+vwa--sheet-add-equip,Additional equipment: {list}
+vwa--sheet-count,{n}x {name}
