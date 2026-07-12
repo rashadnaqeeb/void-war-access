@@ -1,4 +1,4 @@
-# mainmenu-smoke.ps1 - end-to-end regression check for session 5: the real
+﻿# mainmenu-smoke.ps1 - end-to-end regression check for session 5: the real
 # main-menu screen and the announcements (patch notes) popup screen.
 #
 # Profile-agnostic by design: the main menu's entries are conditional
@@ -78,10 +78,12 @@ function CheckSpeech([string]$name, [scriptblock]$act, [string[]]$expected) {
     Check $name ($gotJ -eq $expJ) "expected '$expJ', got '$gotJ'"
 }
 
-# The spoken line for landing on a /gui/mod node (vwa_speak joins parts
-# with ", "; the node's parts array is already resolved and empty-free).
+# The spoken text for landing on a /gui/mod node (vwa_speak joins parts
+# with ", " within a line and lines with newlines; the node's lines array
+# is already resolved and empty-free).
 function NodeLine($node) {
-    return ($node.parts -join ', ')
+    $ls = @($node.lines | ForEach-Object { @($_) -join ', ' })
+    return ($ls -join "`n")
 }
 
 Write-Host "mainmenu-smoke: against $base"
@@ -185,7 +187,7 @@ if ($socialNodes.Count -gt 0) {
     Cmd "set global.vwaScreens[$mmIndex].navState.stopMemory.social $($socialNodes[0].skey)" | Out-Null
     CheckSpeech 'Tab reaches the social group, announced with its group word' {
         Fire 'nav-next-stop'
-    } @("$groupWord, $(NodeLine $socialNodes[0])")
+    } @("$groupWord`n$(NodeLine $socialNodes[0])")
     for ($i = 1; $i -lt $socialNodes.Count; $i++) {
         CheckSpeech "right to social button $($i + 1)" { Fire 'nav-right' } @(NodeLine $socialNodes[$i])
     }

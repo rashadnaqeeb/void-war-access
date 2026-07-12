@@ -117,18 +117,18 @@ CheckSpeech 'left adjusts down' { Fire 'nav-left' } @('5')
 # --- a two-item row: entering announces the group (label + vertical
 #     position), then the member with its in-row position; moves within the
 #     row stay group-silent; edges are silent ---
-CheckSpeech 'down to OK' { Fire 'nav-down' } @('Actions, 6 of 6, OK, button, 1 of 2')
+CheckSpeech 'down to OK' { Fire 'nav-down' } @("Actions, 6 of 6`nOK, button, 1 of 2")
 CheckSpeech 'right to Cancel' { Fire 'nav-right' } @('Cancel, button, 2 of 2')
 CheckSpeech 'right at the row edge stays silent' { Fire 'nav-right' } @()
 CheckSpeech 'activate Cancel' { Fire 'nav-activate' } @('Cancel pressed')
 
 # --- Tab stops: entering a context reads it outermost-first; memory ---
-CheckSpeech 'Tab enters Extras stop' { Fire 'nav-next-stop' } @('Extras, One, button, 1 of 3')
+CheckSpeech 'Tab enters Extras stop' { Fire 'nav-next-stop' } @("Extras`nOne, button, 1 of 3")
 CheckSpeech 'down to Two' { Fire 'nav-down' } @('Two, button, 2 of 3')
 CheckSpeech 'down to Status label' { Fire 'nav-down' } @('Status, 3 of 3')
 CheckSpeech 'activate on a label says no action' { Fire 'nav-activate' } @('No action')
-CheckSpeech 'Tab wraps to main stop, remembered Cancel' { Fire 'nav-next-stop' } @('Actions, 6 of 6, Cancel, button, 2 of 2')
-CheckSpeech 'Shift+Tab back to Extras, remembered Status' { Fire 'nav-prev-stop' } @('Extras, Status, 3 of 3')
+CheckSpeech 'Tab wraps to main stop, remembered Cancel' { Fire 'nav-next-stop' } @("Actions, 6 of 6`nCancel, button, 2 of 2")
+CheckSpeech 'Shift+Tab back to Extras, remembered Status' { Fire 'nav-prev-stop' } @("Extras`nStatus, 3 of 3")
 
 # --- focus recovery: survivor fallback when the focused node vanishes ---
 CheckSpeech 'dev focus jump to Beta' { Cmd 'call vwa_dev_menu_focus item:Beta' } @('Beta, button, 2 of 6')
@@ -169,7 +169,7 @@ CheckSpeech 'down discovers the Audio header with its count' { Fire 'nav-down' }
 CheckSpeech 'right enters, landing on the first child' { Fire 'nav-right' } @('Master, slider, 5, 1 of 2')
 CheckSpeech 'left on a slider adjusts instead of exiting' { Fire 'nav-left' } @('4')
 CheckSpeech 'down to Music' { Fire 'nav-down' } @('Music, button, 2 of 2')
-CheckSpeech 'down off the bottom dives into the next submenu' { Fire 'nav-down' } @('Video, submenu, 2 items, 3 of 4, Fullscreen, toggle, off, 1 of 2')
+CheckSpeech 'down off the bottom dives into the next submenu' { Fire 'nav-down' } @("Video, submenu, 2 items, 3 of 4`nFullscreen, toggle, off, 1 of 2")
 CheckSpeech 'left exits to the enclosing header' { Fire 'nav-left' } @('Video, submenu, 2 items, 3 of 4')
 CheckSpeech 'Enter on a header enters like right arrow' { Fire 'nav-activate' } @('Fullscreen, toggle, off, 1 of 2')
 CheckSpeech 'up from the first child lands on the header' { Fire 'nav-up' } @('Video, submenu, 2 items, 3 of 4')
@@ -187,7 +187,7 @@ CheckSpeech 'up from a plain sibling shows the Video header' { Fire 'nav-up' } @
 #     at the enclosing submenu's boundary lands. ---
 CheckSpeech 'Ctrl+Up on a top-level header acts like plain up' { Fire 'nav-jump-up' } @('Audio, submenu, 2 items, 2 of 4')
 CheckSpeech 're-enter Audio for the jump checks' { Fire 'nav-right' } @('Master, slider, 4, 1 of 2')
-CheckSpeech 'Ctrl+Down exits like bottom flow, diving into Video' { Fire 'nav-jump-down' } @('Video, submenu, 2 items, 3 of 4, Fullscreen, toggle, off, 1 of 2')
+CheckSpeech 'Ctrl+Down exits like bottom flow, diving into Video' { Fire 'nav-jump-down' } @("Video, submenu, 2 items, 3 of 4`nFullscreen, toggle, off, 1 of 2")
 CheckSpeech 'down to the nested header for the climb' { Fire 'nav-down' } @('Advanced, submenu, 2 items, 2 of 2')
 CheckSpeech 'enter the nested submenu for the climb' { Fire 'nav-right' } @('Gamma, button, 1 of 2')
 CheckSpeech 'Ctrl+Up jumps to the nested header' { Fire 'nav-jump-up' } @('Advanced, submenu, 2 items, 2 of 2')

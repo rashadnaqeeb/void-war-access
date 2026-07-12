@@ -1,4 +1,4 @@
-# settings-smoke.ps1 - end-to-end regression check for session 6: the
+﻿# settings-smoke.ps1 - end-to-end regression check for session 6: the
 # generic widget adapter and the settings family (settings menu, dropdown
 # child screens, confirmation dialogue, pause/escape menu).
 #
@@ -71,7 +71,8 @@ function CheckSpeech([string]$name, [scriptblock]$act, [string[]]$expected) {
 }
 
 function NodeLine($node) {
-    return ($node.parts -join ', ')
+    $ls = @($node.lines | ForEach-Object { @($_) -join ', ' })
+    return ($ls -join "`n")
 }
 
 function NodeByKey($m, [string]$skey) {
@@ -246,7 +247,7 @@ Check 'toggleDropdown cleared' ((Cmd 'get oSettings_windowSize.toggleDropdown') 
 #     announcer share vwa_ann_leaf. ---
 $grpWord = (Cmd 'call vwa_t vwa--group-generic').result
 $fsTip = CmdStr 'get oSettings_checkbox_fullscreen.tooltipStr'
-CheckSpeech 'focus the fullscreen checkbox' { FocusNode 'menu-settings' 'oSettings_checkbox_fullscreen' } @("$grpWord, 2 of 14, $(NodeLine $fs)")
+CheckSpeech 'focus the fullscreen checkbox' { FocusNode 'menu-settings' 'oSettings_checkbox_fullscreen' } @("$grpWord, 2 of 14`n$(NodeLine $fs)")
 Check 'checkbox announcement carries its tooltip inline' (
     (NodeLine $fs) -like "*$fsTip*") (NodeLine $fs)
 CheckSpeech 'focus the back button (no tooltip, none appended)' { FocusNode 'menu-settings' 'bm:label_back' } @(NodeLine (NodeByKey $s 'bm:label_back'))
@@ -277,7 +278,7 @@ Check 'dialogue announced: name then message' (
 
 # Confirm/Cancel form a row group: entering announces the generic group
 # word and the group's vertical position (entry 2 after the message label).
-CheckSpeech 'down lands on Confirm' { Fire 'nav-down' } @("$grpWord, 2 of 2, $(NodeLine $c.nodes[1])")
+CheckSpeech 'down lands on Confirm' { Fire 'nav-down' } @("$grpWord, 2 of 2`n$(NodeLine $c.nodes[1])")
 CheckSpeech 'right lands on Cancel' { Fire 'nav-right' } @(NodeLine $c.nodes[2])
 $cur = SpeechNext
 $r = Fire 'nav-activate'

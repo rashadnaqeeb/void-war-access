@@ -1742,6 +1742,34 @@ function vwa_dev_dismiss_start_popup()
     return { dismissed: true, respawned: respawned };
 }
 
+// Leave the commander select screen the exact way its own Escape branch
+// does (oUICommanderList Step_0, rmCommanderSelect case: delete the display
+// crew, back to the main menu, clear the menu flag, destroy the list).
+// Dev-only scaffolding for the commander smoke - synthetic Escape cannot be
+// pressed (this runner ignores synthetic keys).
+function vwa_dev_close_commander_select()
+{
+    if (!instance_exists(oUICommanderList))
+    {
+        throw "no oUICommanderList instance to close";
+    }
+    if (room != rmCommanderSelect)
+    {
+        throw "not in rmCommanderSelect (the overlay closes via its own click-away)";
+    }
+    with (oCrew)
+    {
+        crewDelete = true;
+    }
+    room_goto(rmMainMenu);
+    gameMenu_setFlag(0);
+    with (oUICommanderList)
+    {
+        instance_destroy();
+    }
+    return { closed: true };
+}
+
 // Feed characters into the live type-ahead path with the same letter/space
 // filtering the real tick applies - everything below the raw keyboard read
 // (this runner ignores synthetic keys, so keyboard_string cannot be driven

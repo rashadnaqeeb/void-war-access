@@ -64,7 +64,8 @@ function Check([string]$name, [bool]$ok, $detail) {
 }
 
 function NodeLine($node) {
-    return ($node.parts -join ', ')
+    $ls = @($node.lines | ForEach-Object { @($_) -join ', ' })
+    return ($ls -join "`n")
 }
 
 function NodeByKey($m, [string]$skey) {

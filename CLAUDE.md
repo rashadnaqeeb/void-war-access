@@ -117,9 +117,10 @@ any other form won't match the permission rule.
   run-game writes by default) so a shipped install never runs combat unheard.
 - **Smokes** (against a live game at the main menu): `scripts/drive-smoke`,
   `input-smoke`, `screens-smoke`, `mainmenu-smoke`, `settings-smoke`,
-  `typeahead-smoke`, `textedit-smoke` - profile-agnostic where possible
-  (expected speech derives from /gui/mod).
-  **Run all seven after touching the shim, the pump, scrVwaInput, or any
+  `typeahead-smoke`, `textedit-smoke`, `commander-smoke` - profile-agnostic
+  where possible (expected speech derives from /gui/mod; note nested arrays
+  returned through a PowerShell function collapse - fetch scalars).
+  **Run all eight after touching the shim, the pump, scrVwaInput, or any
   framework or screen script.**
 - **Logs:** shim -> `build\vw_speech.log`; GML -> `%AppData%\Roaming\
   Void_War\vwa-mod.log`; every spoken line -> `vwa-speech.log` there.
@@ -160,8 +161,9 @@ inspect the text edit layer; injected chars only reach a field's text while
 a physical key is held),
 `vwa_dev_suppression_probe <bind>` (retry only on `live:false` with
 `kbDirect:true`), `vwa_dev_dismiss_start_popup` (honors the once-per-profile
-double-spawn quirk), `vwa_dev_spawn <objName>` (oMenuPause verified safe at
-the main menu).
+double-spawn quirk), `vwa_dev_close_commander_select` (the commander
+screen's Escape-branch mirror; rmCommanderSelect only), `vwa_dev_spawn
+<objName>` (oMenuPause verified safe at the main menu).
 
 ## User keys
 
