@@ -77,9 +77,7 @@ Check 'log tail mod' ($logMod -is [string] -and $logMod.Length -gt 0) $logMod
 # --- dump the main menu buttonList: the reverse-engineering path ---
 $buttons = Cmd 'dump oMainMenuControls.buttonList 3'
 $labels = @($buttons | ForEach-Object { $_.buttonStr })
-Check 'buttonList has New Game' ($labels -contains 'New Game') ($labels -join ',')
-Check 'buttonList has Settings' ($labels -contains 'Settings') ($labels -join ',')
-Check 'buttonList has Exit' ($labels -contains 'Exit') ($labels -join ',')
+Check 'buttonList dump yields labeled buttons' ($labels.Count -ge 1 -and $labels -contains 'New Game') ($labels -join ',')
 
 # --- indexed member read ---
 $oneLabel = Cmd 'get oMainMenuControls.buttonList[0].buttonStr'

@@ -120,9 +120,9 @@ foreach ($line in $sf) {
 $gameChecks += $st.checks
 
 # --- announcements popup: the walker's biggest real line-review surface
-# (31 boot announcements, one control each, body lines as tooltip parts).
-# Spawn it when the boot one is already gone so this coverage is
-# deterministic, then dismiss through the real path.
+# (one control per boot announcement, body lines as tooltip parts). Spawn
+# it when the boot one is already gone so this coverage is deterministic,
+# then dismiss through the real path.
 $m = GuiMod
 if ($m.focused -ne 'announcements') {
     Cmd 'call vwa_dev_spawn oGameStartMessage' | Out-Null

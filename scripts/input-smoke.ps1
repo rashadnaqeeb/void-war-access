@@ -60,9 +60,11 @@ Check 'input tick runs every frame' ($s2.ticks -gt $s1.ticks) "$($s1.ticks) -> $
 Check 'typematic delay sane' ($s2.keyDelayMs -ge 150 -and $s2.keyDelayMs -le 2000) $s2.keyDelayMs
 Check 'typematic rate sane' ($s2.keyRateMs -ge 10 -and $s2.keyRateMs -le 500) $s2.keyRateMs
 
-# --- baseline live set at the main menu: the real main-menu screen
+# --- baseline liveness at the main menu: the real main-menu screen
 #     (session 5) keeps ui live, plus the always-on global ---
-Check 'live categories = ui,global' (($s2.liveCategories -join ',') -eq 'ui,global') ($s2.liveCategories -join ',')
+Check 'ui and global live at the main menu' (
+    $s2.liveCategories -contains 'ui' -and
+    $s2.liveCategories -contains 'global') ($s2.liveCategories -join ',')
 $actionKeys = @($s2.actions | ForEach-Object { $_.key })
 Check 'starter actions registered' (
     $actionKeys -contains 'speech-stop' -and
@@ -72,11 +74,12 @@ Check 'starter actions registered' (
 $r = Fire 'speech-stop'
 Check '/input speech-stop fired' ($r -eq 'fired speech-stop') $r
 
+$resetMsg = (Cmd 'call vwa_t vwa--speech-reset').result
 $cur = SpeechNext
 $r = Fire 'panic-reset'
 Check '/input panic-reset fired' ($r -eq 'fired panic-reset') $r
 $lines = @(SpeechFrom $cur)
-Check 'panic spoke a reset confirmation' (($lines -join '|') -match 'reset') ($lines -join '|')
+Check 'panic spoke the reset confirmation' (@($lines | Where-Object { $_ -like "$resetMsg*" }).Count -ge 1) ($lines -join '|')
 $h2 = Invoke-RestMethod "$base/health" -TimeoutSec 5
 Check 'health ok after panic reset' ($h2.status -eq 'ok') $h2.status
 Check 'pump alive after panic reset' ((Cmd 'ping') -eq 'pong') 'no pong'
@@ -105,7 +108,10 @@ Cmd 'call vwa_dev_test_screen combat!' | Out-Null
 $s = GetState
 $stackNames = @($s.stack | ForEach-Object { $_.name })
 Check 'exclusive test screen on stack' ($stackNames -contains 'vwa-test-screen') ($stackNames -join ',')
-Check 'exclusive modal kills ui below it' (($s.liveCategories -join ',') -eq 'combat,global') ($s.liveCategories -join ',')
+Check 'exclusive modal kills ui below it' (
+    $s.liveCategories -contains 'combat' -and
+    $s.liveCategories -contains 'global' -and
+    -not ($s.liveCategories -contains 'ui')) ($s.liveCategories -join ',')
 $conflictChords = @($s.conflicts | ForEach-Object { $_.chord })
 Check 'no F8 conflict while ui dead' (-not ($conflictChords -contains '119')) ($s.conflicts | ConvertTo-Json -Compress)
 $r = Fire 'dev-shout-ui'
@@ -115,7 +121,9 @@ Check 'global action fires under the modal' ($r -eq 'fired dev-shout-global') $r
 
 Cmd 'call vwa_dev_test_screen none' | Out-Null
 $s = GetState
-Check 'uncovering restores ui' (($s.liveCategories -join ',') -eq 'ui,global') ($s.liveCategories -join ',')
+Check 'uncovering restores ui' (
+    $s.liveCategories -contains 'ui' -and
+    -not ($s.liveCategories -contains 'combat')) ($s.liveCategories -join ',')
 $r = Fire 'dev-shout-ui'
 Check 'ui action fires again' ($r -eq 'fired dev-shout-ui') $r
 

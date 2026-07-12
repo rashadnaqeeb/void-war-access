@@ -7,6 +7,12 @@ logged failure is actionable; a silent one is invisible.
 
 Greenfield project: committing to `main` is fine.
 
+**Feature specs do not live in this file.** Every `src/gml` script's header
+is the authoritative spec of its module - read it before touching the
+module, and put new behavior documentation there, not here. This file keeps
+only what every session needs: environment facts, commands, gotchas, and
+the hard rules.
+
 ## Game & environment (verified)
 
 - **Engine:** GameMaker 2023.8, VM bytecode, x64 Windows. Patched with the
@@ -76,22 +82,17 @@ Greenfield project: committing to `main` is fine.
 
 ## Layout
 
-- `src/gml/` - GML source fragments assembled by build-mod, one script each;
-  every script's header is the authoritative spec of its module - read it
-  before touching the module. `scrVwaCore` (speech chokepoint, logging,
-  shim binding), `scrVwaInput` (action registry, typematic repeat,
-  suppression; the ONE sanctioned home of raw `keyboard_check`),
-  `scrVwaGraph` (control graph, builder, navigation engine; PURE),
-  `scrVwaAnnounce` (announcement parts, path-diff compose; PURE),
-  `scrVwaSearch` (type-ahead matcher; PURE), `scrVwaScreens` (screen
-  registry and stack, navigator, type-ahead glue, alt-arrow line review),
-  `scrVwaText` (text edit layer: edit-mode tracker, edit feedback, keyboard
-  exit), `scrVwaSheet` (crew sheet composer: a crew instance's categorized
-  spoken lines - stats/type/traits/innate/slots/extras - reused by every
-  crew-reading surface), `scrVwaMenus` (the real game screens + the generic
-  widget adapter), `scrVwaDev` (dev driver, dev builds only), `scrVwaTest`
-  (in-game selftest + screen walker, dev builds only). `*.append.gml`
-  appends to the named code entry (`*.dev.append.gml` = dev-only).
+- `src/gml/` - GML source fragments assembled by build-mod, one script each.
+  `scrVwaCore` (speech chokepoint, logging, shim binding), `scrVwaInput`
+  (action registry, suppression; the ONE sanctioned home of raw
+  `keyboard_check`), `scrVwaGraph` (control graph + navigation engine;
+  PURE), `scrVwaAnnounce` (announcement compose; PURE), `scrVwaSearch`
+  (type-ahead matcher; PURE), `scrVwaScreens` (screen registry/stack,
+  navigator, line review), `scrVwaText` (text edit layer), `scrVwaSheet`
+  (crew sheet composer), `scrVwaMenus` (the real game screens + the generic
+  widget adapter), `scrVwaDev` and `scrVwaTest` (dev builds only).
+  `*.append.gml` appends to the named code entry (`*.dev.append.gml` =
+  dev-only).
 - `src/lang/` - mod strings as `vwa--` CSV rows, merged into the game's lang
   CSVs at build time.
 - `tools/` - build + launch scripts, UTMT CLI, decompile scripts.
@@ -126,14 +127,15 @@ any other form won't match the permission rule.
   screen script.** The assertions of `smoke` live IN THE GAME (scrVwaTest):
   `vwa_dev_selftest` unit-tests the pure modules on fixtures, and the
   walker (`vwa_dev_walk_start`) sweeps every node of a screen, verifying
-  real speech against a fresh live resolve plus the line review, adjust
-  feedback, and type-ahead landing. The PS script is a dumb runner.
+  real speech against a fresh live resolve. The PS scripts are dumb runners.
 - **Testing rules** (session-11 redesign; the old per-screen smokes burned
-  whole sessions on expectation drift): expected values must be DERIVED
-  LIVE (from /gui/mod, game globals, `vwa_t` templates, or post-activation
-  game state) - NEVER hardcode a composed speech string in a test. New
-  assertion logic goes in GML (scrVwaTest), not PowerShell. PS 5.1 gotchas
-  when a runner change is unavoidable: nested arrays returned through a PS
+  whole sessions on expectation drift): a test asserts BEHAVIOR, never a
+  snapshot of current content - no hardcoded composed speech strings, no
+  hardcoded counts or whole-set equality where membership is the property
+  under test. Expected values are DERIVED LIVE (from /gui/mod, game
+  globals, `vwa_t` templates, or post-activation game state). New assertion
+  logic goes in GML (scrVwaTest), not PowerShell. PS 5.1 gotchas when a
+  runner change is unavoidable: nested arrays returned through a PS
   function collapse (fetch scalars); non-ASCII `.ps1` needs a UTF-8 BOM
   (edit with the Edit tool, never regex/rewrite passes); PS one-liners
   through bash lose `$` variables (use script files).
@@ -147,81 +149,45 @@ any other form won't match the permission rule.
 ## Dev driver (loopback HTTP, dev builds only)
 
 `http://127.0.0.1:8772` - the agent's interface to the live game.
-Endpoints: `GET /health` (answers even with GML wedged; reports pumpAgeMs,
-bgKeepalive), `GET /speech?since=N` (monotonic cursor - how you observe TTS
-you can't hear), `GET /gui/raw[?obj=oThing]` (game truth), `GET /gui/mod`
-(the mod's interpreted view - diff against raw to find what the mod loses),
-`GET /screenshot`, `GET /state` (input layer),
-`GET /log?which=shim|mod|speech[&lines=N]` (plain-text log tail, served by
-the shim with no game round-trip), `POST /input` (fires a mod action
-through real dispatch; refused when its category isn't live), `POST /cmd`.
-**Game-touching calls are serialized** - one in flight, a second gets 429
-(deliberate; the pump runs one command per frame).
+Endpoints: `GET /health` (answers even with GML wedged), `GET /speech?since=N`
+(monotonic cursor - how you observe TTS you can't hear), `GET /gui/raw[?obj=oThing]`
+(game truth), `GET /gui/mod` (the mod's interpreted view - diff against raw
+to find what the mod loses), `GET /screenshot`, `GET /state` (input layer),
+`GET /log?which=shim|mod|speech[&lines=N]` (log tail, no game round-trip),
+`POST /input` (fires a mod action through real dispatch; refused when its
+category isn't live), `POST /cmd`. **Game-touching calls are serialized** -
+one in flight, a second gets 429 (deliberate; the pump runs one command per
+frame).
 
-`/cmd` vocabulary: `ping`, `say <text>`, `room`, `get <path>`,
-`set <path> <value>`, `dump <path> [depth]`, `instances <obj>`,
-`globals [filter]` / `scripts [filter]` (discovery; case-insensitive
-name-substring filter), `call <script|path> [args...]` (methods invoked
-directly, max 4 args), `gui.raw [obj]`, `gui.mod`, `screenshot`, `state`,
-`input <actionKey>`, `help`. Paths: `global.x`, `oObject.var`, numeric ids,
-`.member`, `[n]`. `set` values and `call` args take JSON-ish compound
-literals (`[1, "two words"]`, `{a: 1, b: [2]}`) alongside scalars; bare
-words are strings. Errors return as `ERROR:` text and never crash the pump.
+`/cmd` is an eval-lite interpreter: send `help` for the vocabulary;
+scrVwaDev's header documents paths and the JSON-ish compound literals.
+Errors return as `ERROR:` text and never crash the pump.
 
-Dev helpers via `call`: `vwa_dev_test_screen <cats|none>` (trailing `!` =
-exclusive), `vwa_dev_test_menu <on|off>`, `vwa_dev_test_submenu <on|off>`,
-`vwa_dev_menu_focus <skey>`,
-`vwa_dev_menu_rename <old> <new>`, `vwa_dev_register_test_actions`,
-`vwa_dev_arm_input_fault`, `vwa_dev_key_direct <vk>`,
-`vwa_dev_typeahead <text>` / `vwa_dev_search_state` (drive/inspect the
-type-ahead layer below the raw keyboard read),
-`vwa_dev_type <text>` / `vwa_dev_text_state` (inject into keyboard_string /
-inspect the text edit layer; injected chars only reach a field's text while
-a physical key is held),
-`vwa_dev_suppression_probe <bind>` (retry only on `live:false` with
-`kbDirect:true`), `vwa_dev_dismiss_start_popup` (honors the once-per-profile
-double-spawn quirk), `vwa_dev_close_commander_select` (the commander
-screen's Escape-branch mirror; rmCommanderSelect only), `vwa_dev_spawn
-<objName>` (oMenuPause verified safe at the main menu),
-`vwa_dev_selftest` (pure-module unit tests, one frame),
-`vwa_dev_walk_start <screenKey>` / `vwa_dev_walk_status` (the screen
-walker: frame-driven sweep of the FOCUSED screen; poll status until done).
+Dev helpers are plain scripts invoked via `call`; discover them with
+`scripts vwa_dev` (or `scripts vwa_dev_walk` etc.) and read each helper's
+doc comment in scrVwaDev/scrVwaTest - the comment is its spec, including
+the quirks. The testing entry points: `call vwa_dev_selftest` (pure-module
+unit tests, one frame) and `call vwa_dev_walk_start <screenKey>` /
+`vwa_dev_walk_status` (the screen walker: frame-driven sweep of the FOCUSED
+screen; poll status until done).
 
 ## User keys
 
 Global (always live, textSafe - they survive game text fields): **Ctrl**
-stop speech, **Shift+F11** panic speech-stack reset. UI (live while a mod
-screen is focused): **arrows** navigate (left/right adjust sliders first),
-**Enter** activates, **Tab/Shift+Tab** cycle control groups, **Home/End**
-jump to the group's first/last control, **Ctrl+left/right** large slider
-steps, **Ctrl+up/down** submenu jumps (grid screens will reuse the chord
-for region jumps), **Alt+up/down** line review (announcements are
-line-structured: control summary first, then each tooltip/sheet line; the
-chord re-speaks one line per press, resolved live, with Top/Bottom at the
-ends), **letters** (and space once a buffer exists) type-ahead
-search over the focused Tab stop, **Escape** nav-back (consumed ONLY when
-an active search clears or a screen claims it via onBack; otherwise the
-game's own Escape runs untouched). Tooltips have NO key: a widget's
-tooltipStr is an announcement part, read inline with the control - on its
-own line, steppable by the line review. Actions
-carry a bindings LIST (any chord fires); screens can opt out of type-ahead
-via `allowsTypeahead: false` (reserve it for screens whose letters are
-hotkeys).
+stop speech, **Shift+F11** panic speech-stack reset. While a mod screen is
+focused: **arrows** navigate (left/right adjust sliders first), **Enter**
+activates, **Tab/Shift+Tab** cycle control groups, **Home/End** group ends,
+**Ctrl+left/right** large slider steps, **Ctrl+up/down** submenu jumps,
+**Alt+up/down** line review, **letters** type-ahead search, **Escape**
+nav-back (consumed only when the mod actually acts; otherwise the game's
+own Escape runs untouched). Text edit mode: **up/down** read the whole
+text, **Enter/Escape** stop editing.
 
-Text edit mode (while the game's text-field input is active): typing is
-echoed by the screen reader itself and backspace speaks the deleted
-character; **up/down** read the whole text, **Enter/Escape** stop editing.
-There is deliberately NO review cursor: the game has no movable caret, no
-selection, and no clipboard - every edit lands at the END of the text, and
-a cursor that cannot place edits teaches a false model.
-
-The behavior models live in the script headers: submenus and
+The authoritative behavior models live in the script headers: submenus and
 jump edges in scrVwaGraph, type-ahead matching in scrVwaSearch, the
-type-ahead key handling and the line review in scrVwaScreens, the text
-edit model (and the game's text-field mechanics it wraps) in scrVwaText,
-the crew sheet structure (Rashad's categorized read: stats, type, traits,
-innate abilities, one line per equipment slot, extras) in scrVwaSheet, the
-commander select screen in scrVwaMenus.
+type-ahead key handling and the line review in scrVwaScreens, the text edit
+model in scrVwaText, the crew sheet structure in scrVwaSheet, the real game
+screens in scrVwaMenus.
 
 ## Hard rules (the audit command checks these)
 
@@ -270,4 +236,5 @@ commander select screen in scrVwaMenus.
 - Comments describe current state, never change history.
 - Zero build warnings, C and UTMT import, never suppressed.
 - **This file stays current in the same session** as any rule or
-  architecture change.
+  architecture change - but new feature behavior documents itself in its
+  script header, not here.
