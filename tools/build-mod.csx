@@ -56,6 +56,11 @@ group.QueueReplace("gml_GlobalScript_scrVwaMenus",
 group.QueueReplace("gml_GlobalScript_scrVwaDev",
     File.ReadAllText(Path.Combine(gmlDir, "scrVwaDev.gml")));
 
+// In-game test module (session 11): pure-module selftest + the screen
+// walker. Dev builds only, like scrVwaDev.
+group.QueueReplace("gml_GlobalScript_scrVwaTest",
+    File.ReadAllText(Path.Combine(gmlDir, "scrVwaTest.gml")));
+
 // Boot patch: shim load, input-layer init, boot announcement, at the end of
 // oInitGlobals Create.
 group.QueueAppend("gml_Object_oInitGlobals_Create_0",
@@ -122,5 +127,7 @@ if (Data.Code.ByName("gml_GlobalScript_scrVwaMenus") == null)
     throw new Exception("gml_GlobalScript_scrVwaMenus was not created by the import");
 if (Data.Code.ByName("gml_GlobalScript_scrVwaDev") == null)
     throw new Exception("gml_GlobalScript_scrVwaDev was not created by the import");
+if (Data.Code.ByName("gml_GlobalScript_scrVwaTest") == null)
+    throw new Exception("gml_GlobalScript_scrVwaTest was not created by the import");
 
 ScriptMessage("vw-access GML import OK");

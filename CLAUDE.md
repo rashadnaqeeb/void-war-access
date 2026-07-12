@@ -86,7 +86,8 @@ Greenfield project: committing to `main` is fine.
   exit), `scrVwaSheet` (crew sheet composer: a crew instance's categorized
   spoken lines - stats/type/traits/innate/slots/extras - reused by every
   crew-reading surface), `scrVwaMenus` (the real game screens + the generic
-  widget adapter), `scrVwaDev` (dev driver, dev builds only). `*.append.gml`
+  widget adapter), `scrVwaDev` (dev driver, dev builds only), `scrVwaTest`
+  (in-game selftest + screen walker, dev builds only). `*.append.gml`
   appends to the named code entry (`*.dev.append.gml` = dev-only).
 - `src/lang/` - mod strings as `vwa--` CSV rows, merged into the game's lang
   CSVs at build time.
@@ -115,13 +116,24 @@ any other form won't match the permission rule.
   Steam's `-applaunch` clears itself; if `/health` still stalls, ask Rashad
   to focus the window once. The keepalive is opt-in via cfg (`bg=1`, which
   run-game writes by default) so a shipped install never runs combat unheard.
-- **Smokes** (against a live game at the main menu): `scripts/drive-smoke`,
-  `input-smoke`, `screens-smoke`, `mainmenu-smoke`, `settings-smoke`,
-  `typeahead-smoke`, `textedit-smoke`, `commander-smoke` - profile-agnostic
-  where possible (expected speech derives from /gui/mod; note nested arrays
-  returned through a PowerShell function collapse - fetch scalars).
-  **Run all eight after touching the shim, the pump, scrVwaInput, or any
-  framework or screen script.**
+- **Smokes** (against a live game at the main menu), three scripts:
+  `scripts/drive-smoke` (dev driver plumbing), `scripts/input-smoke` (input
+  layer + suppression), `scripts/smoke` (THE screen smoke). **Run all three
+  after touching the shim, the pump, scrVwaInput, or any framework or
+  screen script.** The assertions of `smoke` live IN THE GAME (scrVwaTest):
+  `vwa_dev_selftest` unit-tests the pure modules on fixtures, and the
+  walker (`vwa_dev_walk_start`) sweeps every node of a screen, verifying
+  real speech against a fresh live resolve plus the line review, adjust
+  feedback, and type-ahead landing. The PS script is a dumb runner.
+- **Testing rules** (session-11 redesign; the old per-screen smokes burned
+  whole sessions on expectation drift): expected values must be DERIVED
+  LIVE (from /gui/mod, game globals, `vwa_t` templates, or post-activation
+  game state) - NEVER hardcode a composed speech string in a test. New
+  assertion logic goes in GML (scrVwaTest), not PowerShell. PS 5.1 gotchas
+  when a runner change is unavoidable: nested arrays returned through a PS
+  function collapse (fetch scalars); non-ASCII `.ps1` needs a UTF-8 BOM
+  (edit with the Edit tool, never regex/rewrite passes); PS one-liners
+  through bash lose `$` variables (use script files).
 - **Logs:** shim -> `build\vw_speech.log`; GML -> `%AppData%\Roaming\
   Void_War\vwa-mod.log`; every spoken line -> `vwa-speech.log` there.
 
@@ -163,7 +175,10 @@ a physical key is held),
 `kbDirect:true`), `vwa_dev_dismiss_start_popup` (honors the once-per-profile
 double-spawn quirk), `vwa_dev_close_commander_select` (the commander
 screen's Escape-branch mirror; rmCommanderSelect only), `vwa_dev_spawn
-<objName>` (oMenuPause verified safe at the main menu).
+<objName>` (oMenuPause verified safe at the main menu),
+`vwa_dev_selftest` (pure-module unit tests, one frame),
+`vwa_dev_walk_start <screenKey>` / `vwa_dev_walk_status` (the screen
+walker: frame-driven sweep of the FOCUSED screen; poll status until done).
 
 ## User keys
 
@@ -214,8 +229,10 @@ commander select screen in scrVwaMenus.
 - **One speech chokepoint.** All speech flows through `vwa_speak(parts,
   interrupt)`; parts is an ARRAY (flat = one spoken line; any element being
   an array makes every element a LINE - the shape the alt-arrow line review
-  steps); joining happens only there. No direct shim
-  calls from feature code (sanctioned non-speech shim calls: the input
+  steps); joining happens only there (`vwa_speak_render`, its pure join).
+  `global.vwaSpeakTap` is the sanctioned observation hook on the chokepoint
+  (dev builds: the scrVwaTest walker); it observes, never speaks. No direct
+  shim calls from feature code (sanctioned non-speech shim calls: the input
   layer's typematic delay/rate reads, the dev pump's poll/reply, the Game
   End teardown via `vwa_shim_shutdown`).
 - **Hooks never speak.** Patched game events set state or enqueue; speech

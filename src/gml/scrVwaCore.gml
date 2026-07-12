@@ -97,61 +97,75 @@ function vwa_shim_init()
     }
 }
 
-// THE speech chokepoint. Every spoken string in the mod flows through here:
-// feature code hands over an array of parts; joining happens here and
-// nowhere else. Two shapes (Rashad's line model, session 10):
+// The chokepoint's pure join, factored out so the in-game walker
+// (scrVwaTest, dev builds) can render the expected text of a parts array
+// through the exact code the chokepoint uses. Two shapes (Rashad's line
+// model, session 10):
 // - flat: every element a string (or struct with .text) - ONE spoken line,
 //   parts joined with ", " (the classic announcement).
 // - line-structured: ANY element being an array makes every element a LINE
 //   (a flat element is a one-part line); parts join with ", " within a
 //   line, lines join with "\n". Newlines are what the alt+up/down line
 //   review steps through, and screen readers pause at them.
+function vwa_speak_render(parts)
+{
+    var text = "";
+    var lined = false;
+    for (var i = 0; i < array_length(parts); i++)
+    {
+        if (is_array(parts[i]))
+        {
+            lined = true;
+            break;
+        }
+    }
+    for (var i = 0; i < array_length(parts); i++)
+    {
+        var line = is_array(parts[i]) ? parts[i] : [parts[i]];
+        var lineText = "";
+        for (var j = 0; j < array_length(line); j++)
+        {
+            var part = line[j];
+            var s = is_struct(part) ? string(part.text) : string(part);
+            if (s == "")
+            {
+                continue;
+            }
+            if (lineText != "")
+            {
+                lineText += ", ";
+            }
+            lineText += s;
+        }
+        if (lineText == "")
+        {
+            continue;
+        }
+        if (text != "")
+        {
+            text += lined ? "\n" : ", ";
+        }
+        text += lineText;
+    }
+    return text;
+}
+
+// THE speech chokepoint. Every spoken string in the mod flows through here:
+// feature code hands over an array of parts; joining happens only in
+// vwa_speak_render above.
 // Each utterance is appended to vwa-speech.log in the save dir before the
 // shim is involved, so speech is diagnosable even with no DLL at all
 // (a multi-line utterance is one log entry per line, indented after the
 // first, so the log stays one-utterance-per-entry greppable).
+// global.vwaSpeakTap, when set (dev builds: the scrVwaTest walker), receives
+// every utterance's final text - the sanctioned observation point for
+// in-game speech verification. It must never speak.
 function vwa_speak(parts, interrupt)
 {
     var text = "";
     if (is_array(parts))
     {
-        var lined = false;
-        for (var i = 0; i < array_length(parts); i++)
-        {
-            if (is_array(parts[i]))
-            {
-                lined = true;
-                break;
-            }
-        }
-        for (var i = 0; i < array_length(parts); i++)
-        {
-            var line = is_array(parts[i]) ? parts[i] : [parts[i]];
-            var lineText = "";
-            for (var j = 0; j < array_length(line); j++)
-            {
-                var part = line[j];
-                var s = is_struct(part) ? string(part.text) : string(part);
-                if (s == "")
-                {
-                    continue;
-                }
-                if (lineText != "")
-                {
-                    lineText += ", ";
-                }
-                lineText += s;
-            }
-            if (lineText == "")
-            {
-                continue;
-            }
-            if (text != "")
-            {
-                text += lined ? "\n" : ", ";
-            }
-            text += lineText;
-        }
+        text = vwa_speak_render(parts);
     }
     else
     {
@@ -163,6 +177,12 @@ function vwa_speak(parts, interrupt)
     if (text == "")
     {
         return;
+    }
+
+    if (variable_global_exists("vwaSpeakTap") && global.vwaSpeakTap != undefined)
+    {
+        var tapFn = global.vwaSpeakTap;
+        tapFn(text, interrupt);
     }
 
     var f = file_text_open_append("vwa-speech.log");
