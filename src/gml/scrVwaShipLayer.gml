@@ -46,10 +46,10 @@
 // The cursor (piece 2): arrows move one tile on the focused hull, with
 // the edge rules evaluated at move time (vwa_ship_move_plan, PURE):
 // - target tile inside the same cell: free move, no edge resolution;
-// - across a cell edge holding an oDoor: passes whatever the door state
-//   (0 open silent, 1 closed and 2 battered each speak a short localized
-//   token before the tile - the spoken interim until the earcon layer
-//   exists, revisited at piece 7);
+// - across a cell edge holding an oDoor: passes whatever the door state,
+//   and every state (0 open, 1 closed, 2 battered) speaks its own short
+//   localized token before the tile - the spoken interim until the
+//   earcon layer exists, revisited at piece 7;
 // - an oWall, an oAirlock, or off the hull entirely: blocked, cursor
 //   stays, a localized "wall" or "airlock" token speaks (airlock only
 //   when an airlock edge instance is actually there - space beyond).
@@ -518,17 +518,22 @@ function vwa_ship_compose_run(sections, quar, hull, cell, slot, ctx)
 }
 
 // The full spoken parts for landing on a tile: the door-crossing token
-// when a non-open door was crossed, then the sections.
+// (every state speaks - open, closed, battered), then the sections.
 function vwa_ship_move_parts(alliedSide, entry, ctx)
 {
     var parts = [];
-    if (ctx.door != undefined && ctx.door.doorState == 1)
+    if (ctx.door != undefined)
     {
-        array_push(parts, vwa_t("vwa--ship-door-closed"));
-    }
-    if (ctx.door != undefined && ctx.door.doorState == 2)
-    {
-        array_push(parts, vwa_t("vwa--ship-door-battered"));
+        var doorKey = "vwa--ship-door-open";
+        if (ctx.door.doorState == 1)
+        {
+            doorKey = "vwa--ship-door-closed";
+        }
+        if (ctx.door.doorState == 2)
+        {
+            doorKey = "vwa--ship-door-battered";
+        }
+        array_push(parts, vwa_t(doorKey));
     }
     var hull = get_hull(alliedSide);
     if (hull == 0 || !instance_exists(hull))

@@ -104,6 +104,7 @@ vwa--ship-room-tall,sala alta
 vwa--ship-room-large,sala grande
 vwa--ship-wall,pared
 vwa--ship-airlock,esclusa
+vwa--ship-door-open,puerta abierta
 vwa--ship-door-closed,puerta cerrada
 vwa--ship-door-battered,puerta destrozada
 vwa--ship-sys-damaged,"dañado, {n} de {m}"

@@ -327,7 +327,8 @@ scrVwaShipLayer's header is the authoritative spec, vwa_dev_shipwalk the
 live sweep). Decisions settled at build: spoken coordinates are signed
 x/y from the hull's bounding-box center (x right, y UP, bare values
 with a localized minus word - "minus 4, 1"); the door-speech interim is
-closed/battered speaking a short token and open silent. Piece 3
+every door state speaking its own short token (open/closed/battered).
+Piece 3
 (remaining sections, visibility gating, where-am-I and details keys)
 still draws on the section model below; the movement part of this
 section is history.
@@ -582,7 +583,7 @@ before the next starts.
   key map.
 - Door information channel: audio-only vs audio-plus-terse-speech;
   decided when the earcon layer exists (piece 7). The piece-2 spoken
-  interim: closed/battered doors speak a short token, open is silent.
+  interim: every door state speaks its own short token.
 - Fine selection gestures: room-select, slot-select, additive modifiers
   (piece 5/6 debate).
 - Whether doors/airlocks become a fifth scanner category.
