@@ -111,7 +111,7 @@ vwa--ship-sys-damaged,"damaged, {n} of {m}"
 vwa--ship-sys-destroyed,destroyed
 vwa--action-ship-where,Where am I
 vwa--action-ship-details,Read tile details
-vwa--ship-unknown,interior unknown
+vwa--ship-unknown,unknown
 vwa--ship-fire-one,fire
 vwa--ship-fire-many,{n} fires
 vwa--ship-warpfire-one,warp fire

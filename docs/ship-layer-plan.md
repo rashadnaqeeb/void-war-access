@@ -330,10 +330,15 @@ with a localized minus word - "minus 4, 1"); the door-speech interim is
 every door state speaking its own short token (open/closed/battered);
 where-am-I is C and details R (letters are status keys in this mode;
 piece 6's key map decides around them); oxygen speaks only when below
-full, with vacuum/venting/poisoned state tokens; the "interior unknown"
-token speaks at cell granularity (entering a dark room, not every step
-inside it); the selection-marker section shipped here, reading
-oUICursor.currSelected live. This section is history.
+full, with vacuum/venting/poisoned state tokens; the dark-room token is
+a bare "unknown", speaking at cell granularity (entering a dark room,
+not every step inside it); the selection-marker section shipped here,
+reading oUICursor.currSelected live. The spoken order was settled in
+play with Rashad (criticality behind the name anchor): system name
+first as the room's identity, then hostile count, hazards, air, shape,
+own-crew count, then the slot facts with hostiles before own crew, and
+coordinates always last - empty sections are silent, so alarms cost
+nothing in calm rooms. This section is history.
 
 A tile cursor per ship. Arrows move one tile (one crew slot); the
 player always interacts with tiles, never rooms - room-to-room hopping

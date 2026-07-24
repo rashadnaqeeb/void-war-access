@@ -81,41 +81,52 @@
 // tests which sections touch live instances (and so are exercised by the
 // live shipwalk, not fixtures); interior drives the VISIBILITY GATE IN
 // THE COMPOSER - with ctx.vision false every interior section is skipped
-// and one localized "interior unknown" token speaks in the first
-// skipped one's place, only when ctx.cellChanged (a dark room announces
-// its darkness on entry, not on every step inside; the details key
-// forces a fresh full read). Geometry-level sections run regardless,
-// mirroring what the game draws without vision.
+// and one localized "unknown" token speaks in the first skipped one's
+// place, only when ctx.cellChanged (a dark room announces its darkness
+// on entry, not on every step inside; the details key forces a fresh
+// full read). Geometry-level sections run regardless, mirroring what
+// the game draws without vision.
 // All content is re-queried live inside read. A section that throws is
 // QUARANTINED: logged once, skipped for the rest of the container's life
 // (the quarantine set lives in the hull container, so a new
 // encounter/run retries), and the composer keeps running the remaining
 // sections - a broken section must not silence the cursor (the
 // sanctioned swallow-and-log, mirroring the screen-callback quarantine).
+// The order is decision-criticality behind the room-name anchor: speech
+// is a linear channel and a fast-arrowing player may only hear the first
+// words, so the system name leads as the room's identity (the game has
+// no room names; the system IS the name), the alarms follow immediately,
+// and detail trails. Empty sections are silent, so alarms cost nothing
+// in calm rooms - they only speak where something is wrong, which is
+// exactly where they must come early.
 // Sections in order (* = interior):
-// - identity (cell): the room's shape word from the oCell subclass.
 // - system (cell): the overlapping oSysGroup's name plus damaged n-of-m
 //   or destroyed from currHP/maxHP; empty room contributes nothing.
 //   Geometry-level: the game shows enemy systems and their damage
 //   without sensor parity.
+// - hostiles* (cell): hostile crew count ("1 hostile" / "n hostiles"),
+//   enumerated fresh from oCrew instances (alive and position_meeting
+//   the cell; the game's throttled crewInCell lists are never read - a
+//   ~10-step lag could speak stale). The most urgent fact a room can
+//   carry, so it is the first interior section - which also puts the
+//   dark-room "unknown" token right behind the system name.
 // - hazards* (cell): fire / warp fire / breach counts, grouped by the
 //   hazard instances' currentCellID (one/many wording via
 //   vwa_ship_count_parts; zero is silent).
 // - air* (cell): "vacuum" on lethalVacuum, else "venting" while
 //   cell.vacuum; "poisoned" on isPoisoned; oxygen percent only when
 //   below full - a full room is the norm and stays silent.
-// - occupants* (cell): live counts per channel ("1 crew" / "n crew",
-//   "1 hostile" / "n hostiles"), enumerated fresh from oCrew instances
-//   (alive and position_meeting the cell; the game's throttled
-//   crewInCell lists are never read - a ~10-step lag could speak stale).
-// - crew* (slot): the slot's occupants by channel (occupant1ID..4ID via
-//   cell_get_crew_at_slot), each spoken only when alive AND physically
-//   in the cell - an occupant entry can be a reservation by
-//   still-walking crew, and a name for a crew not yet in the room would
-//   be stale speech. Allied crew speak crewName; hostile "{name},
-//   hostile".
+// - identity (cell): the room's shape word from the oCell subclass.
+// - crew-count* (cell): own crew count ("1 crew" / "n crew"), same live
+//   enumeration as hostiles.
 // - fire-here* / breach-here* (slot): this slot's own oFire (warp fire
 //   distinguished) / oBreach instance.
+// - crew* (slot): the slot's occupants by channel (occupant1ID..4ID via
+//   cell_get_crew_at_slot), hostile first (critical first), each spoken
+//   only when alive AND physically in the cell - an occupant entry can
+//   be a reservation by still-walking crew, and a name for a crew not
+//   yet in the room would be stale speech. Hostile crew speak "{name},
+//   hostile"; own crew speak crewName.
 // - console (slot): "console" when the cell's system is mannable and
 //   sysConsoleSlot is this slot. Geometry-level, but "manned" (from
 //   sys.manned, the game's own per-step manning state) is appended only
@@ -123,9 +134,9 @@
 // - selected* (slot): "selected" when the slot's allied occupant sits in
 //   oUICursor.currSelected, the game's selection truth, read live.
 // - position (slot): signed x/y from the hull's center, the every-move
-//   feedback that a move landed (kept after weighing piece 3's slot
-//   sections: blocked moves speak their token, so a silent success would
-//   be ambiguous). Spoken coordinates are SIGNED X/Y FROM THE HULL'S
+//   feedback that a move landed (kept after weighing the slot sections:
+//   blocked moves speak their token, so a silent success would be
+//   ambiguous). Spoken coordinates are SIGNED X/Y FROM THE HULL'S
 //   CENTER: the origin is the bounding-box center tile
 //   (floor((w-1)/2), floor((h-1)/2) - for even dimensions the tile just
 //   left/above true center), x positive right, y positive UP (up-arrow
@@ -135,13 +146,13 @@
 //   section convert.
 //
 // On-demand keys (category "ship", chosen at build; piece 6's key map
-// decides around them): C - where am I: position, then room identity,
-// then system, through the same section reads and quarantine (the game
-// has NO room names, verified - cells carry no name field, so shape plus
-// system is all the identity a room has). R - details: a full forced
-// section read of the current tile (ctx.cellChanged true), visibility-
-// gated like any read. Both interrupt: direct user-caused feedback,
-// like the cursor keys.
+// decides around them): C - where am I: position, then system name,
+// then shape, through the same section reads and quarantine (the game
+// has NO room names, verified - cells carry no name field, so system
+// plus shape is all the identity a room has). R - details: a full
+// forced section read of the current tile (ctx.cellChanged true),
+// visibility-gated like any read. Both interrupt: direct user-caused
+// feedback, like the cursor keys.
 //
 // Pure and fixture-tested in vwa_dev_selftest (vwa_test_shiplayer):
 // vwa_ship_geom_build (records -> index: origin normalization, bounds,
@@ -514,37 +525,29 @@ function vwa_ship_slot_occupant(cell, slotNum, alliedChannel)
     return crew;
 }
 
-// The section registry (see header). Sections are ordered; each read is
-// stateless and re-queries the game live.
+// Live crew count for one channel: alive and physically in the cell
+// (see the hostiles section note - the throttled crewInCell lists are
+// never read).
+function vwa_ship_cell_crew_count(cell, wantAllied)
+{
+    var n = 0;
+    with (oCrew)
+    {
+        if (!crew_is_dead(id) && position_meeting(x, y, cell)
+            && allied == wantAllied)
+        {
+            n += 1;
+        }
+    }
+    return n;
+}
+
+// The section registry (see header, including the criticality ordering).
+// Sections are ordered; each read is stateless and re-queries the game
+// live.
 function vwa_ship_sections_init()
 {
     global.vwaShipSections = [
-        { name: "identity", slotLevel: false, interior: false,
-          read: function(hull, cell, slot, ctx)
-        {
-            if (!ctx.cellChanged)
-            {
-                return [];
-            }
-            var ix = cell.object_index;
-            if (ix == oCellSingle)
-            {
-                return [vwa_t("vwa--ship-room-small")];
-            }
-            if (ix == oCellWide)
-            {
-                return [vwa_t("vwa--ship-room-wide")];
-            }
-            if (ix == oCellTall)
-            {
-                return [vwa_t("vwa--ship-room-tall")];
-            }
-            if (ix == oCellLarge)
-            {
-                return [vwa_t("vwa--ship-room-large")];
-            }
-            throw ("unknown cell shape " + object_get_name(ix));
-        } },
         { name: "system", slotLevel: false, interior: false,
           read: function(hull, cell, slot, ctx)
         {
@@ -568,6 +571,16 @@ function vwa_ship_sections_init()
                     ["n", "m"], [sys.currHP, sys.maxHP]));
             }
             return parts;
+        } },
+        { name: "hostiles", slotLevel: false, interior: true,
+          read: function(hull, cell, slot, ctx)
+        {
+            if (!ctx.cellChanged)
+            {
+                return [];
+            }
+            return vwa_ship_count_parts(vwa_ship_cell_crew_count(cell, false),
+                "vwa--ship-hostile-one", "vwa--ship-hostile-many");
         } },
         { name: "hazards", slotLevel: false, interior: true,
           read: function(hull, cell, slot, ctx)
@@ -649,61 +662,41 @@ function vwa_ship_sections_init()
             }
             return parts;
         } },
-        { name: "occupants", slotLevel: false, interior: true,
+        { name: "identity", slotLevel: false, interior: false,
           read: function(hull, cell, slot, ctx)
         {
             if (!ctx.cellChanged)
             {
                 return [];
             }
-            var allies = 0;
-            var foes = 0;
-            with (oCrew)
+            var ix = cell.object_index;
+            if (ix == oCellSingle)
             {
-                if (!crew_is_dead(id) && position_meeting(x, y, cell))
-                {
-                    if (allied)
-                    {
-                        allies += 1;
-                    }
-                    else
-                    {
-                        foes += 1;
-                    }
-                }
+                return [vwa_t("vwa--ship-room-small")];
             }
-            var groups = [
-                vwa_ship_count_parts(allies,
-                    "vwa--ship-crew-one", "vwa--ship-crew-many"),
-                vwa_ship_count_parts(foes,
-                    "vwa--ship-hostile-one", "vwa--ship-hostile-many")
-            ];
-            var parts = [];
-            for (var i = 0; i < array_length(groups); i++)
+            if (ix == oCellWide)
             {
-                for (var j = 0; j < array_length(groups[i]); j++)
-                {
-                    array_push(parts, groups[i][j]);
-                }
+                return [vwa_t("vwa--ship-room-wide")];
             }
-            return parts;
+            if (ix == oCellTall)
+            {
+                return [vwa_t("vwa--ship-room-tall")];
+            }
+            if (ix == oCellLarge)
+            {
+                return [vwa_t("vwa--ship-room-large")];
+            }
+            throw ("unknown cell shape " + object_get_name(ix));
         } },
-        { name: "crew", slotLevel: true, interior: true,
+        { name: "crew-count", slotLevel: false, interior: true,
           read: function(hull, cell, slot, ctx)
         {
-            var parts = [];
-            var ally = vwa_ship_slot_occupant(cell, slot, 1);
-            if (ally != undefined)
+            if (!ctx.cellChanged)
             {
-                array_push(parts, string(ally.crewName));
+                return [];
             }
-            var foe = vwa_ship_slot_occupant(cell, slot, 0);
-            if (foe != undefined)
-            {
-                array_push(parts, vwa_sheet_t("vwa--ship-crew-hostile",
-                    ["name"], [string(foe.crewName)]));
-            }
-            return parts;
+            return vwa_ship_count_parts(vwa_ship_cell_crew_count(cell, true),
+                "vwa--ship-crew-one", "vwa--ship-crew-many");
         } },
         { name: "fire-here", slotLevel: true, interior: true,
           read: function(hull, cell, slot, ctx)
@@ -733,6 +726,23 @@ function vwa_ship_sections_init()
                 }
             }
             return found ? [vwa_t("vwa--ship-breach-here")] : [];
+        } },
+        { name: "crew", slotLevel: true, interior: true,
+          read: function(hull, cell, slot, ctx)
+        {
+            var parts = [];
+            var foe = vwa_ship_slot_occupant(cell, slot, 0);
+            if (foe != undefined)
+            {
+                array_push(parts, vwa_sheet_t("vwa--ship-crew-hostile",
+                    ["name"], [string(foe.crewName)]));
+            }
+            var ally = vwa_ship_slot_occupant(cell, slot, 1);
+            if (ally != undefined)
+            {
+                array_push(parts, string(ally.crewName));
+            }
+            return parts;
         } },
         { name: "console", slotLevel: true, interior: false,
           read: function(hull, cell, slot, ctx)
@@ -784,13 +794,13 @@ function vwa_ship_section_get(name)
 }
 
 // The where-am-I read order: position first (the question asked), then
-// the room's identity and system (see header - all the identity a room
-// has).
+// the room's system name and shape (see header - all the identity a
+// room has, name before shape like every tile read).
 function vwa_ship_where_sections()
 {
     return [vwa_ship_section_get("position"),
-            vwa_ship_section_get("identity"),
-            vwa_ship_section_get("system")];
+            vwa_ship_section_get("system"),
+            vwa_ship_section_get("identity")];
 }
 
 // The composer runner: every non-quarantined section in order, each

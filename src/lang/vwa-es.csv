@@ -111,7 +111,7 @@ vwa--ship-sys-damaged,"dañado, {n} de {m}"
 vwa--ship-sys-destroyed,destruido
 vwa--action-ship-where,Dónde estoy
 vwa--action-ship-details,Leer detalles de la casilla
-vwa--ship-unknown,interior desconocido
+vwa--ship-unknown,desconocido
 vwa--ship-fire-one,fuego
 vwa--ship-fire-many,{n} fuegos
 vwa--ship-warpfire-one,fuego warp

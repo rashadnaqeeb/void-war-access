@@ -329,18 +329,19 @@ function vwa_test_shiplayer(tc)
         vwa_sheet_t("vwa--ship-pos", ["x", "y"],
             [vwa_t("vwa--minus") + " 1", vwa_t("vwa--minus") + " 1"]));
 
-    // The where-am-I read: position, then identity, then system, through
-    // the real registry sections on a fixture cell (geometry-only, so
-    // safe outside a run; the system section bails on an empty room).
-    // Tile 2,1 with origin 1,3 is x 1, y 2.
-    var wcell = { object_index: oCellSingle, system: 0 };
+    // The where-am-I read: position, then the system name, then the
+    // shape word (name before shape, like every tile read), through the
+    // real registry sections on a fixture cell (geometry-only, so safe
+    // outside a run). Tile 2,1 with origin 1,3 is x 1, y 2.
+    var wcell = { object_index: oCellSingle,
+                  system: { name: "Test System", currHP: 2, maxHP: 2 } };
     var wctx = { cellChanged: true, door: undefined, tx: 2, ty: 1,
                  cx: 1, cy: 3, vision: true };
-    vwa_test_eq(tc, "shiplayer: where reads position then identity",
+    vwa_test_eq(tc, "shiplayer: where reads position, name, then shape",
         vwa_test_join(vwa_ship_compose_run(vwa_ship_where_sections(), {},
             undefined, wcell, 1, wctx)),
-        vwa_sheet_t("vwa--ship-pos", ["x", "y"], ["1", "2"]) + " | "
-            + vwa_t("vwa--ship-room-small"));
+        vwa_sheet_t("vwa--ship-pos", ["x", "y"], ["1", "2"])
+            + " | Test System | " + vwa_t("vwa--ship-room-small"));
 
     // Mode-provider suspension: a mode category is live only while the
     // screen stack is empty. Live globals saved and restored.

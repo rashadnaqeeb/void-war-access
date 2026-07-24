@@ -111,7 +111,7 @@ vwa--ship-sys-damaged,"endommagé, {n} sur {m}"
 vwa--ship-sys-destroyed,détruit
 vwa--action-ship-where,Où suis-je
 vwa--action-ship-details,Lire les détails de la case
-vwa--ship-unknown,intérieur inconnu
+vwa--ship-unknown,inconnu
 vwa--ship-fire-one,feu
 vwa--ship-fire-many,{n} feux
 vwa--ship-warpfire-one,feu warp
