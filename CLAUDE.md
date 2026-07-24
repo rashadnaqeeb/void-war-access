@@ -101,8 +101,9 @@ the hard rules.
   PURE), `scrVwaAnnounce` (announcement compose; PURE), `scrVwaSearch`
   (type-ahead matcher; PURE), `scrVwaScreens` (screen registry/stack,
   navigator, line review), `scrVwaText` (text edit layer), `scrVwaSheet`
-  (crew sheet composer), `scrVwaShipLayer` (in-run ship layer substrate:
-  mode gate, per-hull state + geometry index, ship focus toggle - an input
+  (crew sheet composer), `scrVwaShipLayer` (in-run ship layer: mode gate,
+  per-hull state + geometry index, ship focus toggle, tile cursor with
+  edge rules + section composer - an input
   MODE via scrVwaInput's mode providers, never on the screen stack),
   `scrVwaWidgets` (generic widget adapter, oButton
   activation mirror, dropdown child screen, auto-paging), `scrVwaMenus`
@@ -206,7 +207,8 @@ to that choice without activating (the game's own silent number-commit is
 patched out at build time; Enter commits). Text edit mode: **up/down** read the whole
 text, **Enter** commits the edit, **Escape** cancels it (same operation on
 fields whose text is live as typed). On the in-run ship layer (no menu, no
-popup, not warping): **Tab** toggles which ship the tools look at.
+popup, not warping): **Tab** toggles which ship the tools look at, and
+**arrows** move the tile cursor (walls and airlocks block, doors pass).
 
 The authoritative behavior models live in the script headers: submenus and
 jump edges in scrVwaGraph, type-ahead matching in scrVwaSearch, the
@@ -214,7 +216,7 @@ type-ahead key handling and the line review in scrVwaScreens, the text edit
 model in scrVwaText, the crew sheet structure in scrVwaSheet, the widget
 adapter and auto-paging in scrVwaWidgets, the real game screens in the
 scrVwaMenu* family files (dispatcher and menuToggle registry in
-scrVwaMenus), the in-run ship layer's mode and state model in
+scrVwaMenus), the in-run ship layer's mode, state, and cursor model in
 scrVwaShipLayer.
 
 ## Hard rules (the audit command checks these)

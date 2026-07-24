@@ -99,8 +99,13 @@ function Walk([string]$screenKey) {
 }
 
 function ModLogErrorCount {
+    # 'injected test fault' marks ERROR lines a test wrote ON PURPOSE to
+    # prove a sanctioned logging path fires (the input watchdog fault, the
+    # selftest's section quarantine). Real failures never carry the marker.
     $t = Invoke-RestMethod "$base/log?which=mod&lines=6000" -TimeoutSec 8
-    return @(($t -split "`n") | Where-Object { $_ -match 'ERROR' }).Count
+    return @(($t -split "`n") | Where-Object {
+        $_ -match 'ERROR' -and $_ -notmatch 'injected test fault'
+    }).Count
 }
 
 Write-Host "smoke: against $base"

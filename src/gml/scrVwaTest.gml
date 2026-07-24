@@ -151,6 +151,106 @@ function vwa_test_shiplayer(tc)
     vwa_test_ok(tc, "shiplayer: enemy to player without enemy",
         !f.blocked && f.allied == 1, string(f.allied));
 
+    // The movement decision on fixture entries (cell identity is struct
+    // reference equality): interior free, door passes whatever its state,
+    // wall and airlock block, off-hull blocks, a missing edge instance
+    // blocks as a wall and flags for the caller's log.
+    var ca = { t: "a" };
+    var cb = { t: "b" };
+    var fA1 = { cell: ca, slot: 1 };
+    var fA2 = { cell: ca, slot: 2 };
+    var fB = { cell: cb, slot: 1 };
+    var mp = vwa_ship_move_plan(fA1, fA2, undefined);
+    vwa_test_ok(tc, "shiplayer: interior move free",
+        mp.moved && !mp.cellChanged && mp.door == undefined, string(mp));
+    for (var ds = 0; ds <= 2; ds++)
+    {
+        mp = vwa_ship_move_plan(fA1, fB,
+            { kind: "door", doorState: ds, inst: undefined });
+        vwa_test_ok(tc, "shiplayer: door state " + string(ds) + " passes",
+            mp.moved && mp.cellChanged && mp.door != undefined
+                && mp.door.doorState == ds, string(mp));
+    }
+    mp = vwa_ship_move_plan(fA1, fB, { kind: "wall", doorState: undefined, inst: undefined });
+    vwa_test_ok(tc, "shiplayer: wall blocks",
+        !mp.moved && mp.blocked == "wall" && !mp.missingEdge, string(mp));
+    mp = vwa_ship_move_plan(fA1, fB, { kind: "airlock", doorState: undefined, inst: undefined });
+    vwa_test_ok(tc, "shiplayer: airlock blocks",
+        !mp.moved && mp.blocked == "airlock", string(mp));
+    mp = vwa_ship_move_plan(fA1, undefined, { kind: "airlock", doorState: undefined, inst: undefined });
+    vwa_test_ok(tc, "shiplayer: off-hull airlock edge blocks as airlock",
+        !mp.moved && mp.blocked == "airlock" && !mp.missingEdge, string(mp));
+    mp = vwa_ship_move_plan(fA1, undefined, undefined);
+    vwa_test_ok(tc, "shiplayer: off-hull with no edge blocks as wall",
+        !mp.moved && mp.blocked == "wall" && mp.missingEdge, string(mp));
+    mp = vwa_ship_move_plan(fA1, fB, undefined);
+    vwa_test_ok(tc, "shiplayer: cross-cell missing edge blocks and flags",
+        !mp.moved && mp.blocked == "wall" && mp.missingEdge, string(mp));
+
+    // Edge classification against the real object table.
+    vwa_test_eq(tc, "shiplayer: oDoor is a door", vwa_ship_side_kind(oDoor), "door");
+    vwa_test_eq(tc, "shiplayer: oAirlock is an airlock",
+        vwa_ship_side_kind(oAirlock), "airlock");
+    vwa_test_eq(tc, "shiplayer: oWall is a wall", vwa_ship_side_kind(oWall), "wall");
+    vwa_test_eq(tc, "shiplayer: oWall_dungeon is a wall",
+        vwa_ship_side_kind(oWall_dungeon), "wall");
+    vwa_test_eq(tc, "shiplayer: bare oCellSide is unknown",
+        vwa_ship_side_kind(oCellSide), undefined);
+
+    // The composer runner on fixture sections: order kept, a throwing
+    // section quarantines (once) while the rest still run. The quarantine
+    // log line this writes is the sanctioned once-per-quarantine log.
+    var quar = {};
+    var fsecs = [
+        { name: "cellsec", read: function(hull, cell, slot, ctx)
+        {
+            return ctx.cellChanged ? ["CELL"] : [];
+        } },
+        // The marker phrase keeps the smoke's ERROR-line diff from
+        // counting this deliberate quarantine log (see ModLogErrorCount).
+        { name: "boom", read: function(hull, cell, slot, ctx)
+        {
+            throw "injected test fault (section quarantine)";
+        } },
+        { name: "slotsec", read: function(hull, cell, slot, ctx)
+        {
+            return ["SLOT"];
+        } }
+    ];
+    var ctxT = { cellChanged: true, door: undefined, tx: 0, ty: 0 };
+    vwa_test_eq(tc, "shiplayer: composer runs past a throw",
+        vwa_test_join(vwa_ship_compose_run(fsecs, quar, undefined, undefined, 1, ctxT)),
+        "CELL | SLOT");
+    vwa_test_ok(tc, "shiplayer: throwing section quarantined",
+        variable_struct_exists(quar, "boom"), "not quarantined");
+    var ctxF = { cellChanged: false, door: undefined, tx: 0, ty: 0 };
+    vwa_test_eq(tc, "shiplayer: cell fixture dampens when cell unchanged",
+        vwa_test_join(vwa_ship_compose_run(fsecs, quar, undefined, undefined, 1, ctxF)),
+        "SLOT");
+    vwa_test_eq(tc, "shiplayer: quarantine holds across reruns",
+        array_length(variable_struct_get_names(quar)), 1);
+
+    // The real registry's declared granularity: with the cell unchanged,
+    // cell sections bail before touching the (dummy) cell; the position
+    // stub still speaks, matching its own live template.
+    var dctx = { cellChanged: false, door: undefined, tx: 4, ty: 2 };
+    for (var i = 0; i < array_length(global.vwaShipSections); i++)
+    {
+        var sec = global.vwaShipSections[i];
+        var got = sec.read(undefined, {}, 1, dctx);
+        if (sec.name == "position")
+        {
+            vwa_test_eq(tc, "shiplayer: position section speaks every move",
+                vwa_test_join(got),
+                vwa_sheet_t("vwa--ship-pos", ["r", "c"], [3, 5]));
+        }
+        else
+        {
+            vwa_test_eq(tc, "shiplayer: section " + sec.name + " dampens",
+                array_length(got), 0);
+        }
+    }
+
     // Mode-provider suspension: a mode category is live only while the
     // screen stack is empty. Live globals saved and restored.
     var priorStack = global.vwaScreenStack;
@@ -1091,4 +1191,201 @@ function vwa_dev_walk_typeahead(w)
         }
     }
     vwa_nav_search_clear(false);
+}
+
+// ---- the ship-layer cursor sweep ----
+
+// vwa_dev_shipwalk() - the walker analog for the spatial mode
+// (scrVwaShipLayer), invoked as `call vwa_dev_shipwalk`. SYNCHRONOUS, one
+// call: the ship layer has no per-frame settle, so there is no status
+// polling. Requires the ship mode active (in a run, no menu/popup/warp)
+// and no stacked screen; sweeps the FOCUSED hull.
+//
+// DFS by REAL arrow moves (vwa_ship_cursor_move) from the current cursor
+// tile: every direction is attempted from every tile, and a successful
+// move onto an already-visited tile is immediately walked back, so every
+// tile edge gets exercised from both sides. Per attempted move, the
+// expected outcome is resolved fresh (geometry lookup, sideData edge,
+// vwa_ship_move_plan) and checked against: the cursor's actual movement,
+// exactly one utterance through the speak tap whose text matches a fresh
+// vwa_ship_move_parts / block-token render, and the game's own
+// connectivity truth - a door crossing's target cell must sit in the
+// from-cell's connectedCellList and the door in its doorsList; a
+// wall-blocked existing neighbor must still be in adjCellList. At the
+// end: the visited set must exactly cover the geometry index (membership
+// derived live from the built index, never hardcoded), no section may
+// have quarantined, and the cursor is restored to its starting tile.
+// Returns {checks, failures, tiles, visited, moves}.
+function vwa_dev_shipwalk()
+{
+    if (!vwa_ship_mode_active())
+    {
+        throw "shipwalk: ship mode is not active";
+    }
+    if (array_length(global.vwaScreenStack) > 0)
+    {
+        throw "shipwalk: a screen is stacked";
+    }
+    var tc = vwa_test_ctx();
+    var alliedSide = vwa_ship_focus();
+    var geom = vwa_ship_geom(alliedSide);
+    var c = vwa_ship_container(alliedSide);
+    var cur = vwa_ship_cursor(alliedSide);
+    var w = { tap: [] };
+    var priorTap = global.vwaSpeakTap;
+    global.vwaSpeakTap = method({ w: w }, function(text, intr)
+    {
+        array_push(self.w.tap, text);
+    });
+    var startTx = cur.tx;
+    var startTy = cur.ty;
+    var visited = {};
+    variable_struct_set(visited, string(startTx) + "," + string(startTy), true);
+    var frames = [{ tx: startTx, ty: startTy, di: 0 }];
+    var dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    var moves = 0;
+    var moveCap = (geom.count * 10) + 100;
+    try
+    {
+        while (array_length(frames) > 0)
+        {
+            if (moves >= moveCap)
+            {
+                vwa_test_ok(tc, "shipwalk: move cap not hit", false,
+                    string(moves) + " moves");
+                break;
+            }
+            var fr = frames[array_length(frames) - 1];
+            if (fr.di >= 4)
+            {
+                array_pop(frames);
+                if (array_length(frames) > 0)
+                {
+                    var par = frames[array_length(frames) - 1];
+                    vwa_dev_shipwalk_move(tc, w, alliedSide,
+                        par.tx - fr.tx, par.ty - fr.ty, true);
+                    moves += 1;
+                }
+                continue;
+            }
+            var d = dirs[fr.di];
+            fr.di += 1;
+            var res = vwa_dev_shipwalk_move(tc, w, alliedSide, d[0], d[1], false);
+            moves += 1;
+            if (!res.moved)
+            {
+                continue;
+            }
+            var k = string(fr.tx + d[0]) + "," + string(fr.ty + d[1]);
+            if (!variable_struct_exists(visited, k))
+            {
+                variable_struct_set(visited, k, true);
+                array_push(frames, { tx: fr.tx + d[0], ty: fr.ty + d[1], di: 0 });
+            }
+            else
+            {
+                vwa_dev_shipwalk_move(tc, w, alliedSide, -d[0], -d[1], true);
+                moves += 1;
+            }
+        }
+    }
+    catch (err)
+    {
+        // try/finally is unverified under the importer: restore-and-rethrow.
+        global.vwaSpeakTap = priorTap;
+        throw err;
+    }
+    global.vwaSpeakTap = priorTap;
+    var tileKeys = variable_struct_get_names(geom.tiles);
+    var missing = 0;
+    for (var i = 0; i < array_length(tileKeys); i++)
+    {
+        if (!variable_struct_exists(visited, tileKeys[i]))
+        {
+            missing += 1;
+        }
+    }
+    vwa_test_eq(tc, "shipwalk: every hull tile visited", missing, 0);
+    vwa_test_eq(tc, "shipwalk: visited count matches the index",
+        array_length(variable_struct_get_names(visited)), geom.count);
+    vwa_test_eq(tc, "shipwalk: no section quarantined",
+        array_length(variable_struct_get_names(c.quar)), 0);
+    c.cursor = { tx: startTx, ty: startTy };
+    vwa_log("shipwalk: allied " + string(alliedSide) + " done, "
+        + string(moves) + " moves, " + string(tc.checks) + " checks, "
+        + string(array_length(tc.failures)) + " failures");
+    return { checks: tc.checks, failures: tc.failures, tiles: geom.count,
+             visited: array_length(variable_struct_get_names(visited)),
+             moves: moves };
+}
+
+// One attempted move: fresh expected resolve, the game-truth cross-checks,
+// then the real move and its speech verified. Returns the ACTUAL cursor
+// outcome so the sweep follows reality even through a failing check.
+function vwa_dev_shipwalk_move(tc, w, alliedSide, dx, dy, mustMove)
+{
+    var geom = vwa_ship_geom(alliedSide);
+    var cur = vwa_ship_cursor(alliedSide);
+    var oldTx = cur.tx;
+    var oldTy = cur.ty;
+    var fromE = vwa_ship_geom_tile(geom, oldTx, oldTy);
+    var toE = vwa_ship_geom_tile(geom, oldTx + dx, oldTy + dy);
+    var edge = undefined;
+    if (toE == undefined || fromE.cell != toE.cell)
+    {
+        edge = vwa_ship_edge_resolve(fromE, dx, dy);
+    }
+    var plan = vwa_ship_move_plan(fromE, toE, edge);
+    var tag = string(oldTx) + "," + string(oldTy)
+        + " d" + string(dx) + "," + string(dy);
+    if (plan.moved && plan.cellChanged)
+    {
+        vwa_test_ok(tc, "shipwalk: door cross agrees with connectedCellList " + tag,
+            ds_list_find_index(fromE.cell.connectedCellList, toE.cell) >= 0,
+            "target cell not door-connected");
+        vwa_test_ok(tc, "shipwalk: crossed door in doorsList " + tag,
+            ds_list_find_index(fromE.cell.doorsList, plan.door.inst) >= 0,
+            "door not in the cell's doorsList");
+    }
+    if (!plan.moved && toE != undefined && edge != undefined && edge.kind == "wall")
+    {
+        vwa_test_ok(tc, "shipwalk: walled neighbor in adjCellList " + tag,
+            ds_list_find_index(fromE.cell.adjCellList, toE.cell) >= 0,
+            "blocked neighbor not adjacent");
+    }
+    if (mustMove)
+    {
+        vwa_test_ok(tc, "shipwalk: return path passable " + tag,
+            plan.moved, string(plan.blocked));
+    }
+    w.tap = [];
+    vwa_ship_cursor_move(dx, dy);
+    var movedActual = (cur.tx != oldTx || cur.ty != oldTy);
+    vwa_test_eq(tc, "shipwalk: cursor agrees with the plan " + tag,
+        movedActual, plan.moved);
+    if (movedActual)
+    {
+        vwa_test_ok(tc, "shipwalk: cursor landed " + tag,
+            cur.tx == oldTx + dx && cur.ty == oldTy + dy,
+            string(cur.tx) + "," + string(cur.ty));
+    }
+    var expected;
+    if (plan.moved)
+    {
+        expected = vwa_speak_render(vwa_ship_move_parts(alliedSide, toE,
+            { cellChanged: plan.cellChanged, door: plan.door,
+              tx: oldTx + dx, ty: oldTy + dy }));
+    }
+    else
+    {
+        expected = vwa_speak_render([vwa_t((plan.blocked == "airlock")
+            ? "vwa--ship-airlock" : "vwa--ship-wall")]);
+    }
+    vwa_test_ok(tc, "shipwalk: one utterance " + tag,
+        array_length(w.tap) == 1, vwa_test_join(w.tap));
+    if (array_length(w.tap) == 1)
+    {
+        vwa_test_eq(tc, "shipwalk: speech " + tag, w.tap[0], expected);
+    }
+    return { moved: movedActual };
 }

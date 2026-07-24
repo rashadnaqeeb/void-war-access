@@ -93,3 +93,17 @@ vwa--ship-your,"Your ship, {name}"
 vwa--ship-enemy,"Enemy ship, {name}"
 vwa--ship-no-enemy,No enemy ship
 vwa--ship-pos,"row {r}, column {c}"
+vwa--action-ship-up,Ship cursor up
+vwa--action-ship-down,Ship cursor down
+vwa--action-ship-left,Ship cursor left
+vwa--action-ship-right,Ship cursor right
+vwa--ship-room-small,small room
+vwa--ship-room-wide,wide room
+vwa--ship-room-tall,tall room
+vwa--ship-room-large,large room
+vwa--ship-wall,wall
+vwa--ship-airlock,airlock
+vwa--ship-door-closed,closed door
+vwa--ship-door-battered,battered door
+vwa--ship-sys-damaged,"damaged, {n} of {m}"
+vwa--ship-sys-destroyed,destroyed

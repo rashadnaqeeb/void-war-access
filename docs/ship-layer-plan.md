@@ -321,6 +321,13 @@ within an encounter, and everything stateful is re-queried live.
 
 ## Tool 1: the cursor
 
+BUILT (piece 2: movement, edge rules, the section composer, and the
+minimal sections - identity, system, and the every-move position stub;
+scrVwaShipLayer's header is the authoritative spec, vwa_dev_shipwalk the
+live sweep). Piece 3 (remaining sections, visibility gating, where-am-I
+and details keys) still draws on the section model below; the movement
+part of this section is history.
+
 A tile cursor per ship. Arrows move one tile (one crew slot); the
 player always interacts with tiles, never rooms - room-to-room hopping
 does not map onto four arrows when a large room can border eight doors.
@@ -541,9 +548,10 @@ before the next starts.
    ship names and a stub position; mode suspends/resumes correctly
    around menus, popups, and jumps. (scrVwaShipLayer; verified live
    in-run.)
-2. Cursor core: movement with edge rules, minimal sections (room
-   identity, system). Deliverable: full sweep of the player ship by
-   arrows, walls block, doors pass.
+2. DONE - Cursor core: movement with edge rules, minimal sections (room
+   identity, system, plus an every-move position stub). Deliverable: full
+   sweep of the player ship by arrows, walls block, doors pass.
+   (scrVwaShipLayer; vwa_dev_shipwalk is the live sweep.)
 3. Sections complete: hazards, oxygen, occupants, console, visibility
    gating, where-am-I and details keys.
 4. Scanner: backends, snapshot, category/item/instance keys, jump and

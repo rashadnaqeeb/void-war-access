@@ -93,3 +93,17 @@ vwa--ship-your,"Votre vaisseau, {name}"
 vwa--ship-enemy,"Vaisseau ennemi, {name}"
 vwa--ship-no-enemy,Aucun vaisseau ennemi
 vwa--ship-pos,"rangée {r}, colonne {c}"
+vwa--action-ship-up,Curseur du vaisseau vers le haut
+vwa--action-ship-down,Curseur du vaisseau vers le bas
+vwa--action-ship-left,Curseur du vaisseau à gauche
+vwa--action-ship-right,Curseur du vaisseau à droite
+vwa--ship-room-small,petite salle
+vwa--ship-room-wide,salle large
+vwa--ship-room-tall,salle haute
+vwa--ship-room-large,grande salle
+vwa--ship-wall,mur
+vwa--ship-airlock,sas
+vwa--ship-door-closed,porte fermée
+vwa--ship-door-battered,porte défoncée
+vwa--ship-sys-damaged,"endommagé, {n} sur {m}"
+vwa--ship-sys-destroyed,détruit
