@@ -113,7 +113,9 @@ $errBase = ModLogErrorCount
 # --- in-game selftest: the pure modules on constructed fixtures ---
 $st = (Cmd 'call vwa_dev_selftest').result
 $sf = @($st.failures | Where-Object { $_ })
-Check "selftest: $($st.checks) checks" ($sf.Count -eq 0) "$($sf.Count) failures"
+# $st.checks -gt 0 guards the ERROR-reply case: a crashed selftest returns
+# text, .result is null, and an empty failure list would pass silently.
+Check "selftest: $($st.checks) checks" ($st.checks -gt 0 -and $sf.Count -eq 0) "$($sf.Count) failures (checks: $($st.checks))"
 foreach ($line in $sf) {
     Write-Host "       $line" -ForegroundColor Red
 }

@@ -88,7 +88,97 @@ function vwa_dev_selftest()
     vwa_test_search(tc);
     vwa_test_ship(tc);
     vwa_test_encounter(tc);
+    vwa_test_shiplayer(tc);
     return { checks: tc.checks, failures: tc.failures };
+}
+
+// The ship-layer substrate (scrVwaShipLayer): the pure geometry-index
+// builder and focus decision on fixtures, plus the mode-provider
+// suspension rule in vwa_live_categories (live globals saved/restored,
+// the gate-test pattern) and the live mode gate outside a run.
+function vwa_test_shiplayer(tc)
+{
+    // A wide cell (two tiles across the top) and a single below-left,
+    // world coords deliberately off-origin: origin normalization is under
+    // test. Slot coords are tile centers, as scrInitializeRoom lays them.
+    var g = vwa_ship_geom_build([
+        { sx: 738, sy: 306, cell: "wide", slot: 1 },
+        { sx: 774, sy: 306, cell: "wide", slot: 2 },
+        { sx: 738, sy: 342, cell: "single", slot: 1 }
+    ]);
+    vwa_test_eq(tc, "shiplayer: geom tile count", g.count, 3);
+    vwa_test_eq(tc, "shiplayer: geom dupes", g.dupes, 0);
+    vwa_test_eq(tc, "shiplayer: geom width", g.w, 2);
+    vwa_test_eq(tc, "shiplayer: geom height", g.h, 2);
+    var t = vwa_ship_geom_tile(g, 1, 0);
+    vwa_test_ok(tc, "shiplayer: tile 1,0 resolves", t != undefined, "missing");
+    if (t != undefined)
+    {
+        vwa_test_eq(tc, "shiplayer: tile 1,0 cell", t.cell, "wide");
+        vwa_test_eq(tc, "shiplayer: tile 1,0 slot", t.slot, 2);
+    }
+    vwa_test_eq(tc, "shiplayer: off-hull tile undefined",
+        vwa_ship_geom_tile(g, 1, 1), undefined);
+    vwa_test_ok(tc, "shiplayer: default tile top-left",
+        g.defaultTile.tx == 0 && g.defaultTile.ty == 0,
+        string(g.defaultTile.tx) + "," + string(g.defaultTile.ty));
+
+    // Default tile picks minimum row first, then minimum column.
+    var g2 = vwa_ship_geom_build([
+        { sx: 36, sy: 0, cell: "a", slot: 1 },
+        { sx: 0, sy: 36, cell: "b", slot: 1 }
+    ]);
+    vwa_test_ok(tc, "shiplayer: default tile row-major",
+        g2.defaultTile.tx == 1 && g2.defaultTile.ty == 0,
+        string(g2.defaultTile.tx) + "," + string(g2.defaultTile.ty));
+
+    // Duplicate tile: first record kept, dupe counted for the caller's log.
+    var g3 = vwa_ship_geom_build([
+        { sx: 0, sy: 0, cell: "a", slot: 1 },
+        { sx: 0, sy: 0, cell: "b", slot: 1 }
+    ]);
+    vwa_test_eq(tc, "shiplayer: dupe counted", g3.dupes, 1);
+    vwa_test_eq(tc, "shiplayer: dupe keeps first", vwa_ship_geom_tile(g3, 0, 0).cell, "a");
+
+    // The Tab decision.
+    var f = vwa_ship_focus_next(1, false);
+    vwa_test_eq(tc, "shiplayer: toggle blocked without enemy", f.blocked, true);
+    f = vwa_ship_focus_next(1, true);
+    vwa_test_ok(tc, "shiplayer: player to enemy", !f.blocked && f.allied == 0, string(f.allied));
+    f = vwa_ship_focus_next(0, true);
+    vwa_test_ok(tc, "shiplayer: enemy to player", !f.blocked && f.allied == 1, string(f.allied));
+    f = vwa_ship_focus_next(0, false);
+    vwa_test_ok(tc, "shiplayer: enemy to player without enemy",
+        !f.blocked && f.allied == 1, string(f.allied));
+
+    // Mode-provider suspension: a mode category is live only while the
+    // screen stack is empty. Live globals saved and restored.
+    var priorStack = global.vwaScreenStack;
+    var priorModes = global.vwaModes;
+    global.vwaScreenStack = [];
+    global.vwaModes = [{ key: "test-mode", category: "test-mode-cat",
+        isActive: function() { return true; } }];
+    var cats = vwa_live_categories();
+    vwa_test_ok(tc, "shiplayer: mode category live on empty stack",
+        vwa_array_index_of(cats, "test-mode-cat") >= 0, vwa_test_join(cats));
+    global.vwaScreenStack = [{ key: "test-screen", categories: [], exclusive: false }];
+    cats = vwa_live_categories();
+    vwa_test_ok(tc, "shiplayer: stacked screen suspends mode",
+        vwa_array_index_of(cats, "test-mode-cat") < 0, vwa_test_join(cats));
+    global.vwaScreenStack = priorStack;
+    global.vwaModes = priorModes;
+
+    // Live gate: outside a run the ship mode must be inactive and its
+    // category dead (derived live; the in-run positive case is exercised
+    // by playing, not fixtures).
+    if (!global.gameStarted)
+    {
+        vwa_test_eq(tc, "shiplayer: mode inactive outside a run",
+            vwa_ship_mode_active(), false);
+        vwa_test_ok(tc, "shiplayer: ship category dead outside a run",
+            vwa_array_index_of(vwa_live_categories(), "ship") < 0,
+            vwa_test_join(vwa_live_categories()));
+    }
 }
 
 // The game-key gate predicates (scrVwaInput): deny by default on both

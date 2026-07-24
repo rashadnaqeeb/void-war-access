@@ -40,19 +40,28 @@
 // (vwa_game_kc / vwa_game_kcp are called from patched GAME code, not from
 // mod feature code.)
 //
-// Categories are plain strings ("global", "ui", "combat", "targeting",
+// Categories are plain strings ("global", "ui", "ship", "targeting",
 // "dev"); enums are avoided because the UTMT importer compiles each code
 // entry separately and cross-entry enum visibility is not guaranteed.
 // Priority comes from vwa_live_categories(): screens on the stack contribute
-// their categories focused-first, and "global" is always live, last.
-// "targeting" is reserved; "dev" is only live while a dev/test screen
-// declares it.
+// their categories focused-first, then active MODES, then "global", always
+// live, last. "targeting" is reserved; "dev" is only live while a dev/test
+// screen declares it.
+//
+// Modes (vwa_mode_register): input context that is not a screen - the ship
+// layer (scrVwaShipLayer) is spatial and never enters the stack. A mode is
+// { key, category, isActive }; its category joins the live list only while
+// isActive() answers true AND the screen stack is empty - any stacked
+// screen (a menu, an encounter popup screen, a dev synthetic screen)
+// suspends every mode, so the open thing's own handler takes over and the
+// mode resumes when the stack clears.
 
 function vwa_input_init()
 {
     global.vwaActions = {};      // actionKey -> action struct
     global.vwaActionOrder = [];  // registration order: stable dumps, shadow tie-breaks
     global.vwaScreenStack = [];  // owned by scrVwaScreens once vwa_screens_init runs
+    global.vwaModes = [];        // mode providers (see header): {key, category, isActive}
     global.vwaChordState = {};   // string(vk) -> {vk, actionKey, downAt, lastFire} for edge + repeat
     global.vwaGameAllowBinds = {};  // game keybind names allowed through input_check*
     global.vwaGameAllowVks = {};    // raw vk codes (string keys) allowed through the patched raw sites
@@ -158,8 +167,10 @@ function vwa_chord_down(binding)
 }
 
 // Priority-ordered live category list: stack top (focused) first, each
-// screen's categories in declared order, then "global". An exclusive screen
-// (a hard modal) blocks the categories of every screen below it.
+// screen's categories in declared order, then active mode categories (only
+// while the stack is empty - see the mode paragraph in the header), then
+// "global". An exclusive screen (a hard modal) blocks the categories of
+// every screen below it.
 function vwa_live_categories()
 {
     var cats = [];
@@ -179,11 +190,30 @@ function vwa_live_categories()
             break;
         }
     }
+    if (array_length(stack) == 0)
+    {
+        for (var i = 0; i < array_length(global.vwaModes); i++)
+        {
+            var m = global.vwaModes[i];
+            if (m.isActive() && vwa_array_index_of(cats, m.category) < 0)
+            {
+                array_push(cats, m.category);
+            }
+        }
+    }
     if (vwa_array_index_of(cats, "global") < 0)
     {
         array_push(cats, "global");
     }
     return cats;
+}
+
+// Register a mode provider (see header). Modes never unregister; liveness
+// is entirely the isActive predicate.
+function vwa_mode_register(m)
+{
+    array_push(global.vwaModes, m);
+    vwa_log("input: mode registered: " + m.key + " (category " + m.category + ")");
 }
 
 function vwa_action_invoke(a)

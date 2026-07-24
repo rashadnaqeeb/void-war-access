@@ -52,7 +52,9 @@ the hard rules.
 - `script_execute_ext` on a METHOD value silently runs an unrelated script
   index - invoke method values directly.
 - Never `var` a GML builtin name (`depth`, `x`, ...) in injected code - hard
-  compile error.
+  compile error. A struct-literal FIELD named after a builtin (`room`)
+  imports fine but crashes the literal at runtime ("incorrect type
+  (undefined) expecting a Number") - rename the field.
 - Cross-entry enum visibility is not guaranteed under the UTMT importer -
   use strings.
 - `try/finally` is unverified under the importer - use restore-and-rethrow.
@@ -99,7 +101,10 @@ the hard rules.
   PURE), `scrVwaAnnounce` (announcement compose; PURE), `scrVwaSearch`
   (type-ahead matcher; PURE), `scrVwaScreens` (screen registry/stack,
   navigator, line review), `scrVwaText` (text edit layer), `scrVwaSheet`
-  (crew sheet composer), `scrVwaWidgets` (generic widget adapter, oButton
+  (crew sheet composer), `scrVwaShipLayer` (in-run ship layer substrate:
+  mode gate, per-hull state + geometry index, ship focus toggle - an input
+  MODE via scrVwaInput's mode providers, never on the screen stack),
+  `scrVwaWidgets` (generic widget adapter, oButton
   activation mirror, dropdown child screen, auto-paging), `scrVwaMenus`
   (screen registration dispatcher + generic fallback) with one
   `scrVwaMenu*` file per screen family (Main, Settings, Commander,
@@ -200,7 +205,8 @@ own Escape runs untouched). On encounter dialogues, **numbers 1-9** jump
 to that choice without activating (the game's own silent number-commit is
 patched out at build time; Enter commits). Text edit mode: **up/down** read the whole
 text, **Enter** commits the edit, **Escape** cancels it (same operation on
-fields whose text is live as typed).
+fields whose text is live as typed). On the in-run ship layer (no menu, no
+popup, not warping): **Tab** toggles which ship the tools look at.
 
 The authoritative behavior models live in the script headers: submenus and
 jump edges in scrVwaGraph, type-ahead matching in scrVwaSearch, the
@@ -208,7 +214,8 @@ type-ahead key handling and the line review in scrVwaScreens, the text edit
 model in scrVwaText, the crew sheet structure in scrVwaSheet, the widget
 adapter and auto-paging in scrVwaWidgets, the real game screens in the
 scrVwaMenu* family files (dispatcher and menuToggle registry in
-scrVwaMenus).
+scrVwaMenus), the in-run ship layer's mode and state model in
+scrVwaShipLayer.
 
 ## Hard rules (the audit command checks these)
 

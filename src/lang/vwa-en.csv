@@ -88,3 +88,8 @@ vwa--enc-no-choice,No choice {n}
 vwa--enc-requires-scrap,requires {n} {currency}
 vwa--enc-portrait,Portrait: {name}
 vwa--group-rewards,Rewards
+vwa--action-ship-focus,Toggle focused ship
+vwa--ship-your,"Your ship, {name}"
+vwa--ship-enemy,"Enemy ship, {name}"
+vwa--ship-no-enemy,No enemy ship
+vwa--ship-pos,"row {r}, column {c}"

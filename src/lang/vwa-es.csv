@@ -88,3 +88,8 @@ vwa--enc-no-choice,No hay opción {n}
 vwa--enc-requires-scrap,requiere {n} {currency}
 vwa--enc-portrait,Retrato: {name}
 vwa--group-rewards,Recompensas
+vwa--action-ship-focus,Cambiar nave enfocada
+vwa--ship-your,"Tu nave, {name}"
+vwa--ship-enemy,"Nave enemiga, {name}"
+vwa--ship-no-enemy,Ninguna nave enemiga
+vwa--ship-pos,"fila {r}, columna {c}"

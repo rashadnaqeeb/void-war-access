@@ -280,6 +280,10 @@ gameplay control, not a menu.
 
 ## The substrate: ship-layer mode and per-ship focus
 
+BUILT (piece 1): the authoritative spec is now scrVwaShipLayer's header
+(mode predicate, per-hull containers, geometry index, focus toggle) plus
+the mode-provider model in scrVwaInput's header. This section is history.
+
 Everything else sits on this, so it is built first.
 
 The ship layer is a mode, not a screen. It never enters the screen
@@ -532,10 +536,11 @@ existing three smokes still gate any framework-touching change.
 Each piece lands with its selftest fixtures and walker/smoke coverage
 before the next starts.
 
-1. Substrate: mode detection, per-hull state containers, geometry
+1. DONE - Substrate: mode detection, per-hull state containers, geometry
    index, Tab focus toggle, input category. Deliverable: Tab speaks
    ship names and a stub position; mode suspends/resumes correctly
-   around menus, popups, and jumps.
+   around menus, popups, and jumps. (scrVwaShipLayer; verified live
+   in-run.)
 2. Cursor core: movement with edge rules, minimal sections (room
    identity, system). Deliverable: full sweep of the player ship by
    arrows, walls block, doors pass.

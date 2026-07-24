@@ -1048,7 +1048,9 @@ function vwa_dev_state_json()
         + ",\"watchdogTripped\":" + (global.vwaInputWatchdogTripped ? "true" : "false")
         + ",\"ticks\":" + vwa_json_num(global.vwaInputTicks)
         + ",\"keyDelayMs\":" + vwa_json_num(global.vwaKeyDelayMs)
-        + ",\"keyRateMs\":" + vwa_json_num(global.vwaKeyRateMs);
+        + ",\"keyRateMs\":" + vwa_json_num(global.vwaKeyRateMs)
+        + ",\"shipMode\":" + (vwa_ship_mode_active() ? "true" : "false")
+        + ",\"shipFocusAllied\":" + vwa_json_num(global.vwaShipLayer.focusAllied);
 
     out += ",\"stack\":[";
     for (var i = 0; i < array_length(global.vwaScreenStack); i++)
