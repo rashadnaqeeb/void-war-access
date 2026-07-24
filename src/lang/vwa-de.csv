@@ -109,3 +109,27 @@ vwa--ship-door-closed,geschlossene Tür
 vwa--ship-door-battered,aufgebrochene Tür
 vwa--ship-sys-damaged,"beschädigt, {n} von {m}"
 vwa--ship-sys-destroyed,zerstört
+vwa--action-ship-where,Wo bin ich
+vwa--action-ship-details,Feld-Details vorlesen
+vwa--ship-unknown,Innenraum unbekannt
+vwa--ship-fire-one,Feuer
+vwa--ship-fire-many,{n} Feuer
+vwa--ship-warpfire-one,Warpfeuer
+vwa--ship-warpfire-many,{n} Warpfeuer
+vwa--ship-breach-one,Hüllenbruch
+vwa--ship-breach-many,{n} Hüllenbrüche
+vwa--ship-poisoned,vergiftet
+vwa--ship-vacuum,Vakuum
+vwa--ship-venting,Luft entweicht
+vwa--ship-oxygen,Sauerstoff {n} Prozent
+vwa--ship-crew-one,1 Crewmitglied
+vwa--ship-crew-many,{n} Crewmitglieder
+vwa--ship-hostile-one,1 Feind
+vwa--ship-hostile-many,{n} Feinde
+vwa--ship-crew-hostile,"{name}, feindlich"
+vwa--ship-fire-here,Feuer hier
+vwa--ship-warpfire-here,Warpfeuer hier
+vwa--ship-breach-here,Hüllenbruch hier
+vwa--ship-console,Konsole
+vwa--ship-manned,besetzt
+vwa--ship-selected,ausgewählt

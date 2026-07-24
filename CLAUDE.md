@@ -207,8 +207,10 @@ to that choice without activating (the game's own silent number-commit is
 patched out at build time; Enter commits). Text edit mode: **up/down** read the whole
 text, **Enter** commits the edit, **Escape** cancels it (same operation on
 fields whose text is live as typed). On the in-run ship layer (no menu, no
-popup, not warping): **Tab** toggles which ship the tools look at, and
-**arrows** move the tile cursor (walls and airlocks block, doors pass).
+popup, not warping): **Tab** toggles which ship the tools look at,
+**arrows** move the tile cursor (walls and airlocks block, doors pass),
+**C** speaks position, room, and system, **R** reads the full current
+tile.
 
 The authoritative behavior models live in the script headers: submenus and
 jump edges in scrVwaGraph, type-ahead matching in scrVwaSearch, the

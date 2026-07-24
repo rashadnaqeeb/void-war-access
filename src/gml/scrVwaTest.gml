@@ -204,33 +204,93 @@ function vwa_test_shiplayer(tc)
     // log line this writes is the sanctioned once-per-quarantine log.
     var quar = {};
     var fsecs = [
-        { name: "cellsec", read: function(hull, cell, slot, ctx)
+        { name: "cellsec", slotLevel: false, interior: false,
+          read: function(hull, cell, slot, ctx)
         {
             return ctx.cellChanged ? ["CELL"] : [];
         } },
         // The marker phrase keeps the smoke's ERROR-line diff from
         // counting this deliberate quarantine log (see ModLogErrorCount).
-        { name: "boom", read: function(hull, cell, slot, ctx)
+        { name: "boom", slotLevel: false, interior: false,
+          read: function(hull, cell, slot, ctx)
         {
             throw "injected test fault (section quarantine)";
         } },
-        { name: "slotsec", read: function(hull, cell, slot, ctx)
+        { name: "slotsec", slotLevel: true, interior: false,
+          read: function(hull, cell, slot, ctx)
         {
             return ["SLOT"];
         } }
     ];
-    var ctxT = { cellChanged: true, door: undefined, tx: 0, ty: 0 };
+    var ctxT = { cellChanged: true, door: undefined, tx: 0, ty: 0,
+                 vision: true };
     vwa_test_eq(tc, "shiplayer: composer runs past a throw",
         vwa_test_join(vwa_ship_compose_run(fsecs, quar, undefined, undefined, 1, ctxT)),
         "CELL | SLOT");
     vwa_test_ok(tc, "shiplayer: throwing section quarantined",
         variable_struct_exists(quar, "boom"), "not quarantined");
-    var ctxF = { cellChanged: false, door: undefined, tx: 0, ty: 0 };
+    var ctxF = { cellChanged: false, door: undefined, tx: 0, ty: 0,
+                 vision: true };
     vwa_test_eq(tc, "shiplayer: cell fixture dampens when cell unchanged",
         vwa_test_join(vwa_ship_compose_run(fsecs, quar, undefined, undefined, 1, ctxF)),
         "SLOT");
     vwa_test_eq(tc, "shiplayer: quarantine holds across reruns",
         array_length(variable_struct_get_names(quar)), 1);
+
+    // The visibility gate lives in the composer: with vision false every
+    // interior section is skipped and one "interior unknown" token speaks
+    // in the first one's place - only on a cell change (a dark room
+    // announces on entry, not per step); geometry sections still run at
+    // both levels.
+    var gsecs = [
+        { name: "geo-cell", slotLevel: false, interior: false,
+          read: function(hull, cell, slot, ctx)
+        {
+            return ctx.cellChanged ? ["GEOC"] : [];
+        } },
+        { name: "int-cell", slotLevel: false, interior: true,
+          read: function(hull, cell, slot, ctx)
+        {
+            return ctx.cellChanged ? ["INTC"] : [];
+        } },
+        { name: "int-slot", slotLevel: true, interior: true,
+          read: function(hull, cell, slot, ctx)
+        {
+            return ["INTS"];
+        } },
+        { name: "geo-slot", slotLevel: true, interior: false,
+          read: function(hull, cell, slot, ctx)
+        {
+            return ["GEOS"];
+        } }
+    ];
+    var gq = {};
+    vwa_test_eq(tc, "shiplayer: vision true runs every section",
+        vwa_test_join(vwa_ship_compose_run(gsecs, gq, undefined, undefined, 1,
+            { cellChanged: true, door: undefined, vision: true })),
+        "GEOC | INTC | INTS | GEOS");
+    vwa_test_eq(tc, "shiplayer: vision false speaks unknown in place",
+        vwa_test_join(vwa_ship_compose_run(gsecs, gq, undefined, undefined, 1,
+            { cellChanged: true, door: undefined, vision: false })),
+        "GEOC | " + vwa_t("vwa--ship-unknown") + " | GEOS");
+    vwa_test_eq(tc, "shiplayer: dark within-room step stays terse",
+        vwa_test_join(vwa_ship_compose_run(gsecs, gq, undefined, undefined, 1,
+            { cellChanged: false, door: undefined, vision: false })),
+        "GEOS");
+
+    // One/many count wording: silent at zero, bare token at one,
+    // templated above.
+    vwa_test_eq(tc, "shiplayer: count zero silent",
+        array_length(vwa_ship_count_parts(0,
+            "vwa--ship-fire-one", "vwa--ship-fire-many")), 0);
+    vwa_test_eq(tc, "shiplayer: count one bare token",
+        vwa_test_join(vwa_ship_count_parts(1,
+            "vwa--ship-fire-one", "vwa--ship-fire-many")),
+        vwa_t("vwa--ship-fire-one"));
+    vwa_test_eq(tc, "shiplayer: count many templated",
+        vwa_test_join(vwa_ship_count_parts(3,
+            "vwa--ship-fire-one", "vwa--ship-fire-many")),
+        vwa_sheet_t("vwa--ship-fire-many", ["n"], [3]));
 
     // Signed spoken coordinates: negatives carry the localized minus word.
     vwa_test_eq(tc, "shiplayer: positive coord plain", vwa_ship_coord_str(3), "3");
@@ -238,43 +298,49 @@ function vwa_test_shiplayer(tc)
     vwa_test_eq(tc, "shiplayer: negative coord speaks minus",
         vwa_ship_coord_str(-2), vwa_t("vwa--minus") + " 2");
 
-    // The real registry's declared granularity: with the cell unchanged,
-    // cell sections bail before touching the (dummy) cell; the position
-    // stub still speaks - center-origin x/y, y positive up, matching its
-    // own live template (tile 4,2 with origin 1,3 is x 3, y 1).
+    // The real registry: every section declares its flags, and with the
+    // cell unchanged every cell-level section bails before touching the
+    // (dummy) cell. Slot-level sections read live instances and are
+    // exercised by the live shipwalk, not fixtures.
     var dctx = { cellChanged: false, door: undefined, tx: 4, ty: 2,
-                 cx: 1, cy: 3 };
+                 cx: 1, cy: 3, vision: true };
     for (var i = 0; i < array_length(global.vwaShipSections); i++)
     {
         var sec = global.vwaShipSections[i];
-        var got = sec.read(undefined, {}, 1, dctx);
-        if (sec.name == "position")
-        {
-            vwa_test_eq(tc, "shiplayer: position section speaks every move",
-                vwa_test_join(got),
-                vwa_sheet_t("vwa--ship-pos", ["x", "y"], ["3", "1"]));
-        }
-        else
+        vwa_test_ok(tc, "shiplayer: section " + sec.name + " declares flags",
+            is_bool(sec.slotLevel) && is_bool(sec.interior), "missing flags");
+        if (!sec.slotLevel)
         {
             vwa_test_eq(tc, "shiplayer: section " + sec.name + " dampens",
-                array_length(got), 0);
+                array_length(sec.read(undefined, {}, 1, dctx)), 0);
         }
     }
-    // The negative side of the conversion through the real section: tile
-    // 0,4 with the same origin is x minus 1, y minus 1.
+    // The position stub speaks every move - center-origin x/y, y positive
+    // up, matching its own live template (tile 4,2 with origin 1,3 is
+    // x 3, y 1; tile 0,4 is x minus 1, y minus 1).
+    var posSec = vwa_ship_section_get("position");
+    vwa_test_eq(tc, "shiplayer: position section speaks every move",
+        vwa_test_join(posSec.read(undefined, {}, 1, dctx)),
+        vwa_sheet_t("vwa--ship-pos", ["x", "y"], ["3", "1"]));
     var nctx = { cellChanged: false, door: undefined, tx: 0, ty: 4,
-                 cx: 1, cy: 3 };
-    for (var i = 0; i < array_length(global.vwaShipSections); i++)
-    {
-        var sec = global.vwaShipSections[i];
-        if (sec.name == "position")
-        {
-            vwa_test_eq(tc, "shiplayer: position section negative coords",
-                vwa_test_join(sec.read(undefined, {}, 1, nctx)),
-                vwa_sheet_t("vwa--ship-pos", ["x", "y"],
-                    [vwa_t("vwa--minus") + " 1", vwa_t("vwa--minus") + " 1"]));
-        }
-    }
+                 cx: 1, cy: 3, vision: true };
+    vwa_test_eq(tc, "shiplayer: position section negative coords",
+        vwa_test_join(posSec.read(undefined, {}, 1, nctx)),
+        vwa_sheet_t("vwa--ship-pos", ["x", "y"],
+            [vwa_t("vwa--minus") + " 1", vwa_t("vwa--minus") + " 1"]));
+
+    // The where-am-I read: position, then identity, then system, through
+    // the real registry sections on a fixture cell (geometry-only, so
+    // safe outside a run; the system section bails on an empty room).
+    // Tile 2,1 with origin 1,3 is x 1, y 2.
+    var wcell = { object_index: oCellSingle, system: 0 };
+    var wctx = { cellChanged: true, door: undefined, tx: 2, ty: 1,
+                 cx: 1, cy: 3, vision: true };
+    vwa_test_eq(tc, "shiplayer: where reads position then identity",
+        vwa_test_join(vwa_ship_compose_run(vwa_ship_where_sections(), {},
+            undefined, wcell, 1, wctx)),
+        vwa_sheet_t("vwa--ship-pos", ["x", "y"], ["1", "2"]) + " | "
+            + vwa_t("vwa--ship-room-small"));
 
     // Mode-provider suspension: a mode category is live only while the
     // screen stack is empty. Live globals saved and restored.

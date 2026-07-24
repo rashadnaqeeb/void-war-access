@@ -109,3 +109,27 @@ vwa--ship-door-closed,puerta cerrada
 vwa--ship-door-battered,puerta destrozada
 vwa--ship-sys-damaged,"dañado, {n} de {m}"
 vwa--ship-sys-destroyed,destruido
+vwa--action-ship-where,Dónde estoy
+vwa--action-ship-details,Leer detalles de la casilla
+vwa--ship-unknown,interior desconocido
+vwa--ship-fire-one,fuego
+vwa--ship-fire-many,{n} fuegos
+vwa--ship-warpfire-one,fuego warp
+vwa--ship-warpfire-many,{n} fuegos warp
+vwa--ship-breach-one,brecha
+vwa--ship-breach-many,{n} brechas
+vwa--ship-poisoned,envenenada
+vwa--ship-vacuum,vacío
+vwa--ship-venting,perdiendo aire
+vwa--ship-oxygen,oxígeno {n} por ciento
+vwa--ship-crew-one,1 tripulante
+vwa--ship-crew-many,{n} tripulantes
+vwa--ship-hostile-one,1 hostil
+vwa--ship-hostile-many,{n} hostiles
+vwa--ship-crew-hostile,"{name}, hostil"
+vwa--ship-fire-here,fuego aquí
+vwa--ship-warpfire-here,fuego warp aquí
+vwa--ship-breach-here,brecha aquí
+vwa--ship-console,consola
+vwa--ship-manned,tripulada
+vwa--ship-selected,seleccionado

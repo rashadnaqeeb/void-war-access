@@ -321,17 +321,19 @@ within an encounter, and everything stateful is re-queried live.
 
 ## Tool 1: the cursor
 
-BUILT (piece 2: movement, edge rules, the section composer, and the
-minimal sections - identity, system, and the every-move position stub;
+BUILT (pieces 2-3: movement, edge rules, the section composer, the full
+section set, visibility gating, and the where-am-I / details keys;
 scrVwaShipLayer's header is the authoritative spec, vwa_dev_shipwalk the
 live sweep). Decisions settled at build: spoken coordinates are signed
 x/y from the hull's bounding-box center (x right, y UP, bare values
 with a localized minus word - "minus 4, 1"); the door-speech interim is
-every door state speaking its own short token (open/closed/battered).
-Piece 3
-(remaining sections, visibility gating, where-am-I and details keys)
-still draws on the section model below; the movement part of this
-section is history.
+every door state speaking its own short token (open/closed/battered);
+where-am-I is C and details R (letters are status keys in this mode;
+piece 6's key map decides around them); oxygen speaks only when below
+full, with vacuum/venting/poisoned state tokens; the "interior unknown"
+token speaks at cell granularity (entering a dark room, not every step
+inside it); the selection-marker section shipped here, reading
+oUICursor.currSelected live. This section is history.
 
 A tile cursor per ship. Arrows move one tile (one crew slot); the
 player always interacts with tiles, never rooms - room-to-room hopping
@@ -559,8 +561,10 @@ before the next starts.
    identity, system, plus an every-move position stub). Deliverable: full
    sweep of the player ship by arrows, walls block, doors pass.
    (scrVwaShipLayer; vwa_dev_shipwalk is the live sweep.)
-3. Sections complete: hazards, oxygen, occupants, console, visibility
-   gating, where-am-I and details keys.
+3. DONE - Sections complete: hazards, air, occupants, crew and selection
+   markers, console, visibility gating, where-am-I (C) and details (R)
+   keys. (scrVwaShipLayer; fixture gating tests in vwa_dev_selftest,
+   live coverage via vwa_dev_shipwalk.)
 4. Scanner: backends, snapshot, category/item/instance keys, jump and
    orient.
 5. Selection: pure rect module + application to `select_crew`.
