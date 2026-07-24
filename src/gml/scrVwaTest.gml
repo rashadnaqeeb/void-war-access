@@ -122,6 +122,8 @@ function vwa_test_shiplayer(tc)
     vwa_test_ok(tc, "shiplayer: default tile top-left",
         g.defaultTile.tx == 0 && g.defaultTile.ty == 0,
         string(g.defaultTile.tx) + "," + string(g.defaultTile.ty));
+    vwa_test_ok(tc, "shiplayer: 2x2 origin at the left/upper center tile",
+        g.cx == 0 && g.cy == 0, string(g.cx) + "," + string(g.cy));
 
     // Default tile picks minimum row first, then minimum column.
     var g2 = vwa_ship_geom_build([
@@ -230,10 +232,18 @@ function vwa_test_shiplayer(tc)
     vwa_test_eq(tc, "shiplayer: quarantine holds across reruns",
         array_length(variable_struct_get_names(quar)), 1);
 
+    // Signed spoken coordinates: negatives carry the localized minus word.
+    vwa_test_eq(tc, "shiplayer: positive coord plain", vwa_ship_coord_str(3), "3");
+    vwa_test_eq(tc, "shiplayer: zero coord plain", vwa_ship_coord_str(0), "0");
+    vwa_test_eq(tc, "shiplayer: negative coord speaks minus",
+        vwa_ship_coord_str(-2), vwa_t("vwa--minus") + " 2");
+
     // The real registry's declared granularity: with the cell unchanged,
     // cell sections bail before touching the (dummy) cell; the position
-    // stub still speaks, matching its own live template.
-    var dctx = { cellChanged: false, door: undefined, tx: 4, ty: 2 };
+    // stub still speaks - center-origin x/y, y positive up, matching its
+    // own live template (tile 4,2 with origin 1,3 is x 3, y 1).
+    var dctx = { cellChanged: false, door: undefined, tx: 4, ty: 2,
+                 cx: 1, cy: 3 };
     for (var i = 0; i < array_length(global.vwaShipSections); i++)
     {
         var sec = global.vwaShipSections[i];
@@ -242,12 +252,27 @@ function vwa_test_shiplayer(tc)
         {
             vwa_test_eq(tc, "shiplayer: position section speaks every move",
                 vwa_test_join(got),
-                vwa_sheet_t("vwa--ship-pos", ["r", "c"], [3, 5]));
+                vwa_sheet_t("vwa--ship-pos", ["x", "y"], ["3", "1"]));
         }
         else
         {
             vwa_test_eq(tc, "shiplayer: section " + sec.name + " dampens",
                 array_length(got), 0);
+        }
+    }
+    // The negative side of the conversion through the real section: tile
+    // 0,4 with the same origin is x minus 1, y minus 1.
+    var nctx = { cellChanged: false, door: undefined, tx: 0, ty: 4,
+                 cx: 1, cy: 3 };
+    for (var i = 0; i < array_length(global.vwaShipSections); i++)
+    {
+        var sec = global.vwaShipSections[i];
+        if (sec.name == "position")
+        {
+            vwa_test_eq(tc, "shiplayer: position section negative coords",
+                vwa_test_join(sec.read(undefined, {}, 1, nctx)),
+                vwa_sheet_t("vwa--ship-pos", ["x", "y"],
+                    [vwa_t("vwa--minus") + " 1", vwa_t("vwa--minus") + " 1"]));
         }
     }
 
@@ -1374,7 +1399,7 @@ function vwa_dev_shipwalk_move(tc, w, alliedSide, dx, dy, mustMove)
     {
         expected = vwa_speak_render(vwa_ship_move_parts(alliedSide, toE,
             { cellChanged: plan.cellChanged, door: plan.door,
-              tx: oldTx + dx, ty: oldTy + dy }));
+              tx: oldTx + dx, ty: oldTy + dy, cx: geom.cx, cy: geom.cy }));
     }
     else
     {

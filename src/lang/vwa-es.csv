@@ -92,7 +92,8 @@ vwa--action-ship-focus,Cambiar nave enfocada
 vwa--ship-your,"Tu nave, {name}"
 vwa--ship-enemy,"Nave enemiga, {name}"
 vwa--ship-no-enemy,Ninguna nave enemiga
-vwa--ship-pos,"fila {r}, columna {c}"
+vwa--ship-pos,"x {x}, y {y}"
+vwa--minus,menos
 vwa--action-ship-up,Cursor de nave arriba
 vwa--action-ship-down,Cursor de nave abajo
 vwa--action-ship-left,Cursor de nave a la izquierda

@@ -92,7 +92,8 @@ vwa--action-ship-focus,Changer de vaisseau
 vwa--ship-your,"Votre vaisseau, {name}"
 vwa--ship-enemy,"Vaisseau ennemi, {name}"
 vwa--ship-no-enemy,Aucun vaisseau ennemi
-vwa--ship-pos,"rangée {r}, colonne {c}"
+vwa--ship-pos,"x {x}, y {y}"
+vwa--minus,moins
 vwa--action-ship-up,Curseur du vaisseau vers le haut
 vwa--action-ship-down,Curseur du vaisseau vers le bas
 vwa--action-ship-left,Curseur du vaisseau à gauche

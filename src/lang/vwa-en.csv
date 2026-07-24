@@ -92,7 +92,8 @@ vwa--action-ship-focus,Toggle focused ship
 vwa--ship-your,"Your ship, {name}"
 vwa--ship-enemy,"Enemy ship, {name}"
 vwa--ship-no-enemy,No enemy ship
-vwa--ship-pos,"row {r}, column {c}"
+vwa--ship-pos,"x {x}, y {y}"
+vwa--minus,minus
 vwa--action-ship-up,Ship cursor up
 vwa--action-ship-down,Ship cursor down
 vwa--action-ship-left,Ship cursor left

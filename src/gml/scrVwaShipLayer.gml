@@ -81,10 +81,16 @@
 // (cell: the room's shape word from the oCell subclass), system (cell:
 // the overlapping oSysGroup's name, with damaged n-of-m or destroyed
 // state from currHP/maxHP; empty room contributes nothing), position
-// (slot: 1-based row/column - the every-move stub that keeps a
-// within-room move audible; piece 3's slot sections and the where-am-I
-// key revisit it). Visibility gating arrives with piece 3's interior
-// sections.
+// (slot: the every-move stub that keeps a within-room move audible;
+// piece 3's slot sections and the where-am-I key revisit it). Spoken
+// coordinates are SIGNED X/Y FROM THE HULL'S CENTER: the origin is the
+// bounding-box center tile (floor((w-1)/2), floor((h-1)/2) - for even
+// dimensions the tile just left/above true center), x positive right, y
+// positive UP (up-arrow increases y), negatives spoken with a localized
+// "minus" word (synthesizers disagree on bare hyphens). Internal tile
+// storage stays 0-based from the top-left; only vwa_ship_coord_str and
+// the position section convert. Visibility gating arrives with piece 3's
+// interior sections.
 //
 // Pure and fixture-tested in vwa_dev_selftest (vwa_test_shiplayer):
 // vwa_ship_geom_build (records -> index: origin normalization, bounds,
@@ -234,6 +240,8 @@ function vwa_ship_geom(alliedSide)
 // sits in the room. Duplicate tiles keep the first record and count in
 // .dupes (the impure caller logs). defaultTile is the top-left-most slot
 // (minimum row, then minimum column) - the cursor's first landing.
+// cx/cy is the spoken-coordinate origin: the bounding-box center tile
+// (see header; it need not be an on-hull tile on concave ships).
 function vwa_ship_geom_build(records)
 {
     var minX = records[0].sx;
@@ -277,9 +285,20 @@ function vwa_ship_geom_build(records)
     return {
         tiles: tiles, count: count, dupes: dupes,
         w: maxTx + 1, h: maxTy + 1,
+        cx: floor(maxTx / 2), cy: floor(maxTy / 2),
         defaultTile: { tx: defTx, ty: defTy },
         builtRoom: undefined
     };
+}
+
+// A signed spoken coordinate: negatives carry the localized minus word.
+function vwa_ship_coord_str(v)
+{
+    if (v < 0)
+    {
+        return vwa_t("vwa--minus") + " " + string(-v);
+    }
+    return string(v);
 }
 
 // Tile lookup: the {tx, ty, cell, slot} entry, or undefined off-hull.
@@ -457,8 +476,9 @@ function vwa_ship_sections_init()
         } },
         { name: "position", read: function(hull, cell, slot, ctx)
         {
-            return [vwa_sheet_t("vwa--ship-pos", ["r", "c"],
-                [ctx.ty + 1, ctx.tx + 1])];
+            return [vwa_sheet_t("vwa--ship-pos", ["x", "y"],
+                [vwa_ship_coord_str(ctx.tx - ctx.cx),
+                 vwa_ship_coord_str(ctx.cy - ctx.ty)])];
         } }
     ];
 }
@@ -556,7 +576,7 @@ function vwa_ship_cursor_move(dx, dy)
     cur.tx += dx;
     cur.ty += dy;
     var ctx = { cellChanged: plan.cellChanged, door: plan.door,
-                tx: cur.tx, ty: cur.ty };
+                tx: cur.tx, ty: cur.ty, cx: geom.cx, cy: geom.cy };
     vwa_speak(vwa_ship_move_parts(alliedSide, toE, ctx), true);
 }
 
@@ -617,7 +637,8 @@ function vwa_ship_announce_focus()
     var entry = vwa_ship_geom_tile(geom, cur.tx, cur.ty);
     var parts = [nameLine];
     var body = vwa_ship_move_parts(alliedSide, entry,
-        { cellChanged: true, door: undefined, tx: cur.tx, ty: cur.ty });
+        { cellChanged: true, door: undefined, tx: cur.tx, ty: cur.ty,
+          cx: geom.cx, cy: geom.cy });
     for (var i = 0; i < array_length(body); i++)
     {
         array_push(parts, body[i]);
