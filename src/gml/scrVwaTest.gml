@@ -82,12 +82,48 @@ function vwa_dev_selftest()
 {
     var tc = vwa_test_ctx();
     vwa_test_speak_render(tc);
+    vwa_test_gate(tc);
     vwa_test_graph(tc);
     vwa_test_announce(tc);
     vwa_test_search(tc);
     vwa_test_ship(tc);
     vwa_test_encounter(tc);
     return { checks: tc.checks, failures: tc.failures };
+}
+
+// The game-key gate predicates (scrVwaInput): deny by default on both
+// axes, an allowance flips exactly the named key, and the watchdog's
+// fail-open flag overrides both lists. The gate is live state, not a
+// fixture - every touched global is saved and restored.
+function vwa_test_gate(tc)
+{
+    var priorOpen = global.vwaGameKeysOpen;
+    var bindWas = variable_struct_exists(global.vwaGameAllowBinds, "vwa-test-bind");
+    var vkWas = variable_struct_exists(global.vwaGameAllowVks, "999");
+    global.vwaGameKeysOpen = false;
+    vwa_test_eq(tc, "gate: unknown bind denied", vwa_game_bind_allowed("vwa-test-bind"), false);
+    vwa_test_eq(tc, "gate: unknown vk denied", vwa_game_vk_allowed(999), false);
+    vwa_test_eq(tc, "gate: escape on the base allowance", vwa_game_vk_allowed(vk_escape), true);
+    vwa_game_allow_bind("vwa-test-bind", true);
+    vwa_test_eq(tc, "gate: allowed bind passes", vwa_game_bind_allowed("vwa-test-bind"), true);
+    vwa_game_allow_bind("vwa-test-bind", false);
+    vwa_test_eq(tc, "gate: revoked bind denied again", vwa_game_bind_allowed("vwa-test-bind"), false);
+    vwa_game_allow_vk(999, true);
+    vwa_test_eq(tc, "gate: allowed vk passes", vwa_game_vk_allowed(999), true);
+    vwa_game_allow_vk(999, false);
+    vwa_test_eq(tc, "gate: revoked vk denied again", vwa_game_vk_allowed(999), false);
+    global.vwaGameKeysOpen = true;
+    vwa_test_eq(tc, "gate: fail-open overrides bind deny", vwa_game_bind_allowed("vwa-test-bind"), true);
+    vwa_test_eq(tc, "gate: fail-open overrides vk deny", vwa_game_vk_allowed(999), true);
+    global.vwaGameKeysOpen = priorOpen;
+    if (bindWas)
+    {
+        vwa_game_allow_bind("vwa-test-bind", true);
+    }
+    if (vkWas)
+    {
+        vwa_game_allow_vk(999, true);
+    }
 }
 
 // The encounter body splitter (scrVwaMenuEncounter's pure piece): one

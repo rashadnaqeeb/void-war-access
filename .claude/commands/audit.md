@@ -68,15 +68,16 @@ is invisible to the user, so correctness findings outrank style findings.
 - Every guarded failure path logs via `vwa_log`. Early returns on
   expected-absent values (no focused screen, no node) are control flow,
   not failures. The ONLY sanctioned swallow-and-log spots: the dev pump
-  watchdog, the input tick watchdog (which must clear
-  `global.vwaSuppressGameKeys`), the screen-callback quarantine in
+  watchdog, the input tick watchdog (which must fail the game-key gate
+  open via `global.vwaGameKeysOpen`), the screen-callback quarantine in
   `vwa_screens_tick` (once-per-activation via faultLogged), the
   part-resolve guard in scrVwaAnnounce, and `vwa_shim_init`'s
   log-only-speech degrade. A NEW try/catch anywhere else is a finding.
-- The suppression flag must be un-settable by any error path: verify the
-  watchdog still clears it and nothing else sets it without a restore
-  path (including on throw - try/finally is unverified under UTMT, use
-  restore-and-rethrow).
+- The game-key gate must fail OPEN, never closed: verify the watchdog
+  still sets `global.vwaGameKeysOpen`, the gate predicates answer true
+  before `vwa_input_init`, and no error path can leave a gate allowance
+  or denial mutated without a restore path (including on throw -
+  try/finally is unverified under UTMT, use restore-and-rethrow).
 
 **Never strand the user:**
 - Shim: Prism -> SAPI fallback intact; no DLL still writes the speech

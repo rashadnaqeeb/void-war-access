@@ -315,7 +315,7 @@ function vwa_screens_tick()
 
 // The focused screen's postDispatch hook (see the header). Called from
 // vwa_input_tick after the action dispatch; errors land in the tick's own
-// watchdog (which clears suppression and logs loudly).
+// watchdog (which fails the game-key gate open and logs loudly).
 function vwa_screens_post_dispatch()
 {
     var scr = global.vwaFocusedScreen;

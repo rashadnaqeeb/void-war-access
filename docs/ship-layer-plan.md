@@ -84,14 +84,13 @@ how order queueing under command mode works. Selection truth is
 `deselect_all_crew()`, eligibility allied and not friendly-AI.
 
 The game's own ship-layer keyboard is extensive - the full verified
-inventory is its own section below. We expect to overwrite every one of
-these defaults: status and tool keys will want most of the keyboard.
-Game functions we still need come back rebound - a mod action on a key
-of our choosing that calls the game's own built-in function (the same
-code path the original binding ran), never a reimplementation. Which
-functions earn a key, and where each lands, is a build-time decision
-per key, made when we see what each binding does live (open decision
-below).
+inventory is its own section below. The input layer's default-deny
+game-key gate (scrVwaInput) has every one of these defaults off; the
+inventory documents what each binding did, so the functions worth
+keeping can come back rebound - a mod action on a key of our choosing
+that calls the game's own built-in function (the same code path the
+original binding ran), never a reimplementation and never a gate
+allowance.
 
 ## Game key inventory (verified against the decompile)
 
@@ -293,14 +292,11 @@ the mode suspends and the open thing's own handler (existing framework)
 takes over; the mode resumes when the screen clears.
 
 Input: a new action category in the input layer, live only while the
-mode is active. Unlike mod screens, the ship layer does NOT suppress
-game keys wholesale at the input-layer level, but the working
-assumption is that we consume essentially the whole keyboard anyway:
-status and tool keys need that many bindings, so every game default is
-expected to be overwritten, with the game functions we still want
-re-exposed on mod-chosen keys via the game's own built-ins. Letters do
-NOT run type-ahead here - in this mode they are status and command
-keys.
+mode is active. The game-key gate keeps the game's own keyboard off;
+game functions the layer keeps come back as mod actions calling the
+game's own built-ins, and Escape remains the only gate pass-through.
+Letters do NOT run type-ahead here - in this mode they are status and
+command keys.
 
 Focus: Tab toggles which ship the tools look at (overwriting the game's
 map toggle; the map gets its own screen support later and the jump
@@ -483,12 +479,10 @@ Because arrival behavior is automatic, ordering reduces to:
   game's own operational guard (door control powered, or allied crew
   nearby for manual operation), with the guard's failure spoken.
 - Everything else (all-doors, stations, power keys, control groups)
-  stays the game's own function underneath, but not the game's own key:
-  the mode expects to overwrite the whole default keyboard, so each
-  function we keep is rebound - a mod action on a mod-chosen key that
-  calls the same built-in the original binding ran, documented in the
-  help layer. Which functions earn a key is a per-function decision at
-  build time.
+  stays the game's own function underneath, rebound as a mod action on
+  a mod-chosen key that calls the same built-in the original binding
+  ran, documented in the help layer. Which functions earn a key is a
+  per-function decision at build time.
 
 All order paths mirror the game's guard order and produce spoken
 feedback through the chokepoint (what was ordered, or why it refused).
@@ -557,13 +551,10 @@ before the next starts.
 
 ## Open decisions
 
-- Key map: the working assumption is that every default game binding
-  gets overwritten (status keys need the keyboard); the open question
-  per function is whether it earns a rebound key and where (notably
-  return-to-stations, currently Enter, vs our send/activate key).
-  Decided per key during pieces 1 and 6, once each binding's behavior
-  is seen live. The full default inventory to decide over is the key
-  inventory section above.
+- Key map: which game functions earn a rebound key and where each
+  lands (notably return-to-stations, formerly Enter, vs our
+  send/activate key). Decided per key during pieces 1 and 6; the full
+  inventory to decide over is the key inventory section above.
 - Status review shape: how the general status surfaces (their own
   section above) get spoken - dedicated keys per status family, a
   single review ring cycled with one key pair, or a status screen on

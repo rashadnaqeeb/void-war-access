@@ -1,7 +1,7 @@
 # input-smoke.ps1 - end-to-end regression check for the input layer (session 3).
 #
 # Exercises /state, POST /input, category liveness, shadowing resolution,
-# game-key suppression through the patched input_check, and the tick
+# the game-key gate through the patched input_check, and the tick
 # watchdog, against a live game at the main menu. Assumes a launcher
 # (run-game.ps1) is already up; drives over HTTP only. Exits nonzero on the
 # first failed check's summary.
@@ -127,31 +127,36 @@ Check 'uncovering restores ui' (
 $r = Fire 'dev-shout-ui'
 Check 'ui action fires again' ($r -eq 'fired dev-shout-ui') $r
 
-# --- suppression: the game's own input_check goes quiet, then comes back ---
-# One-frame probe: rebinds open_doors to vk_nokey (held whenever no key is
-# down) and reads the game's input_check with the flag on, then off; every
-# touched state is restored. The probe self-heals stale runner key state
-# (io_clear when keyboard_check_direct disagrees), so a lasting live=false
-# with kbDirect=true means a human is really holding a key - worth
-# outwaiting.
-$r = Cmd 'call vwa_dev_suppression_probe open_doors'
-Check 'game key suppressed' ($r.result.suppressed -eq $false) ($r | ConvertTo-Json -Compress)
-foreach ($attempt in 1..12) {
-    if ($r.result.live -eq $true) { break }
-    Write-Host "  ...  live=false, kbKey $($r.result.kbKey) direct=$($r.result.kbDirect) (someone holding a key?); retrying"
-    Start-Sleep -Seconds 5
-    $r = Cmd 'call vwa_dev_suppression_probe open_doors'
-}
-Check 'game key live again' ($r.result.live -eq $true) ($r | ConvertTo-Json -Compress)
+# --- game-key gate: denied by default, an allowance brings the key back ---
+$s = GetState
+Check 'gate not failed open' ($s.gameKeysOpen -eq $false) $s.gameKeysOpen
+Check 'escape on the base vk allowances' (@($s.gameAllowVks) -contains 27) (@($s.gameAllowVks) -join ',')
+Check 'no game binds allowed by default' (@($s.gameAllowBinds).Count -eq 0) (@($s.gameAllowBinds) -join ',')
 
-# --- watchdog: a tick fault must clear suppression, not kill the keyboard ---
-Cmd 'set global.vwaSuppressGameKeys true' | Out-Null
+# One-frame probe: rebinds open_doors to vk_nokey (held whenever no key is
+# down) and reads the game's input_check with no allowance, then with one;
+# every touched state is restored. The probe self-heals stale runner key
+# state (io_clear when keyboard_check_direct disagrees), so a lasting
+# allowedRead=false with kbDirect=true means a human is really holding a
+# key - worth outwaiting.
+$r = Cmd 'call vwa_dev_gate_probe open_doors'
+Check 'game key dead while denied' ($r.result.deniedRead -eq $false) ($r | ConvertTo-Json -Compress)
+foreach ($attempt in 1..12) {
+    if ($r.result.allowedRead -eq $true) { break }
+    Write-Host "  ...  allowedRead=false, kbKey $($r.result.kbKey) direct=$($r.result.kbDirect) (someone holding a key?); retrying"
+    Start-Sleep -Seconds 5
+    $r = Cmd 'call vwa_dev_gate_probe open_doors'
+}
+Check 'game key live when allowed' ($r.result.allowedRead -eq $true) ($r | ConvertTo-Json -Compress)
+
+# --- watchdog: a tick fault must fail the gate open, not kill the keyboard ---
 Cmd 'call vwa_dev_arm_input_fault' | Out-Null
 Start-Sleep -Milliseconds 100  # give the tick a frame to trip
-$g = Cmd 'get global.vwaSuppressGameKeys'
-Check 'watchdog cleared suppression' ($g -eq $false) $g
+$g = Cmd 'get global.vwaGameKeysOpen'
+Check 'watchdog failed the gate open' ($g -eq $true) $g
 $s = GetState
 Check 'watchdog trip reported' ($s.watchdogTripped -eq $true) $s.watchdogTripped
+Cmd 'set global.vwaGameKeysOpen false' | Out-Null
 Cmd 'set global.vwaInputWatchdogTripped false' | Out-Null
 $s = GetState
 Check 'ticks still running after watchdog' ($s.ticks -gt $s2.ticks) "$($s2.ticks) -> $($s.ticks)"

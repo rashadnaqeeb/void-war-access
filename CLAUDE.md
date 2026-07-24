@@ -29,9 +29,12 @@ the hard rules.
   `global.menuToggle` names the open menu (verified value list in
   scrVwaMenus' header). Widget labels are plain instance variables; ad-hoc
   screens (main menu) expose label/callback structs; all gameplay key reads
-  flow through `input_check*` in `scrKeybinds` (build-mod patches those to
-  honor `global.vwaSuppressGameKeys`, with a post-import decompile assert -
-  a find-replace no-match no-ops silently).
+  flow through `input_check*` in `scrKeybinds`. The mod's game-key gate is
+  DEFAULT-DENY: build-mod patches those wrappers, and the verified
+  player-facing raw `keyboard_check*` sites, to pass only keys on the mod's
+  explicit allowlists (model and API in scrVwaInput's header; the raw-site
+  list in build-mod.csx), every patch with a post-import decompile assert -
+  a find-replace no-match no-ops silently.
 - **Game text is markup-free** (bracket tokens are pre-substitution
   placeholders) and **tooltips are flat strings** (draw_label panels; no
   links or nesting), so speech needs no stripper and no drill-in reader.
@@ -212,8 +215,9 @@ scrVwaMenus).
 - **No silent failures.** Every guarded failure path logs. Prefer
   let-it-crash over defensive guards where a value isn't expected to be
   missing. Sanctioned swallow-and-log spots ONLY: the dev pump watchdog; the
-  input tick watchdog (which clears `global.vwaSuppressGameKeys` so a mod
-  bug can never leave the game's keyboard dead); the screen-callback
+  input tick watchdog (which fails the game-key gate open via
+  `global.vwaGameKeysOpen` so a mod bug can never leave the game's keyboard
+  dead); the screen-callback
   quarantine in `vwa_screens_tick` (logs once per activation, screen goes
   inert); the part-resolve guard in scrVwaAnnounce (logs, speaks "error");
   `vwa_shim_init`'s log-only degrade when the DLL is absent.

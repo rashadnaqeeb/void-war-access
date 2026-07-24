@@ -55,13 +55,97 @@ group.QueueAppend("gml_Object_oInputManager_Step_1",
 group.QueueAppend("gml_Object_oGlobal_Other_3",
     File.ReadAllText(Path.Combine(gmlDir, "oGlobal_Other_3.append.gml")));
 
-// Suppression lever: the game's three keyboard input_check* wrappers gain
-// our flag alongside the game's own textFieldInputEnabled gate. The search
-// string appears exactly three times in scrKeybinds, once per keyboard
-// wrapper (the mouse wrappers don't carry the textField gate).
+// Game-key gate, registry axis: the game's three keyboard input_check*
+// wrappers consult the mod's default-deny allowlist (scrVwaInput's
+// vwa_game_bind_allowed, which fails open before mod init and under the
+// tick watchdog) alongside the game's own textFieldInputEnabled gate. The
+// search string appears exactly three times in scrKeybinds, once per
+// keyboard wrapper (the mouse wrappers don't carry the textField gate).
 group.QueueFindReplace("gml_GlobalScript_scrKeybinds",
     "global.textFieldInputEnabled ||",
-    "global.textFieldInputEnabled || global.vwaSuppressGameKeys ||");
+    "global.textFieldInputEnabled || !vwa_game_bind_allowed(arg0) ||");
+
+// Game-key gate, raw axis: the verified player-facing raw keyboard reads
+// in game code - the sites that can act on a key press alone, outside the
+// input_check* registry - are routed through scrVwaInput's gated wrappers
+// (vwa_game_kcp / vwa_game_kc). Derived from a full decompile sweep
+// (session 13); re-derive after a game update. Left alone by design:
+// text-field objects (typing must always work), the keybind-capture
+// object (oKeybindSetter), reads behind enableDebugKeys / enableDevMode /
+// drawDebugF*, modifier-only reads (their main key is already gated), and
+// oPopupGroup's number-key reads (the commit shortcut's caller is removed
+// by the Step replacement below; the held-number highlight only acts with
+// the mouse). Entries needing several replacements get ONE queued replace
+// built here (stacked QueueFindReplace on one entry is unverified); each
+// site must match exactly once pre-import, and every patched entry is
+// re-decompiled post-import to prove the gate survived the recompile.
+var rawGates = new (string Entry, string Find, string Replace)[]
+{
+    // The Escape family: menu/screen close-or-back, popup cancel, and the
+    // in-run pause menu (oPopupManager). Escape sits on the gate's base
+    // allowance, so behavior is unchanged until a context revokes it.
+    ("gml_Object_oCredits_Create_0", "keyboard_check_pressed(vk_escape)", "vwa_game_kcp(vk_escape)"),
+    ("gml_Object_oGameStartMessage_Draw_64", "keyboard_check_pressed(vk_escape)", "vwa_game_kcp(vk_escape)"),
+    ("gml_Object_oMainMenuControls_Step_0", "keyboard_check_pressed(vk_escape)", "vwa_game_kcp(vk_escape)"),
+    ("gml_Object_oMenuButtonBack_Create_0", "keyboard_check_pressed(vk_escape)", "vwa_game_kcp(vk_escape)"),
+    ("gml_Object_oMenuCommander_Step_0", "keyboard_check_pressed(vk_escape)", "vwa_game_kcp(vk_escape)"),
+    ("gml_Object_oMenuConfigureKeybinds_Step_0", "keyboard_check_pressed(vk_escape)", "vwa_game_kcp(vk_escape)"),
+    ("gml_Object_oMenuLanguage_Draw_0", "keyboard_check_pressed(vk_escape)", "vwa_game_kcp(vk_escape)"),
+    ("gml_Object_oMenuLanguage_Step_0", "keyboard_check_pressed(vk_escape)", "vwa_game_kcp(vk_escape)"),
+    ("gml_Object_oMenuPause_Step_0", "keyboard_check_pressed(vk_escape)", "vwa_game_kcp(vk_escape)"),
+    ("gml_Object_oMenuSettings_Draw_64", "keyboard_check_pressed(vk_escape)", "vwa_game_kcp(vk_escape)"),
+    ("gml_Object_oPopupManager_Create_0", "keyboard_check_pressed(vk_escape)", "vwa_game_kcp(vk_escape)"),
+    ("gml_Object_oShipListMenu_Step_0", "keyboard_check_pressed(vk_escape)", "vwa_game_kcp(vk_escape)"),
+    ("gml_Object_oShipMenu_shipSelector_Step_1", "keyboard_check_pressed(vk_escape)", "vwa_game_kcp(vk_escape)"),
+    ("gml_Object_oTxtItemSlotToUnequip_Create_0", "keyboard_check_pressed(vk_escape)", "vwa_game_kcp(vk_escape)"),
+    ("gml_Object_oTxtSpellForget_Create_0", "keyboard_check_pressed(vk_escape)", "vwa_game_kcp(vk_escape)"),
+    ("gml_Object_oUICommanderList_Step_0", "keyboard_check_pressed(vk_escape)", "vwa_game_kcp(vk_escape)"),
+    ("gml_Object_oUIMenu_Step_2", "keyboard_check_pressed(vk_escape)", "vwa_game_kcp(vk_escape)"),
+    ("gml_Object_oWMGalaxyGen_Step_0", "keyboard_check_pressed(vk_escape)", "vwa_game_kcp(vk_escape)"),
+    // The confirmation dialogue reads Escape as a held check.
+    ("gml_Object_oUIConfirmationDialogue_Step_0", "keyboard_check(vk_escape)", "vwa_game_kc(vk_escape)"),
+    // The upgrade menu's Escape-undo.
+    ("gml_GlobalScript_scrMenu", "keyboard_check_pressed(vk_escape)", "vwa_game_kcp(vk_escape)"),
+    // Start-message keyboard scroll (mouse wheel scroll stays).
+    ("gml_Object_oGameStartMessage_Draw_64", "keyboard_check(vk_down)", "vwa_game_kc(vk_down)"),
+    ("gml_Object_oGameStartMessage_Draw_64", "keyboard_check(vk_up)", "vwa_game_kc(vk_up)"),
+    // Music mute (right Shift+M; the Shift read is a modifier and stays raw).
+    ("gml_Object_oMusicControls_Draw_0", "keyboard_check_pressed(ord(\"M\"))", "vwa_game_kcp(ord(\"M\"))"),
+    // Ship-select hull cycling arrows (the mod's ship-select screen owns
+    // the arrows; its postDispatch consume becomes belt-and-braces).
+    ("gml_Object_oShipMenu_shipSelector_Create_0", "keyboard_check_pressed(vk_left)", "vwa_game_kcp(vk_left)"),
+    ("gml_Object_oShipMenu_shipSelector_Create_0", "keyboard_check_pressed(vk_right)", "vwa_game_kcp(vk_right)"),
+};
+
+string DecompileEntry(string entryName)
+{
+    var entryCode = Data.Code.ByName(entryName);
+    if (entryCode == null)
+        throw new Exception(entryName + " not found");
+    return new Underanalyzer.Decompiler.DecompileContext(
+        new GlobalDecompileContext(Data), entryCode, Data.ToolInfo.DecompilerSettings).DecompileToString();
+}
+
+int CountOccurrences(string text, string needle)
+{
+    int n = 0;
+    for (int at = text.IndexOf(needle); at >= 0; at = text.IndexOf(needle, at + 1))
+        n++;
+    return n;
+}
+
+foreach (var siteGroup in rawGates.GroupBy(g => g.Entry))
+{
+    string entryText = DecompileEntry(siteGroup.Key);
+    foreach (var site in siteGroup)
+    {
+        int hits = CountOccurrences(entryText, site.Find);
+        if (hits != 1)
+            throw new Exception($"{siteGroup.Key}: expected exactly 1 occurrence of '{site.Find}', found {hits} - game update reshaped the entry?");
+        entryText = entryText.Replace(site.Find, site.Replace);
+    }
+    group.QueueReplace(siteGroup.Key, entryText);
+}
 
 // Dialogue popups: replace oPopupGroup's Begin Step to drop the game's raw
 // number-key shortcut, which EXECUTES a choice - silent to a blind player.
@@ -73,20 +157,31 @@ group.QueueReplace("gml_Object_oPopupGroup_Step_1",
 
 group.Import();
 
-// The suppression FindReplace must actually have landed: QueueFindReplace
+// The registry-axis FindReplace must actually have landed: QueueFindReplace
 // no-ops silently on no match (e.g. after a game update reshapes
-// scrKeybinds), which would ship an input_check that ignores the flag.
-var kbCode = Data.Code.ByName("gml_GlobalScript_scrKeybinds");
-if (kbCode == null)
-    throw new Exception("gml_GlobalScript_scrKeybinds not found");
-string kbText = new Underanalyzer.Decompiler.DecompileContext(
-    new GlobalDecompileContext(Data), kbCode, Data.ToolInfo.DecompilerSettings).DecompileToString();
-int kbHits = 0;
-for (int at = kbText.IndexOf("global.vwaSuppressGameKeys"); at >= 0;
-     at = kbText.IndexOf("global.vwaSuppressGameKeys", at + 1))
-    kbHits++;
+// scrKeybinds), which would ship an input_check that ignores the gate.
+string kbText = DecompileEntry("gml_GlobalScript_scrKeybinds");
+int kbHits = CountOccurrences(kbText, "vwa_game_bind_allowed");
 if (kbHits != 3)
-    throw new Exception($"scrKeybinds suppression patch: expected 3 occurrences of the flag, found {kbHits}");
+    throw new Exception($"scrKeybinds gate patch: expected 3 occurrences of vwa_game_bind_allowed, found {kbHits}");
+
+// Every raw-axis gate must have survived the recompile. The re-decompile
+// renders vk constants numerically inside calls to the mod's wrappers
+// (vk_escape becomes 27 - the decompiler only names constants for
+// functions it knows), so assert on the wrapper-call count plus the
+// absence of the original ungated read, not on the exact replace text.
+foreach (var siteGroup in rawGates.GroupBy(g => g.Entry))
+{
+    string entryText = DecompileEntry(siteGroup.Key);
+    int gateCalls = CountOccurrences(entryText, "vwa_game_k");
+    if (gateCalls != siteGroup.Count())
+        throw new Exception($"{siteGroup.Key}: expected {siteGroup.Count()} gated raw reads after import, found {gateCalls}");
+    foreach (var site in siteGroup)
+    {
+        if (entryText.Contains(site.Find))
+            throw new Exception($"{siteGroup.Key}: ungated read '{site.Find}' still present after import");
+    }
+}
 
 // The popup Step replacement must have landed on the real entry (a game
 // update renaming or reshaping it would silently leave the number-commit

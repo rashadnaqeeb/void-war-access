@@ -1,12 +1,44 @@
 // scrVwaInput - Void War Access input layer: action registry, category
 // live-set resolution with focus-first shadowing, typematic key repeat, and
-// the suppression flag the game's own key reads honor (build-mod patches
-// scrKeybinds' input_check* to return false while
-// global.vwaSuppressGameKeys is true).
+// the game-key gate: every keyboard read the GAME makes is denied by
+// default and passes only by explicit mod allowance (session 13 flip; the
+// old on-demand suppression flag is gone).
 // Imported by tools/build-mod.csx as a new global script. Ships in release.
+//
+// The game-key gate model:
+// - Two allowlists, independent axes. global.vwaGameAllowBinds holds game
+//   keybind NAMES: build-mod patches scrKeybinds' three keyboard
+//   input_check* wrappers to consult vwa_game_bind_allowed(bindName), so
+//   the game's whole rebindable vocabulary is deny-by-default.
+//   global.vwaGameAllowVks holds raw vk codes: build-mod routes the
+//   verified player-facing raw keyboard_check* sites in game code (the
+//   reads that can act on a key press alone - the Escape family, the ship
+//   selector arrows, the start-message scroll, the music mute) through
+//   vwa_game_kc / vwa_game_kcp, which consult vwa_game_vk_allowed(vk).
+//   The site list and per-site asserts live in build-mod.csx; re-derive
+//   the list from the decompile after any game update.
+// - Feature code grants and revokes through vwa_game_allow_bind /
+//   vwa_game_allow_vk; every toggle logs. Base allowance, seeded at init:
+//   vk_escape only - the game's own Escape handling is the sanctioned
+//   fallback wherever the mod does not act (mod screens consume Escape
+//   when they do act). Everything else waits for an explicit allowance
+//   from the context that wants it.
+// - Fail open, never closed: before vwa_input_init the predicates answer
+//   true (a failed boot patch must leave the game playable), and the tick
+//   watchdog sets global.vwaGameKeysOpen on a crash, overriding both
+//   lists until cleared by hand (sticky: a flapping fault must not
+//   flicker the keyboard; /state reports it). A mod bug can never leave
+//   the game's keyboard dead.
+// - Raw sites left ungated, by design: text-field objects (typing must
+//   always work; scrVwaText manages them), the keybind-capture object
+//   (oKeybindSetter), reads behind enableDebugKeys / enableDevMode /
+//   drawDebugF*, and modifier-only reads (Shift/Ctrl/Alt flavoring an
+//   action whose main key is already gated).
 //
 // This script is the ONE sanctioned home of raw keyboard_check* calls in mod
 // code: feature code registers actions and never reads keys itself.
+// (vwa_game_kc / vwa_game_kcp are called from patched GAME code, not from
+// mod feature code.)
 //
 // Categories are plain strings ("global", "ui", "combat", "targeting",
 // "dev"); enums are avoided because the UTMT importer compiles each code
@@ -22,7 +54,9 @@ function vwa_input_init()
     global.vwaActionOrder = [];  // registration order: stable dumps, shadow tie-breaks
     global.vwaScreenStack = [];  // owned by scrVwaScreens once vwa_screens_init runs
     global.vwaChordState = {};   // string(vk) -> {vk, actionKey, downAt, lastFire} for edge + repeat
-    global.vwaSuppressGameKeys = false;
+    global.vwaGameAllowBinds = {};  // game keybind names allowed through input_check*
+    global.vwaGameAllowVks = {};    // raw vk codes (string keys) allowed through the patched raw sites
+    global.vwaGameKeysOpen = false; // watchdog fail-open: overrides both allowlists
     global.vwaInputFault = false;           // armed by the dev driver to test the watchdog
     global.vwaInputWatchdogTripped = false; // sticky until cleared; /state reports it
     global.vwaInputTicks = 0;
@@ -35,6 +69,10 @@ function vwa_input_init()
         global.vwaKeyDelayMs = external_call(global.vwaShim.keyDelay);
         global.vwaKeyRateMs = external_call(global.vwaShim.keyRate);
     }
+
+    // Base gate allowance: the game's Escape handling is the sanctioned
+    // fallback wherever the mod does not act (see header).
+    vwa_game_allow_vk(vk_escape, true);
 
     vwa_register_global_actions();
     vwa_log("input: layer initialized (repeat delay " + string(global.vwaKeyDelayMs)
@@ -181,7 +219,7 @@ function vwa_input_fire(actionKey)
 // Once per frame from oInputManager Begin Step, before the game's own
 // Step-event key reads. The watchdog is a sanctioned swallow-and-log spot:
 // a mod bug must never leave the game's keyboard dead, so any error here
-// clears the suppression flag and logs loudly.
+// fails the game-key gate open and logs loudly.
 function vwa_input_tick()
 {
     global.vwaInputTicks += 1;
@@ -235,11 +273,72 @@ function vwa_input_tick()
     }
     catch (err)
     {
-        global.vwaSuppressGameKeys = false;
+        global.vwaGameKeysOpen = true;
         global.vwaInputWatchdogTripped = true;
-        vwa_log("ERROR: input tick crashed; suppression cleared, game keys live again: "
+        vwa_log("ERROR: input tick crashed; game-key gate failed open, every game key live: "
             + string(err));
     }
+}
+
+// ---- game-key gate (see header for the model) ----
+
+// Called from the patched input_check* wrappers in scrKeybinds, so it runs
+// on every game key poll: fail open before init and under the watchdog,
+// otherwise allow only listed bind names.
+function vwa_game_bind_allowed(bindName)
+{
+    if (!variable_global_exists("vwaGameAllowBinds") || global.vwaGameKeysOpen)
+    {
+        return true;
+    }
+    return variable_struct_exists(global.vwaGameAllowBinds, bindName);
+}
+
+function vwa_game_vk_allowed(vk)
+{
+    if (!variable_global_exists("vwaGameAllowVks") || global.vwaGameKeysOpen)
+    {
+        return true;
+    }
+    return variable_struct_exists(global.vwaGameAllowVks, string(vk));
+}
+
+// The patched raw sites in game code call these in place of
+// keyboard_check / keyboard_check_pressed (site list in build-mod.csx).
+function vwa_game_kc(vk)
+{
+    return vwa_game_vk_allowed(vk) && keyboard_check(vk);
+}
+
+function vwa_game_kcp(vk)
+{
+    return vwa_game_vk_allowed(vk) && keyboard_check_pressed(vk);
+}
+
+function vwa_game_allow_bind(bindName, on)
+{
+    if (on)
+    {
+        variable_struct_set(global.vwaGameAllowBinds, bindName, true);
+    }
+    else
+    {
+        variable_struct_remove(global.vwaGameAllowBinds, bindName);
+    }
+    vwa_log("input: game bind " + string(bindName) + (on ? " allowed" : " denied"));
+}
+
+function vwa_game_allow_vk(vk, on)
+{
+    if (on)
+    {
+        variable_struct_set(global.vwaGameAllowVks, string(vk), true);
+    }
+    else
+    {
+        variable_struct_remove(global.vwaGameAllowVks, string(vk));
+    }
+    vwa_log("input: game key vk " + string(vk) + (on ? " allowed" : " denied"));
 }
 
 // The background keepalive (the shim's WndProc subclass) swallows the

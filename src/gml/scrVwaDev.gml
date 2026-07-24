@@ -1016,13 +1016,34 @@ function vwa_dev_gui_raw(objName)
 
 // ---- input layer introspection (session 3) ----
 
-// GET /state: suppression, screen stack, live categories, every registered
-// action, and per-chord shadowing resolution. labelKey is reported raw (not
-// localized) so dev test actions need no CSV rows.
+// GET /state: the game-key gate, screen stack, live categories, every
+// registered action, and per-chord shadowing resolution. labelKey is
+// reported raw (not localized) so dev test actions need no CSV rows.
 function vwa_dev_state_json()
 {
     var live = vwa_live_categories();
-    var out = "{\"suppressGameKeys\":" + (global.vwaSuppressGameKeys ? "true" : "false")
+    var out = "{\"gameKeysOpen\":" + (global.vwaGameKeysOpen ? "true" : "false");
+    var vks = variable_struct_get_names(global.vwaGameAllowVks);
+    out += ",\"gameAllowVks\":[";
+    for (var i = 0; i < array_length(vks); i++)
+    {
+        if (i > 0)
+        {
+            out += ",";
+        }
+        out += vks[i];
+    }
+    var binds = variable_struct_get_names(global.vwaGameAllowBinds);
+    out += "],\"gameAllowBinds\":[";
+    for (var i = 0; i < array_length(binds); i++)
+    {
+        if (i > 0)
+        {
+            out += ",";
+        }
+        out += vwa_json_str(binds[i]);
+    }
+    out += "]"
         + ",\"textFieldInput\":" + (global.textFieldInputEnabled ? "true" : "false")
         + ",\"watchdogTripped\":" + (global.vwaInputWatchdogTripped ? "true" : "false")
         + ",\"ticks\":" + vwa_json_num(global.vwaInputTicks)
@@ -1249,45 +1270,50 @@ function vwa_dev_register_test_actions()
     return "test actions registered";
 }
 
-// Arm a one-shot fault inside vwa_input_tick to prove the watchdog clears
-// the suppression flag (the keys-come-back guarantee).
+// Arm a one-shot fault inside vwa_input_tick to prove the watchdog fails
+// the game-key gate open (the keys-come-back guarantee).
 function vwa_dev_arm_input_fault()
 {
     global.vwaInputFault = true;
     return "fault armed";
 }
 
-// Prove the suppression lever against the game's real input_check, all in
-// one frame with every touched state restored. keyboard_key_press cannot
-// provide the key-down signal (bit us: simulated keys never reach
-// keyboard_check in this runner, even same-frame), so the bind is swapped
-// to vk_nokey (0), which keyboard_check reports as held whenever NO key is
-// down - always true on an unattended machine.
-function vwa_dev_suppression_probe(bindName)
+// Prove the game-key gate against the game's real input_check, all in one
+// frame with every touched state restored: read with NO allowance (the
+// deny default - deniedRead must come back false), grant the allowance,
+// read again (allowedRead must come back true), then restore.
+// keyboard_key_press cannot provide the key-down signal (bit us: simulated
+// keys never reach keyboard_check in this runner, even same-frame), so the
+// bind is swapped to vk_nokey (0), which keyboard_check reports as held
+// whenever NO key is down - always true on an unattended machine.
+function vwa_dev_gate_probe(bindName)
 {
-    var priorFlag = global.vwaSuppressGameKeys;
     var priorKey = variable_struct_get(global.keybinds, bindName);
     if (priorKey == undefined)
     {
         throw ("no such game keybind: " + bindName);
     }
+    var priorAllowed = variable_struct_exists(global.vwaGameAllowBinds, bindName);
+    var priorOpen = global.vwaGameKeysOpen;
     variable_struct_set(global.keybinds, bindName, 0);
-    global.vwaSuppressGameKeys = true;
-    var whileSuppressed = false;
-    var whileLive = false;
+    // A previously tripped watchdog must not fake the deny read.
+    global.vwaGameKeysOpen = false;
+    var whileDenied = false;
+    var whileAllowed = false;
     var clearedIo = false;
     // The restore below must run even when a probe read throws (a game
     // update reshaping input_check, say): the mutated state is the game's
-    // real keybind plus the suppression flag, and an escaped throw lands in
-    // the dev pump's catch, which restores nothing - the game keyboard
-    // would stay dead until restart (session-7 review). No verified
-    // try/finally under the UTMT importer, so restore-and-rethrow.
+    // real keybind plus the gate allowance, and an escaped throw lands in
+    // the dev pump's catch, which restores nothing - the allowance would
+    // linger until restart (session-7 review). No verified try/finally
+    // under the UTMT importer, so restore-and-rethrow.
     try
     {
-        whileSuppressed = input_check(bindName) ? true : false;
-        global.vwaSuppressGameKeys = false;
-        whileLive = input_check(bindName) ? true : false;
-        if (!whileLive)
+        vwa_game_allow_bind(bindName, false);
+        whileDenied = input_check(bindName) ? true : false;
+        vwa_game_allow_bind(bindName, true);
+        whileAllowed = input_check(bindName) ? true : false;
+        if (!whileAllowed)
         {
             // Two known lies in the runner's key bookkeeping: freshly-booted io
             // reports "a key is held" with no key named (keyboard_key 0) for
@@ -1300,23 +1326,25 @@ function vwa_dev_suppression_probe(bindName)
             {
                 io_clear();
                 clearedIo = true;
-                whileLive = input_check(bindName) ? true : false;
+                whileAllowed = input_check(bindName) ? true : false;
             }
         }
     }
     catch (probeErr)
     {
         variable_struct_set(global.keybinds, bindName, priorKey);
-        global.vwaSuppressGameKeys = priorFlag;
+        vwa_game_allow_bind(bindName, priorAllowed);
+        global.vwaGameKeysOpen = priorOpen;
         throw probeErr;
     }
     variable_struct_set(global.keybinds, bindName, priorKey);
-    global.vwaSuppressGameKeys = priorFlag;
+    vwa_game_allow_bind(bindName, priorAllowed);
+    global.vwaGameKeysOpen = priorOpen;
     // kbKey: what the runner thinks is held; kbDirect: whether the OS
-    // agrees. live=false with kbDirect=true means a human is really holding
-    // a key right now - callers should retry.
+    // agrees. allowedRead=false with kbDirect=true means a human is really
+    // holding a key right now - callers should retry.
     // Returned via the call command, whose dumper serializes the struct.
-    return { suppressed: whileSuppressed, live: whileLive,
+    return { deniedRead: whileDenied, allowedRead: whileAllowed,
              kbKey: keyboard_key,
              kbDirect: (keyboard_key > 0 && keyboard_check_direct(keyboard_key)) ? true : false,
              ioCleared: clearedIo };

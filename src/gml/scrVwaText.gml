@@ -13,8 +13,8 @@
 //   END of the string. There is no caret position, no selection, and no
 //   clipboard anywhere in the game's code.
 // Consequences: typed input reaches the game with no help from us
-// (oTextField reads keyboard_string raw, upstream of the suppression
-// patch), and every edit lands at the end of the string.
+// (oTextField reads keyboard_string raw, outside the game-key gate by
+// design), and every edit lands at the end of the string.
 //
 // There is deliberately NO character/word review cursor here (Rashad's
 // call, session 9, replacing the first design): a cursor the player can
