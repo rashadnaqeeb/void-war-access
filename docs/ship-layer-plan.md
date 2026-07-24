@@ -282,42 +282,9 @@ gameplay control, not a menu.
 
 BUILT (piece 1): the authoritative spec is now scrVwaShipLayer's header
 (mode predicate, per-hull containers, geometry index, focus toggle) plus
-the mode-provider model in scrVwaInput's header. This section is history.
-
-Everything else sits on this, so it is built first.
-
-The ship layer is a mode, not a screen. It never enters the screen
-stack (screens are control graphs; this is spatial). It is active when
-all hold: `global.menuToggle == 0`, `global.initialPopupSpawned`, no
-`oPopup` exists, and not `arriving_from_warp()` (the game's own
-warp-settling window, during which its HUD also suppresses interaction).
-When any of that changes - a menu opens, a popup spawns, a jump starts -
-the mode suspends and the open thing's own handler (existing framework)
-takes over; the mode resumes when the screen clears.
-
-Input: a new action category in the input layer, live only while the
-mode is active. The game-key gate keeps the game's own keyboard off;
-game functions the layer keeps come back as mod actions calling the
-game's own built-ins, and Escape remains the only gate pass-through.
-Letters do NOT run type-ahead here - in this mode they are status and
-command keys.
-
-Focus: Tab toggles which ship the tools look at (overwriting the game's
-map toggle; the map gets its own screen support later and the jump
-button remains the game's path to it). Each hull has its own state
-container holding cursor position, scanner position, and pending
-selection corners. Player-ship state persists across jumps (its cell
-instances are persistent); the enemy container resets every encounter,
-and Tab with no engaged enemy (`!global.drawEnemyBox`) speaks a
-localized "no enemy ship" and stays put. Toggling announces the focused
-ship and re-speaks the cursor position on that ship.
-
-Positions are stored as hull-relative tile coordinates, never as cell
-instance ids; the cell and slot are resolved from coordinates at speak
-time. A per-hull geometry index (tile -> cell/slot, built by enumerating
-the hull's cells once, invalidated on room change) is the one sanctioned
-cache, per the live-instance-reference rule: topology is immutable
-within an encounter, and everything stateful is re-queried live.
+the mode-provider model in scrVwaInput's header. The hull containers are
+where pieces 4-5 add their per-ship state (scanner position, pending
+selection corners). This section is history.
 
 ## Tool 1: the cursor
 
@@ -338,61 +305,9 @@ play with Rashad (criticality behind the name anchor): system name
 first as the room's identity, then hostile count, hazards, air, shape,
 own-crew count, then the slot facts with hostiles before own crew, and
 coordinates always last - empty sections are silent, so alarms cost
-nothing in calm rooms. This section is history.
-
-A tile cursor per ship. Arrows move one tile (one crew slot); the
-player always interacts with tiles, never rooms - room-to-room hopping
-does not map onto four arrows when a large room can border eight doors.
-
-Movement rules, evaluated at move time against `sideData`:
-
-- Target tile inside the same cell: free move.
-- Across a cell edge holding an `oDoor`: passes, whatever the door
-  state (open, closed, battered). Door presence and state are
-  communicated by audio, not speech - speech would spam every crossing
-  (revisit once the audio layer exists; until then a minimal spoken
-  fallback or silence, decided at build time).
-- Across an edge holding an `oWall`, an `oAirlock` (space beyond), or
-  no neighbor: blocked. Wall and airlock get distinct earcons; the
-  cursor never leaves the ship - there is nothing to explore in vacuum.
-
-Speech is composed by ordered, stateless sections - the same shape as
-the screen framework's pure composers. Each section is a struct with a
-name and a read method value (invoked directly, never via
-`script_execute_ext`), called as:
-
-    read(hull, cell, slot, movectx) -> array of parts
-
-`movectx` carries what the move computed once: `cellChanged` (did this
-move cross into a different cell) and the edge crossed. Sections declare
-their granularity by behavior: cell-granularity sections (room identity,
-system + damage, oxygen/vacuum/poison, occupant summary) return nothing
-when `cellChanged` is false; slot-granularity sections (crew at this
-slot in both channels, fire here, breach here, console here and who mans
-it, selection marker) speak every move. All content is re-queried live
-inside read; a section that throws is quarantined and logged once per
-activation, matching the screen-callback quarantine rule - the composer
-keeps running the remaining sections (a broken section must not silence
-the cursor).
-
-Visibility gates the composer, not the sections: when the resolved
-cell's `playerHasVision` is false, interior sections are skipped and a
-localized "interior unknown" token speaks in their place. Geometry-level
-sections (room shape/identity, and on the enemy ship the system's
-presence and damage, which the game shows without parity) still run.
-This mirrors the game's own rules with no mod-side policy, and covers
-your own ship going dark below sensor 1 automatically.
-
-Initial section order (v1): room identity, system, hazards summary
-(counts, cell-level), oxygen, occupants (cell-level summary), then
-slot-level: crew here, fire here, breach here, console, selected marker.
-Exact composition tuned in play; every string a `vwa--` row.
-
-The cursor also answers on demand: a "where am I" key (the center-origin
-coordinates plus the room's shape and system - the game has NO room
-names, verified: cells carry no name field, so shape plus system is all
-the identity a room has), and a "details" key (full re-read of the
-current tile regardless of granularity dampening).
+nothing in calm rooms. The full section list, movement and edge rules,
+composer contract, and visibility gate live in the script header. This
+section is history.
 
 ## Tool 2: the scanner
 
@@ -528,29 +443,30 @@ fallback so the player is never stranded.
 ## Testing
 
 Pure fixtures in `vwa_dev_selftest`, per the testing rules (behavior,
-never content snapshots; expectations derived live):
+never content snapshots; expectations derived live).
 
-- Movement rules: a synthetic ship graph fixture; assert wall blocks,
-  door passes regardless of state, airlock blocks, interior moves free,
-  bounds hold.
-- Snapshot building: a synthetic entry list; assert grouping, distance
-  sort, prune-on-empty behavior.
-- Rectangle geometry: corners, accumulation, exclude-decompose, area
-  membership.
-- Compose: section-list runner with fixture sections; assert
-  granularity dampening (cell sections silent when cell unchanged) and
-  quarantine-on-throw.
+BUILT (pieces 1-3, in `vwa_test_shiplayer` plus the live
+`vwa_dev_shipwalk`): geometry-index building, the focus decision,
+movement and edge rules, edge classification, the composer (granularity
+dampening, quarantine-on-throw, the visibility gate and token
+placement), count wording, the where-am-I read order, and the live
+sweep - every tile of the focused hull by real arrow moves, spoken
+content verified against a fresh independent resolve, coverage derived
+live from the geometry index, cross-checked against the game's own
+connectivity lists.
 
-Live, walker-analog: a cursor sweep that visits every tile of the
-focused hull, verifying spoken content of each tile against a fresh
-independent resolve of the same tile, and that the tiles visited exactly
-cover the hull's cells (membership derived live from the cell list, not
-hardcoded). A scanner check that every snapshot entry passes its own
-backend's validation immediately after a rebuild, and that gated
-backends emit nothing for a vision-false cell. Selection check: rect
-over known crew fixture positions lands exactly those crew in
-`currSelected`. All new assertion logic in GML (`scrVwaTest`); the
-existing three smokes still gate any framework-touching change.
+Still to build with their pieces:
+
+- Snapshot building (piece 4): a synthetic entry list; assert grouping,
+  distance sort, prune-on-empty behavior. Live: every snapshot entry
+  passes its own backend's validation immediately after a rebuild, and
+  gated backends emit nothing for a vision-false cell.
+- Rectangle geometry (piece 5): corners, accumulation,
+  exclude-decompose, area membership. Live: a rect over known crew
+  fixture positions lands exactly those crew in `currSelected`.
+
+All new assertion logic in GML (`scrVwaTest`); the existing three
+smokes still gate any framework-touching change.
 
 ## Build order
 
@@ -583,7 +499,9 @@ before the next starts.
 - Key map: which game functions earn a rebound key and where each
   lands (notably return-to-stations, formerly Enter, vs our
   send/activate key). Decided per key during pieces 1 and 6; the full
-  inventory to decide over is the key inventory section above.
+  inventory to decide over is the key inventory section above. Already
+  taken on the ship category: Tab (focus toggle), arrows (cursor),
+  C (where am I), R (details).
 - Status review shape: how the general status surfaces (their own
   section above) get spoken - dedicated keys per status family, a
   single review ring cycled with one key pair, or a status screen on
