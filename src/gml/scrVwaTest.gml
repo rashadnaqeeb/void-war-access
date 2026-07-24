@@ -1323,7 +1323,11 @@ function vwa_dev_shipwalk()
     var c = vwa_ship_container(alliedSide);
     var cur = vwa_ship_cursor(alliedSide);
     var w = { tap: [] };
-    var priorTap = global.vwaSpeakTap;
+    // The tap global is lazily owned (the chokepoint reads it through
+    // variable_global_exists); a fresh session may reach here before
+    // anything has set it.
+    var priorTap = variable_global_exists("vwaSpeakTap")
+        ? global.vwaSpeakTap : undefined;
     global.vwaSpeakTap = method({ w: w }, function(text, intr)
     {
         array_push(self.w.tap, text);
