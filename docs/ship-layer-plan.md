@@ -324,9 +324,13 @@ within an encounter, and everything stateful is re-queried live.
 BUILT (piece 2: movement, edge rules, the section composer, and the
 minimal sections - identity, system, and the every-move position stub;
 scrVwaShipLayer's header is the authoritative spec, vwa_dev_shipwalk the
-live sweep). Piece 3 (remaining sections, visibility gating, where-am-I
-and details keys) still draws on the section model below; the movement
-part of this section is history.
+live sweep). Decisions settled at build: spoken coordinates are signed
+x/y from the hull's bounding-box center (x right, y UP, bare values
+with a localized minus word - "minus 4, 1"); the door-speech interim is
+closed/battered speaking a short token and open silent. Piece 3
+(remaining sections, visibility gating, where-am-I and details keys)
+still draws on the section model below; the movement part of this
+section is history.
 
 A tile cursor per ship. Arrows move one tile (one crew slot); the
 player always interacts with tiles, never rooms - room-to-room hopping
@@ -376,9 +380,11 @@ Initial section order (v1): room identity, system, hazards summary
 slot-level: crew here, fire here, breach here, console, selected marker.
 Exact composition tuned in play; every string a `vwa--` row.
 
-The cursor also answers on demand: a "where am I" key (coordinates
-within the hull's bounding box plus room name), and a "details" key
-(full re-read of the current tile regardless of granularity dampening).
+The cursor also answers on demand: a "where am I" key (the center-origin
+coordinates plus the room's shape and system - the game has NO room
+names, verified: cells carry no name field, so shape plus system is all
+the identity a room has), and a "details" key (full re-read of the
+current tile regardless of granularity dampening).
 
 ## Tool 2: the scanner
 
@@ -575,7 +581,8 @@ before the next starts.
   earn a spoken interrupt versus review-only. Decided alongside the
   key map.
 - Door information channel: audio-only vs audio-plus-terse-speech;
-  decided when the earcon layer exists (piece 7), with a spoken interim.
+  decided when the earcon layer exists (piece 7). The piece-2 spoken
+  interim: closed/battered doors speak a short token, open is silent.
 - Fine selection gestures: room-select, slot-select, additive modifiers
   (piece 5/6 debate).
 - Whether doors/airlocks become a fifth scanner category.
