@@ -92,7 +92,7 @@ vwa--action-ship-focus,Fokussiertes Schiff wechseln
 vwa--ship-your,"Dein Schiff, {name}"
 vwa--ship-enemy,"Feindliches Schiff, {name}"
 vwa--ship-no-enemy,Kein feindliches Schiff
-vwa--ship-pos,"x {x}, y {y}"
+vwa--ship-pos,"{x}, {y}"
 vwa--minus,minus
 vwa--action-ship-up,Schiffscursor hoch
 vwa--action-ship-down,Schiffscursor runter
