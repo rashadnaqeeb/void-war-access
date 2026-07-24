@@ -295,7 +295,7 @@ live sweep). Decisions settled at build: spoken coordinates are signed
 x/y from the hull's bounding-box center (x right, y UP, bare values
 with a localized minus word - "minus 4, 1"); the door-speech interim is
 every door state speaking its own short token (open/closed/battered);
-where-am-I is C and details R (letters are status keys in this mode;
+where-am-I is K and details R (letters are status keys in this mode;
 piece 6's key map decides around them); oxygen speaks only when below
 full, with vacuum/venting/poisoned state tokens; the dark-room token is
 a bare "unknown", speaking at cell granularity (entering a dark room,
@@ -483,7 +483,7 @@ before the next starts.
    sweep of the player ship by arrows, walls block, doors pass.
    (scrVwaShipLayer; vwa_dev_shipwalk is the live sweep.)
 3. DONE - Sections complete: hazards, air, occupants, crew and selection
-   markers, console, visibility gating, where-am-I (C) and details (R)
+   markers, console, visibility gating, where-am-I (K) and details (R)
    keys. (scrVwaShipLayer; fixture gating tests in vwa_dev_selftest,
    live coverage via vwa_dev_shipwalk.)
 4. Scanner: backends, snapshot, category/item/instance keys, jump and
@@ -501,7 +501,7 @@ before the next starts.
   send/activate key). Decided per key during pieces 1 and 6; the full
   inventory to decide over is the key inventory section above. Already
   taken on the ship category: Tab (focus toggle), arrows (cursor),
-  C (where am I), R (details).
+  K (where am I), R (details).
 - Status review shape: how the general status surfaces (their own
   section above) get spoken - dedicated keys per status family, a
   single review ring cycled with one key pair, or a status screen on

@@ -146,7 +146,7 @@
 //   section convert.
 //
 // On-demand keys (category "ship", chosen at build; piece 6's key map
-// decides around them): C - where am I: position, then system name,
+// decides around them): K - where am I: position, then system name,
 // then shape, through the same section reads and quarantine (the game
 // has NO room names, verified - cells carry no name field, so system
 // plus shape is all the identity a room has). R - details: a full
@@ -208,7 +208,7 @@ function vwa_ship_layer_init()
             vwa_ship_cursor_move(1, 0);
         });
     vwa_action_register("ship-where", "vwa--action-ship-where", "ship",
-        vwa_bind(ord("C"), false, false, false), false, function()
+        vwa_bind(ord("K"), false, false, false), false, function()
         {
             vwa_ship_where();
         });
@@ -929,7 +929,7 @@ function vwa_ship_read_ctx(geom, cur)
              cx: geom.cx, cy: geom.cy };
 }
 
-// C, where am I: position, room identity, system, on demand through the
+// K, where am I: position, room identity, system, on demand through the
 // filtered section list (same reads, same quarantine). Interrupts:
 // direct user-caused feedback.
 function vwa_ship_where()

@@ -209,7 +209,7 @@ text, **Enter** commits the edit, **Escape** cancels it (same operation on
 fields whose text is live as typed). On the in-run ship layer (no menu, no
 popup, not warping): **Tab** toggles which ship the tools look at,
 **arrows** move the tile cursor (walls and airlocks block, doors pass),
-**C** speaks position, room, and system, **R** reads the full current
+**K** speaks position, room, and system, **R** reads the full current
 tile.
 
 The authoritative behavior models live in the script headers: submenus and
