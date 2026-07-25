@@ -400,14 +400,35 @@ feedback through the chokepoint (what was ordered, or why it refused).
 Orders queue under pause exactly as the game queues them - "pause,
 survey, order, unpause" is the intended rhythm of the whole layer.
 
-## Earcon layer (stub)
+## Earcon layer
 
-Named audio events, no implementation commitments yet: wall-block,
-airlock-block, door-cross (state-flavored: open / closed / battered),
-scanner wrap, ship toggle, selection corner set / rectangle complete.
-One chokepoint function (`vwa_earcon(name)` shape), failures logged,
-never silent. Any event whose information exists nowhere else keeps a
-spoken fallback so the player is never stranded.
+Named audio events through one chokepoint (`vwa_earcon(name)` shape),
+failures logged, never silent. Any event whose information exists
+nowhere else keeps a spoken fallback so the player is never stranded.
+
+Event sounds, chosen by Rashad from the game's own sound assets (all
+six verified present in the game data by asset name):
+
+- wall-block: `vs_ui_click2` - REPLACES the spoken "wall" token.
+- airlock-block:
+  `clickHiss03b_filtered_EXOSKELETONBluezone_SmartSoundFXPOND5` -
+  REPLACES the spoken "airlock" token.
+- door-cross, per state: open `sfxDoorOpen_crop`, closed
+  `sfxDoorClose_crop`, battered `Metlimpt_Ji_B_03_soundbits` -
+  REPLACE the spoken door state tokens (the door channel goes
+  audio-only; that open decision is settled).
+- scanner wrap: `buttonSmall_doubleClick1_SmartSoundFXPOND5` -
+  additive; wrap had no speech, and the scanner's spoken "n of m"
+  position stays.
+- scanner direction: the ONI-style synthesized tone sequence
+  (vertical-then-horizontal, pan and volume coded), AUGMENTING the
+  spoken offsets, never replacing them.
+- ship toggle: dropped for now.
+- selection corner set / rectangle complete: join when piece 6 lands.
+
+Settings-forward shape: the scanner-direction earcon toggle and the
+general earcon volume live as mod state written so a future settings
+screen (not yet built) can bind them; until then they hold defaults.
 
 Audio path DECIDED (verified live, `vwa_dev_earcon_probe`): native
 GameMaker audio, no external library. Tones are synthesized at runtime
@@ -424,8 +445,8 @@ sequence) are baked as one buffer per sequence or scheduled frame-based
 from the pump - an implementation choice at build, not a library
 question. Earcon volume is NOT multiplied by `global.volumeMax_SFX` by
 default (the game's SFX slider must not be able to silence navigation
-audio); whether earcons get their own volume setting is a piece-5 build
-decision.
+audio); the earcon volume is its own settings-forward variable, per the
+shape above.
 
 ## Testing
 
@@ -482,10 +503,12 @@ before the next starts.
 4. DONE - Scanner: backends, snapshot, category/item/instance keys,
    jump and orient. (scrVwaShipScan; fixtures in vwa_dev_selftest, live
    check vwa_dev_shipscan.)
-5. Earcon layer: library choice, wiring for the events that exist
-   (door-cross, wall/airlock block, scanner wrap, ship toggle), spoken
-   fallbacks removed where audio replaces them (revisit the door speech
-   decision). Pulled ahead of selection and orders (Rashad's call): a
+5. Earcon layer: wiring for the events that exist (door-cross,
+   wall/airlock block, scanner wrap; ship toggle dropped for now) with
+   the chosen sounds, the scanner direction tones, spoken tokens
+   removed where audio replaces them (audio path and sound choices are
+   in the earcon layer section).
+   Pulled ahead of selection and orders (Rashad's call): a
    lot of their decisions rest on what the audio channel can carry.
    Selection events join when piece 6 lands.
 6. Selection: pure rect module + application to `select_crew`.
@@ -509,9 +532,8 @@ before the next starts.
   the existing screen framework - and which warning flasher types
   earn a spoken interrupt versus review-only. Decided alongside the
   key map.
-- Door information channel: audio-only vs audio-plus-terse-speech;
-  decided when the earcon layer exists (piece 5). The piece-2 spoken
-  interim: every door state speaks its own short token.
+- DECIDED - Door information channel: audio-only; the per-state door
+  sounds replace the piece-2 spoken tokens (earcon layer section).
 - Fine selection gestures: room-select, slot-select, additive modifiers
   (piece 6/7 debate).
 - Whether doors/airlocks become a fifth scanner category.
