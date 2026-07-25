@@ -69,9 +69,9 @@ function vwa_dev_shipwalk()
     });
     var priorEarTap = variable_global_exists("vwaEarconTap")
         ? global.vwaEarconTap : undefined;
-    global.vwaEarconTap = method({ w: w }, function(name, ok)
+    global.vwaEarconTap = method({ w: w }, function(name, ok, info)
     {
-        array_push(self.w.ear, { name: name, ok: ok });
+        array_push(self.w.ear, { name: name, ok: ok, info: info });
     });
     // The sweep drives hundreds of real moves; earcons still PLAY (the
     // chokepoint's whole path stays under test) but muted, so a
@@ -329,7 +329,11 @@ function vwa_dev_shipwalk_earjoin(ear)
 // category lap through the real cycle handler: per press exactly one
 // utterance whose text matches a fresh announce compose, landing only on
 // non-empty categories (the skip rule; the bare empty token when every
-// category is empty); after each rebuild every snapshot entry - of all
+// category is empty), and the earcon channel verified per announcement
+// (vwa_dev_shipscan_earcheck: the direction tone with its straight-line
+// offset on every entry announcement, the wrap click exactly on item/
+// instance wraps, silence on jump and return; earcons run muted with
+// the tone toggle forced on, both restored); after each rebuild every snapshot entry - of all
 // categories, skipped ones included - must pass its own backend's
 // resolve, sit in its category, carry a stable key, and honor the
 // visibility gate
@@ -366,13 +370,27 @@ function vwa_dev_shipscan()
     var cur = vwa_ship_cursor(alliedSide);
     var save = { catIx: st.catIx, itemIx: st.itemIx, instIx: st.instIx,
                  tx: cur.tx, ty: cur.ty };
-    var w = { tap: [] };
+    var w = { tap: [], ear: [] };
     var priorTap = variable_global_exists("vwaSpeakTap")
         ? global.vwaSpeakTap : undefined;
     global.vwaSpeakTap = method({ w: w }, function(text, intr)
     {
         array_push(self.w.tap, text);
     });
+    var priorEarTap = variable_global_exists("vwaEarconTap")
+        ? global.vwaEarconTap : undefined;
+    global.vwaEarconTap = method({ w: w }, function(name, ok, info)
+    {
+        array_push(self.w.ear, { name: name, ok: ok, info: info });
+    });
+    // Earcons play muted through the whole check (the walker's rule: the
+    // full chokepoint path under test without bombarding the machine);
+    // the direction-tone toggle is forced on so the tone channel is
+    // always exercised. Both restored on every exit path.
+    var priorMute = global.vwaEarconMute;
+    var priorTones = global.vwaEarconDirTones;
+    global.vwaEarconMute = true;
+    global.vwaEarconDirTones = true;
     var total = 0;
     try
     {
@@ -389,6 +407,7 @@ function vwa_dev_shipscan()
         for (var lap = 0; lap < nCats; lap++)
         {
             w.tap = [];
+            w.ear = [];
             vwa_ship_scan_cat_cycle(1);
             var anyFull = false;
             for (var ci = 0; ci < array_length(st.snap.cats); ci++)
@@ -420,6 +439,16 @@ function vwa_dev_shipscan()
                         vwa_speak_render([vwa_t("vwa--ship-scan-empty")]));
                 }
             }
+            if (anyFull)
+            {
+                vwa_dev_shipscan_earcheck(tc, alliedSide, st, w.ear, false,
+                    "cat press " + string(lap));
+            }
+            else
+            {
+                vwa_test_eq(tc, "shipscan: all-empty fires no earcon",
+                    vwa_dev_shipwalk_earjoin(w.ear), "(no earcons)");
+            }
             total = 0;
             for (var ci = 0; ci < array_length(st.snap.cats); ci++)
             {
@@ -443,7 +472,13 @@ function vwa_dev_shipscan()
                 !rr.built && !rr.lost
                     && vwa_ship_scan_current_key(st) == keyBefore,
                 string(keyBefore) + " -> " + string(vwa_ship_scan_current_key(st)));
+            // Wrap expectation derived live: from index 0, one forward
+            // step wraps exactly when the list holds a single item (the
+            // wrap click joins the direction tone in one event).
+            var wrapItem =
+                (array_length(st.snap.cats[st.catIx].items) == 1);
             w.tap = [];
+            w.ear = [];
             vwa_ship_scan_item_cycle(1);
             vwa_test_ok(tc, "shipscan: one utterance on item cycle",
                 array_length(w.tap) == 1, vwa_test_join(w.tap));
@@ -453,11 +488,19 @@ function vwa_dev_shipscan()
                     vwa_speak_render(
                         vwa_ship_scan_announce_parts(alliedSide, st, false)));
             }
+            vwa_dev_shipscan_earcheck(tc, alliedSide, st, w.ear, wrapItem,
+                "item cycle");
+            var wrapInst = (array_length(
+                st.snap.cats[st.catIx].items[st.itemIx].entries) == 1);
             w.tap = [];
+            w.ear = [];
             vwa_ship_scan_inst_cycle(1);
             vwa_test_ok(tc, "shipscan: one utterance on instance cycle",
                 array_length(w.tap) == 1, vwa_test_join(w.tap));
+            vwa_dev_shipscan_earcheck(tc, alliedSide, st, w.ear, wrapInst,
+                "instance cycle");
             w.tap = [];
+            w.ear = [];
             vwa_ship_scan_orient();
             vwa_test_ok(tc, "shipscan: one utterance on orient",
                 array_length(w.tap) == 1, vwa_test_join(w.tap));
@@ -467,6 +510,8 @@ function vwa_dev_shipscan()
                     vwa_speak_render(
                         vwa_ship_scan_announce_parts(alliedSide, st, false)));
             }
+            vwa_dev_shipscan_earcheck(tc, alliedSide, st, w.ear, false,
+                "orient");
             var curE = vwa_ship_scan_current(alliedSide, st);
             vwa_test_ok(tc, "shipscan: current entry resolves for the jump",
                 curE != undefined, "none");
@@ -475,10 +520,13 @@ function vwa_dev_shipscan()
                 var fromTx = cur.tx;
                 var fromTy = cur.ty;
                 w.tap = [];
+                w.ear = [];
                 vwa_ship_scan_jump();
                 vwa_test_ok(tc, "shipscan: cursor landed on the entry",
                     cur.tx == curE.res.tx && cur.ty == curE.res.ty,
                     string(cur.tx) + "," + string(cur.ty));
+                vwa_test_eq(tc, "shipscan: jump fires no scanner earcon",
+                    vwa_dev_shipwalk_earjoin(w.ear), "(no earcons)");
                 var entryTile = vwa_ship_geom_tile(geom, cur.tx, cur.ty);
                 vwa_test_ok(tc, "shipscan: one utterance on jump",
                     array_length(w.tap) == 1, vwa_test_join(w.tap));
@@ -493,12 +541,15 @@ function vwa_dev_shipscan()
                 if (cur.tx != fromTx || cur.ty != fromTy)
                 {
                     w.tap = [];
+                    w.ear = [];
                     vwa_ship_scan_return();
                     vwa_test_ok(tc, "shipscan: return lands on the pre-jump tile",
                         cur.tx == fromTx && cur.ty == fromTy,
                         string(cur.tx) + "," + string(cur.ty));
                     vwa_test_ok(tc, "shipscan: one utterance on return",
                         array_length(w.tap) == 1, vwa_test_join(w.tap));
+                    vwa_test_eq(tc, "shipscan: return fires no scanner earcon",
+                        vwa_dev_shipwalk_earjoin(w.ear), "(no earcons)");
                     w.tap = [];
                     vwa_ship_scan_return();
                     vwa_test_ok(tc, "shipscan: second return refuses",
@@ -517,11 +568,17 @@ function vwa_dev_shipscan()
                 min(3, string_length(string(itemName))));
             var preCat = st.catIx;
             w.tap = [];
+            w.ear = [];
             vwa_ship_scan_search_apply(q);
             vwa_test_ok(tc, "shipscan: one utterance on search apply",
                 array_length(w.tap) == 1, vwa_test_join(w.tap));
             vwa_test_ok(tc, "shipscan: search snapshot installed",
                 st.snap.isSearch == true, "not a search snapshot");
+            if (st.snap.isSearch)
+            {
+                vwa_dev_shipscan_earcheck(tc, alliedSide, st, w.ear, false,
+                    "search apply");
+            }
             if (st.snap.isSearch)
             {
                 var sitems = st.snap.cats[0].items;
@@ -544,6 +601,7 @@ function vwa_dev_shipscan()
                     }
                 }
                 w.tap = [];
+                w.ear = [];
                 vwa_ship_scan_cat_cycle(1);
                 vwa_test_ok(tc, "shipscan: category cycle exits search",
                     !st.snap.isSearch, "still a search snapshot");
@@ -555,6 +613,8 @@ function vwa_dev_shipscan()
                 {
                     vwa_test_eq(tc, "shipscan: search exit restores the category",
                         st.catIx, wantIx);
+                    vwa_dev_shipscan_earcheck(tc, alliedSide, st, w.ear,
+                        false, "search exit");
                 }
             }
         }
@@ -567,6 +627,9 @@ function vwa_dev_shipscan()
     {
         // try/finally is unverified under the importer: restore-and-rethrow.
         global.vwaSpeakTap = priorTap;
+        global.vwaEarconTap = priorEarTap;
+        global.vwaEarconMute = priorMute;
+        global.vwaEarconDirTones = priorTones;
         c.cursor = { tx: save.tx, ty: save.ty };
         st.catIx = save.catIx;
         st.itemIx = save.itemIx;
@@ -577,6 +640,9 @@ function vwa_dev_shipscan()
         throw err;
     }
     global.vwaSpeakTap = priorTap;
+    global.vwaEarconTap = priorEarTap;
+    global.vwaEarconMute = priorMute;
+    global.vwaEarconDirTones = priorTones;
     c.cursor = { tx: save.tx, ty: save.ty };
     st.catIx = save.catIx;
     st.itemIx = save.itemIx;
@@ -590,6 +656,40 @@ function vwa_dev_shipscan()
         + string(total) + " entries, " + string(tc.checks) + " checks, "
         + string(array_length(tc.failures)) + " failures");
     return { checks: tc.checks, failures: tc.failures, entries: total };
+}
+
+// One scanner announcement's earcon channel verified: the tap holds
+// exactly the expected events in order (scan-wrap only on a wrap,
+// always before the tone; the earjoin's failed-markers make a
+// failed-to-start sound break the equality), and the direction tone's
+// offset matches a fresh STRAIGHT-LINE compute from the live cursor to
+// the current entry - the spatial-pointer contract, deliberately not
+// the spoken walking legs.
+function vwa_dev_shipscan_earcheck(tc, alliedSide, st, ear, wantWrap, tag)
+{
+    vwa_test_eq(tc, "shipscan: earcon events on " + tag,
+        vwa_dev_shipwalk_earjoin(ear),
+        wantWrap ? "scan-wrap | scan-dir" : "scan-dir");
+    var d = undefined;
+    for (var i = 0; i < array_length(ear); i++)
+    {
+        if (ear[i].name == "scan-dir")
+        {
+            d = ear[i];
+        }
+    }
+    if (d == undefined)
+    {
+        return;
+    }
+    var curE = vwa_ship_scan_current(alliedSide, st);
+    var cur = vwa_ship_cursor(alliedSide);
+    vwa_test_ok(tc, "shipscan: tone is the straight-line offset on " + tag,
+        curE != undefined && d.info != undefined
+            && d.info.up == cur.ty - curE.res.ty
+            && d.info.rt == curE.res.tx - cur.tx,
+        (d.info == undefined) ? "no info"
+            : (string(d.info.up) + "," + string(d.info.rt)));
 }
 
 // One just-rebuilt category validated (by index - skipped-over empty

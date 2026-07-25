@@ -393,7 +393,7 @@ function vwa_test_shiplayer(tc)
     // fallback tokens. An unknown name stays unresolved - the
     // chokepoint throws on it, a mod bug.
     var evs = ["wall-block", "airlock-open-block", "airlock-closed-block",
-               "door-open", "door-closed", "door-battered"];
+               "door-open", "door-closed", "door-battered", "scan-wrap"];
     for (var i = 0; i < array_length(evs); i++)
     {
         var snds = vwa_earcon_sounds(evs[i]);
@@ -444,6 +444,51 @@ function vwa_test_shiplayer(tc)
             && vwa_ship_door_token(1) != vwa_ship_door_token(2)
             && vwa_ship_door_token(0) != vwa_ship_door_token(2),
         "collision");
+
+    // The direction tone's pure pieces (scrVwaEarcon): segment building
+    // (the spatial-pointer contract - at most one vertical plus one
+    // horizontal segment, never a path) and the distance falloff.
+    var dz = vwa_earcon_dir_segments(0, 0);
+    vwa_test_ok(tc, "earcon: dir zero-zero is one centered full blip",
+        array_length(dz) == 1 && dz[0].pan == 0 && dz[0].ratio == 1,
+        string(dz));
+    var dv = vwa_earcon_dir_segments(3, 0);
+    var dvd = vwa_earcon_dir_segments(-3, 0);
+    vwa_test_ok(tc, "earcon: vertical-only is one centered segment",
+        array_length(dv) == 1 && dv[0].pan == 0
+            && array_length(dvd) == 1 && dvd[0].pan == 0,
+        string(dv));
+    vwa_test_ok(tc, "earcon: up and down speak different tones",
+        dv[0].freq != dvd[0].freq, string(dv[0].freq));
+    var dr = vwa_earcon_dir_segments(0, 3);
+    var dl = vwa_earcon_dir_segments(0, -3);
+    vwa_test_ok(tc, "earcon: horizontal pans toward its side",
+        array_length(dr) == 1 && dr[0].pan > 0
+            && array_length(dl) == 1 && dl[0].pan < 0,
+        string(dr[0].pan) + " / " + string(dl[0].pan));
+    vwa_test_ok(tc, "earcon: horizontal keeps one tone either side",
+        dr[0].freq == dl[0].freq && dr[0].freq == dz[0].freq,
+        string(dr[0].freq));
+    var db = vwa_earcon_dir_segments(2, -3);
+    vwa_test_ok(tc, "earcon: diagonal is vertical then horizontal",
+        array_length(db) == 2 && db[0].pan == 0 && db[1].pan < 0
+            && db[0].freq == dv[0].freq && db[1].freq == dl[0].freq,
+        string(db));
+    vwa_test_ok(tc, "earcon: never more than two segments",
+        array_length(vwa_earcon_dir_segments(15, 15)) == 2, "path leak");
+    vwa_test_ok(tc, "earcon: falloff fades with distance",
+        vwa_earcon_dir_ratio(1) < 1
+            && vwa_earcon_dir_ratio(5) < vwa_earcon_dir_ratio(1)
+            && vwa_earcon_dir_ratio(20) < vwa_earcon_dir_ratio(5),
+        string(vwa_earcon_dir_ratio(5)));
+    vwa_test_ok(tc, "earcon: falloff floors at 20 tiles, sign-blind",
+        vwa_earcon_dir_ratio(25) == vwa_earcon_dir_ratio(20)
+            && vwa_earcon_dir_ratio(-4) == vwa_earcon_dir_ratio(4),
+        string(vwa_earcon_dir_ratio(25)));
+    vwa_test_ok(tc, "earcon: dir segment ratios follow the falloff",
+        db[0].ratio == vwa_earcon_dir_ratio(2)
+            && db[1].ratio == vwa_earcon_dir_ratio(3),
+        string(db));
 
     // The composer runner on fixture sections: order kept, a throwing
     // section quarantines (once) while the rest still run. The quarantine

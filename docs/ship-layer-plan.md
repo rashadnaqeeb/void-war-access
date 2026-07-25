@@ -400,18 +400,24 @@ survey, order, unpause" is the intended rhythm of the whole layer.
 
 ## Earcon layer
 
-BUILT (piece 5, cursor half): the chokepoint (`vwa_earcon`;
-scrVwaEarcon's header is the authoritative spec), the wall-block,
-airlock-block, and door-cross events with their sounds, the spoken
-tokens demoted to earcon-failure fallbacks (scrVwaShipLayer), and the
-walker's earcon-channel assertions (earcons play muted during dev
-sweeps). Volume was revised in play: gain is 1.5 x
+BUILT (piece 5; scrVwaEarcon's header is the authoritative spec): the
+chokepoint (`vwa_earcon` for named events, `vwa_earcon_dir` for the
+synthesized direction tone), the wall-block, airlock-block, and
+door-cross events with the spoken tokens demoted to earcon-failure
+fallbacks (scrVwaShipLayer), and the scanner channel (scrVwaShipScan):
+the scan-wrap click on item/instance wraps and the direction tone on
+every entry announcement. The tone is a SPATIAL pointer (Rashad's
+rule): the straight-line offset from cursor to entry - at most a
+vertical then a horizontal segment - never the zigzag walking legs the
+announcement speaks; loudness codes distance at 1 dB per tile flooring
+at -20 dB from 20 tiles (hull-scale, vs oni-access's hundreds), base
+amplitude ffmpeg-calibrated against the click sounds this layer
+already plays. The `global.vwaEarconDirTones` toggle shipped
+settings-forward. Volume was revised in play: gain is 1.5 x
 `global.volumeMax_SFX` read live, so the game's SFX slider is the one
 volume control and there is no mod-side volume setting (the
-paragraphs below predate that call). Still to build from this section: the
-scanner wrap, the direction tones with their toggle, and the piece-6
-selection events - the sound list and notes below stay the build-to
-reference for them.
+paragraphs below predate that call). Still to build from this
+section: the piece-6 selection events only.
 
 Named audio events through one chokepoint (`vwa_earcon(name)` shape),
 failures logged, never silent. Any event whose information exists
@@ -490,11 +496,15 @@ gate and per-category totals cross-checked against direct live
 enumeration, an identity-preserving refresh check, a verified jump with
 Backspace return, and a live search apply and exit.
 
-BUILT (piece 5, cursor half, in vwa_test_shiplayer plus the walker):
-the earcon cursor vocabulary and door-state mappings on fixtures; the
-shipwalk verifies the earcon channel per move - event name re-derived
-from the live edge state, blocks audio-only, the fallback token spoken
-exactly when the earcon reports failure.
+BUILT (piece 5, in vwa_test_shiplayer plus both live sweeps): the
+earcon vocabulary, door-state mappings, direction-tone segment
+building, and falloff on fixtures; the shipwalk verifies the earcon
+channel per move - event name re-derived from the live edge state,
+blocks audio-only, the fallback token spoken exactly when the earcon
+reports failure; the shipscan verifies the scanner channel per
+announcement - the direction tone carrying the straight-line offset
+recomputed live, the wrap click exactly on item/instance wraps,
+silence on jump and return.
 
 Still to build with their pieces:
 
@@ -526,12 +536,10 @@ before the next starts.
 4. DONE - Scanner: backends, snapshot, category/item/instance keys,
    jump and orient. (scrVwaShipScan; fixtures in vwa_dev_selftest, live
    check vwa_dev_shipscan.)
-5. Earcon layer - cursor half DONE (the chokepoint in scrVwaEarcon;
-   door-cross and wall/airlock block wired, spoken tokens now
-   earcon-failure fallbacks). Remaining: scanner wrap and the scanner
-   direction tones, built after the cursor events are confirmed in
-   play (audio path and sound choices are in the earcon layer
-   section).
+5. DONE - Earcon layer (the chokepoint in scrVwaEarcon): door-cross
+   and wall/airlock block wired with spoken tokens as earcon-failure
+   fallbacks; scanner wrap click and the spatial direction tone on
+   announcements. Selection events join at piece 6.
    Pulled ahead of selection and orders (Rashad's call): a
    lot of their decisions rest on what the audio channel can carry.
    Selection events join when piece 6 lands.

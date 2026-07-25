@@ -114,7 +114,16 @@
 // Then instance position n of m only when the
 // item has more than one instance, then the backend detail clause. A category cycle prefixes
 // the category name; an emptied-out category speaks the category name
-// plus "empty". Home resolves the entry, remembers the
+// plus "empty". Every announcement also fires ONE audio event through
+// the earcon chokepoint (vwa_ship_scan_announce): the scanner
+// direction tone - the STRAIGHT-LINE tile offset from the cursor to
+// the announced entry, a spatial pointer deliberately distinct from
+// the spoken walking legs (tone spec, falloff, and the
+// global.vwaEarconDirTones toggle in scrVwaEarcon's header) - layered with
+// the scan-wrap click when an item or instance cycle wrapped past a
+// list end (the category ring is a reorient, no wrap click; an empty
+// category fires the wrap click alone, no tone). Home, Backspace, and
+// the plain tile reads fire no scanner audio. Home resolves the entry, remembers the
 // cursor tile (preJump), moves the cursor, and speaks the full tile read
 // (vwa_ship_move_parts, nothing dampened); Home with the cursor already
 // on the entry speaks "here" and leaves the preJump anchor alone.
@@ -1276,11 +1285,38 @@ function vwa_ship_scan_announce_parts(alliedSide, st, withCat)
 
 // ---- key handlers ----
 
+// Speak an announcement and fire its audio channel in one event: the
+// scan-wrap click when the cycle wrapped past a list end, layered with
+// the direction tone - the STRAIGHT-LINE tile offset from the cursor
+// to the announced entry (up/right positive, the spoken coordinate
+// convention), NEVER the walking legs the speech carries. The tone is
+// a spatial pointer, the legs are the route: a zigzag path must not
+// become a multi-tone sequence (Rashad's rule, the oni-access model).
+// No announced entry (empty category), no tone - the wrap click still
+// plays alone.
+function vwa_ship_scan_announce(alliedSide, st, withCat, wrapped)
+{
+    vwa_speak(vwa_ship_scan_announce_parts(alliedSide, st, withCat), true);
+    var curE = vwa_ship_scan_current(alliedSide, st);
+    if (curE == undefined)
+    {
+        if (wrapped)
+        {
+            vwa_earcon("scan-wrap");
+        }
+        return;
+    }
+    var cur = vwa_ship_cursor(alliedSide);
+    vwa_earcon_dir(cur.ty - curE.res.ty, curE.res.tx - cur.tx, wrapped);
+}
+
 // Ctrl+PageUp/PageDown: the explicit reorient (see header) - and, from a
 // search snapshot, the exit back to the pre-search category. Rebuilds
 // FIRST, then steps to the next category holding entries (empty
 // categories are skipped, not discoverable); with everything empty it
-// speaks the bare empty token and stays put.
+// speaks the bare empty token and stays put. No wrap click here: the
+// category ring is a reorient, not a distance-sorted list with ends
+// (the wrap click belongs to the item and instance cycles).
 function vwa_ship_scan_cat_cycle(dir)
 {
     var alliedSide = vwa_ship_focus();
@@ -1306,7 +1342,7 @@ function vwa_ship_scan_cat_cycle(dir)
     st.catIx = ix;
     st.itemIx = 0;
     st.instIx = 0;
-    vwa_speak(vwa_ship_scan_announce_parts(alliedSide, st, true), true);
+    vwa_ship_scan_announce(alliedSide, st, true, false);
 }
 
 function vwa_ship_scan_item_cycle(dir)
@@ -1316,6 +1352,7 @@ function vwa_ship_scan_item_cycle(dir)
     var r = vwa_ship_scan_refresh(alliedSide, st);
     var cat = st.snap.cats[st.catIx];
     var n = array_length(cat.items);
+    var wrapped = false;
     if (n > 0 && !r.built)
     {
         if (r.lost)
@@ -1324,11 +1361,13 @@ function vwa_ship_scan_item_cycle(dir)
         }
         else
         {
-            st.itemIx = ((st.itemIx + dir) + n) mod n;
+            var nix = st.itemIx + dir;
+            wrapped = (nix < 0 || nix >= n);
+            st.itemIx = ((nix) + n) mod n;
         }
         st.instIx = 0;
     }
-    vwa_speak(vwa_ship_scan_announce_parts(alliedSide, st, r.built), true);
+    vwa_ship_scan_announce(alliedSide, st, r.built, wrapped);
 }
 
 function vwa_ship_scan_inst_cycle(dir)
@@ -1337,6 +1376,7 @@ function vwa_ship_scan_inst_cycle(dir)
     var st = vwa_ship_scan_state(alliedSide);
     var r = vwa_ship_scan_refresh(alliedSide, st);
     var cat = st.snap.cats[st.catIx];
+    var wrapped = false;
     if (array_length(cat.items) > 0 && !r.built)
     {
         if (r.lost)
@@ -1351,10 +1391,12 @@ function vwa_ship_scan_inst_cycle(dir)
         }
         else
         {
-            st.instIx = ((st.instIx + dir) + n) mod n;
+            var nix = st.instIx + dir;
+            wrapped = (nix < 0 || nix >= n);
+            st.instIx = ((nix) + n) mod n;
         }
     }
-    vwa_speak(vwa_ship_scan_announce_parts(alliedSide, st, r.built), true);
+    vwa_ship_scan_announce(alliedSide, st, r.built, wrapped);
 }
 
 // Home: move the tile cursor to the announced entry and speak the full
@@ -1401,7 +1443,7 @@ function vwa_ship_scan_orient()
     var alliedSide = vwa_ship_focus();
     var st = vwa_ship_scan_state(alliedSide);
     var r = vwa_ship_scan_refresh(alliedSide, st);
-    vwa_speak(vwa_ship_scan_announce_parts(alliedSide, st, r.built), true);
+    vwa_ship_scan_announce(alliedSide, st, r.built, false);
 }
 
 // Backspace: restore the cursor to the tile it left on the last jump,
@@ -1535,5 +1577,5 @@ function vwa_ship_scan_search_apply(query)
     st.catIx = 0;
     st.itemIx = 0;
     st.instIx = 0;
-    vwa_speak(vwa_ship_scan_announce_parts(alliedSide, st, true), true);
+    vwa_ship_scan_announce(alliedSide, st, true, false);
 }

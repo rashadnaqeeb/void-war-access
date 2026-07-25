@@ -222,8 +222,9 @@ scrVwaShipScan.
   shim calls from feature code (sanctioned non-speech shim calls: the input
   layer's typematic delay/rate reads, the dev pump's poll/reply, the Game
   End teardown via `vwa_shim_shutdown`).
-- **One earcon chokepoint.** All mod audio flows through `vwa_earcon(name)`
-  (scrVwaEarcon); no direct `audio_*` calls from feature code. Earcons
+- **One earcon chokepoint.** All mod audio flows through scrVwaEarcon
+  (`vwa_earcon(name)`; the scanner direction tone via `vwa_earcon_dir`);
+  no direct `audio_*` calls from feature code. Earcons
   bypass the game's SFX master toggle, per-step dedup, and pausable-sound
   registry; gain is 1.5x the game's SFX slider, read live (the slider is
   the player's one volume control). `global.vwaEarconTap` is the
