@@ -159,26 +159,3 @@ vwa--action-ship-search-delete,Search: delete character
 vwa--ship-scan-search,search results
 vwa--ship-scan-search-prompt,Search
 vwa--ship-scan-no-return,nothing to return to
-vwa--ship-detached,detached
-vwa--action-ship-describe,Describe ship
-vwa--ship-desc-size,"{w} wide, {h} tall, {n} rooms"
-vwa--ship-desc-sym,symmetric
-vwa--ship-desc-sym-rough,roughly symmetric
-vwa--ship-desc-sections,{n} sections
-vwa--ship-desc-detached,"detached section, {n} rooms"
-vwa--ship-desc-range,{a} to {b}
-vwa--ship-desc-tall,{n} tall
-vwa--ship-desc-tall-max,up to {n} tall
-vwa--ship-desc-wide,{n} wide
-vwa--ship-desc-wide-max,up to {n} wide
-vwa--ship-desc-upper,upper
-vwa--ship-desc-lower,lower
-vwa--ship-desc-left,left
-vwa--ship-desc-right,right
-vwa--ship-desc-airlock-one,1 airlock
-vwa--ship-desc-airlocks,{n} airlocks
-vwa--ship-desc-n-top,{n} top
-vwa--ship-desc-n-bottom,{n} bottom
-vwa--ship-desc-n-left,{n} left
-vwa--ship-desc-n-right,{n} right
-vwa--ship-desc-n-interior,{n} interior

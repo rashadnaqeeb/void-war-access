@@ -93,10 +93,8 @@
 //   distance, not geometric: BFS moves over the ship layer's
 //   passability graph (vwa_ship_geom_adj - rooms connect only through
 //   doors), so "nearest" means nearest to walk to. An entry unreachable
-//   from the origin sits in a DETACHED SECTION - real topology, not a
-//   bug: ruin and boss hulls ship door-disconnected sections (audited
-//   from the room data: both DM ruins, the demon and empire bosses).
-//   Sorted last, one non-error log per build.
+//   from the origin is a mod bug (hulls are door-connected): logged,
+//   sorted last.
 //
 // Announcements (always interrupt: direct user-caused feedback): item
 // name, then the CURSOR PATH to the entry as ONE space-joined phrase of
@@ -107,11 +105,8 @@
 // remaining ties resolved toward vwa_ship_dirs order, so a same-room
 // straight shot keeps the old vertical-then-horizontal convention. One
 // part, so the chokepoint puts no pause between the leg tokens; "here"
-// at zero. An entry with no path speaks the localized "detached" token
-// in the path's place when its tile is on the passability graph (a
-// detached section - Home still jumps there), and "error" with a log
-// when it is not (a mod bug, the announce part guard's precedent).
-// Then instance position n of m only when the
+// at zero; an unreachable entry logs and speaks "error" (the announce
+// part guard's precedent). Then instance position n of m only when the
 // item has more than one instance, then the backend detail clause. A category cycle prefixes
 // the category name; an emptied-out category speaks the category name
 // plus "empty". Home resolves the entry, remembers the
@@ -869,9 +864,8 @@ function vwa_scan_path_dists(adj, fromKey)
 // first, then in TURNS (a straight "3 up 2 left" beats an equal-length
 // zigzag), remaining ties toward vwa_ship_dirs order (vertical legs
 // surface first, the convention the phrase inherits). [] for the same
-// tile; undefined when no path exists (the impure caller decides: a
-// detached section when the target tile is on the graph, a mod bug
-// when it is not). Dijkstra over
+// tile; undefined when no path exists (the impure caller logs - hulls
+// are door-connected, so unreachable is a mod bug). Dijkstra over
 // (tile, arrival direction) states with scalar cost moves * stride +
 // turns; turns never exceeds moves and moves never exceeds the state
 // count, so the stride keeps the ranking lexicographic. State arrays
@@ -1041,13 +1035,12 @@ function vwa_ship_scan_drop(alliedSide)
 // Gather the flat entry list from every backend, sort keys stamped
 // against the given origin. dist is cursor-path moves from the origin
 // (vwa_scan_path_dists over the passability graph); an unreachable
-// entry sits in a DETACHED SECTION (real topology: ruin and boss hulls
-// ship door-disconnected sections) - sorted last, counted in one
-// non-error log per build. An origin missing from the graph is a mod
-// bug (it was a cursor tile of this same immutable geometry) - logged,
-// Manhattan keeps this build's sort usable. Fresh entries are resolved
-// immediately; an entry its own backend cannot resolve straight after
-// scanning is a backend bug - logged, skipped.
+// entry is a mod bug - logged, sorted last. An origin missing from the
+// graph is likewise a mod bug (it was a cursor tile of this same
+// immutable geometry) - logged, Manhattan keeps this build's sort
+// usable. Fresh entries are resolved immediately; an entry its own
+// backend cannot resolve straight after scanning is a backend bug -
+// logged, skipped.
 function vwa_ship_scan_gather(alliedSide, originTx, originTy)
 {
     var geom = vwa_ship_geom(alliedSide);
@@ -1061,7 +1054,6 @@ function vwa_ship_scan_gather(alliedSide, originTx, originTy)
         dists = undefined;
     }
     var entries = [];
-    var detached = 0;
     var bs = global.vwaShipScanBackends;
     for (var i = 0; i < array_length(bs); i++)
     {
@@ -1091,16 +1083,12 @@ function vwa_ship_scan_gather(alliedSide, originTx, originTy)
             }
             else
             {
-                detached += 1;
+                vwa_log("ERROR: ship scan: entry unreachable from the sort origin: "
+                    + b.cat + " " + string(e.item) + " at " + ek);
                 e.dist = 1000000;
             }
             array_push(entries, e);
         }
-    }
-    if (detached > 0)
-    {
-        vwa_log("ship scan: " + string(detached)
-            + " entries in detached sections (sorted last)");
     }
     return entries;
 }
@@ -1234,28 +1222,16 @@ function vwa_ship_scan_announce_parts(alliedSide, st, withCat)
     }
     array_push(parts, curE.entry.item);
     var cur = vwa_ship_cursor(alliedSide);
-    var adj = vwa_ship_geom_adj(alliedSide);
-    var toKey = string(curE.res.tx) + "," + string(curE.res.ty);
-    var legs = vwa_scan_path_legs(adj,
-        string(cur.tx) + "," + string(cur.ty), toKey);
+    var legs = vwa_scan_path_legs(vwa_ship_geom_adj(alliedSide),
+        string(cur.tx) + "," + string(cur.ty),
+        string(curE.res.tx) + "," + string(curE.res.ty));
     if (legs == undefined)
     {
-        if (variable_struct_exists(adj, toKey))
-        {
-            // On the graph but no path: a detached section (ruin and
-            // boss hulls ship these). No walking legs exist; Home still
-            // jumps the cursor there.
-            array_push(parts, vwa_t("vwa--ship-detached"));
-        }
-        else
-        {
-            // A resolved tile missing from the graph entirely IS a mod
-            // bug. Audible and actionable, the announce part guard's
-            // precedent.
-            vwa_log("ERROR: ship scan: entry tile off the passability graph: "
-                + string(curE.entry.item) + " at " + toKey);
-            array_push(parts, "error");
-        }
+        // Hulls are door-connected; unreachable is a mod bug. Audible
+        // and actionable, the announce part guard's precedent.
+        vwa_log("ERROR: ship scan: no cursor path to " + string(curE.entry.item)
+            + " at " + string(curE.res.tx) + "," + string(curE.res.ty));
+        array_push(parts, "error");
     }
     else
     {

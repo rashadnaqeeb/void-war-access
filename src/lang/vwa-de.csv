@@ -159,26 +159,3 @@ vwa--action-ship-search-delete,Suche: Zeichen löschen
 vwa--ship-scan-search,Suchergebnisse
 vwa--ship-scan-search-prompt,Suche
 vwa--ship-scan-no-return,nichts zum Zurückkehren
-vwa--ship-detached,abgetrennt
-vwa--action-ship-describe,Schiff beschreiben
-vwa--ship-desc-size,"{w} breit, {h} hoch, {n} Räume"
-vwa--ship-desc-sym,symmetrisch
-vwa--ship-desc-sym-rough,fast symmetrisch
-vwa--ship-desc-sections,{n} Abschnitte
-vwa--ship-desc-detached,"abgetrennter Abschnitt, {n} Räume"
-vwa--ship-desc-range,{a} bis {b}
-vwa--ship-desc-tall,{n} hoch
-vwa--ship-desc-tall-max,bis zu {n} hoch
-vwa--ship-desc-wide,{n} breit
-vwa--ship-desc-wide-max,bis zu {n} breit
-vwa--ship-desc-upper,oben
-vwa--ship-desc-lower,unten
-vwa--ship-desc-left,links
-vwa--ship-desc-right,rechts
-vwa--ship-desc-airlock-one,1 Luftschleuse
-vwa--ship-desc-airlocks,{n} Luftschleusen
-vwa--ship-desc-n-top,{n} oben
-vwa--ship-desc-n-bottom,{n} unten
-vwa--ship-desc-n-left,{n} links
-vwa--ship-desc-n-right,{n} rechts
-vwa--ship-desc-n-interior,{n} innen
