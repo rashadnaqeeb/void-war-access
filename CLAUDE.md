@@ -57,6 +57,9 @@ the hard rules.
   (undefined) expecting a Number") - rename the field.
 - Cross-entry enum visibility is not guaranteed under the UTMT importer -
   use strings.
+- Indexing a function call's result directly (`f(x)[0]`) is a hard
+  compile error under the UTMT importer ("Invalid expression on
+  accessor") - assign to a local first.
 - `try/finally` is unverified under the importer - use restore-and-rethrow.
 - GML struct `==` is reference equality (usable as an identity tier).
 - `show_debug_message` does NOT reach `-debugoutput`; files in the save dir
