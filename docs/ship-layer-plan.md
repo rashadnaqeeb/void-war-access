@@ -404,9 +404,11 @@ BUILT (piece 5, cursor half): the chokepoint (`vwa_earcon`;
 scrVwaEarcon's header is the authoritative spec), the wall-block,
 airlock-block, and door-cross events with their sounds, the spoken
 tokens demoted to earcon-failure fallbacks (scrVwaShipLayer), and the
-walker's earcon-channel assertions (earcons play at zero volume during
-dev sweeps). The settings-forward volume variable shipped
-(`global.vwaEarconVolume`). Still to build from this section: the
+walker's earcon-channel assertions (earcons play muted during dev
+sweeps). Volume was revised in play: gain is 1.5 x
+`global.volumeMax_SFX` read live, so the game's SFX slider is the one
+volume control and there is no mod-side volume setting (the
+paragraphs below predate that call). Still to build from this section: the
 scanner wrap, the direction tones with their toggle, and the piece-6
 selection events - the sound list and notes below stay the build-to
 reference for them.
@@ -440,9 +442,11 @@ six verified present in the game data by asset name):
 - ship toggle: dropped for now.
 - selection corner set / rectangle complete: join when piece 6 lands.
 
-Settings-forward shape: the scanner-direction earcon toggle and the
-general earcon volume live as mod state written so a future settings
-screen (not yet built) can bind them; until then they hold defaults.
+Settings-forward shape: the scanner-direction earcon toggle lives as
+mod state written so a future settings screen (not yet built) can bind
+it; until then it holds its default. (General earcon volume needs no
+setting - the in-play revision above ties it to the game's SFX
+slider.)
 
 Audio path DECIDED (verified live, `vwa_dev_earcon_probe`): native
 GameMaker audio, no external library. Tones are synthesized at runtime
@@ -457,10 +461,9 @@ this runner: asset length sample-accurate, playback live, free and
 re-create clean. Multi-segment earcons (the ONI-style direction
 sequence) are baked as one buffer per sequence or scheduled frame-based
 from the pump - an implementation choice at build, not a library
-question. Earcon volume is NOT multiplied by `global.volumeMax_SFX` by
-default (the game's SFX slider must not be able to silence navigation
-audio); the earcon volume is its own settings-forward variable, per the
-shape above.
+question. Earcon volume: originally its own settings-forward variable,
+REVISED at build in play (the BUILT note above) - 1.5 x
+`global.volumeMax_SFX`, read live.
 
 ## Testing
 

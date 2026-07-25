@@ -74,11 +74,11 @@ function vwa_dev_shipwalk()
         array_push(self.w.ear, { name: name, ok: ok });
     });
     // The sweep drives hundreds of real moves; earcons still PLAY (the
-    // chokepoint's whole path stays under test) but at zero volume, so
-    // a dev-driven run does not bombard whoever is at the machine. The
-    // player's volume is restored on every exit path.
-    var priorVol = global.vwaEarconVolume;
-    global.vwaEarconVolume = 0;
+    // chokepoint's whole path stays under test) but muted, so a
+    // dev-driven run does not bombard whoever is at the machine. The
+    // flag is restored on every exit path.
+    var priorMute = global.vwaEarconMute;
+    global.vwaEarconMute = true;
     var startTx = cur.tx;
     var startTy = cur.ty;
     var visited = {};
@@ -136,12 +136,12 @@ function vwa_dev_shipwalk()
         // try/finally is unverified under the importer: restore-and-rethrow.
         global.vwaSpeakTap = priorTap;
         global.vwaEarconTap = priorEarTap;
-        global.vwaEarconVolume = priorVol;
+        global.vwaEarconMute = priorMute;
         throw err;
     }
     global.vwaSpeakTap = priorTap;
     global.vwaEarconTap = priorEarTap;
-    global.vwaEarconVolume = priorVol;
+    global.vwaEarconMute = priorMute;
     var tileKeys = variable_struct_get_names(geom.tiles);
     var missing = 0;
     for (var i = 0; i < array_length(tileKeys); i++)

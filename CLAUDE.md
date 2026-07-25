@@ -224,10 +224,12 @@ scrVwaShipScan.
   End teardown via `vwa_shim_shutdown`).
 - **One earcon chokepoint.** All mod audio flows through `vwa_earcon(name)`
   (scrVwaEarcon); no direct `audio_*` calls from feature code. Earcons
-  deliberately bypass the game's SFX toggle/volume and pausable-sound
-  registry. `global.vwaEarconTap` is the sanctioned observation hook
-  (observes, never plays). A caller whose information exists nowhere else
-  speaks its fallback token when `vwa_earcon` returns false.
+  bypass the game's SFX master toggle, per-step dedup, and pausable-sound
+  registry; gain is 1.5x the game's SFX slider, read live (the slider is
+  the player's one volume control). `global.vwaEarconTap` is the
+  sanctioned observation hook (observes, never plays). A caller whose
+  information exists nowhere else speaks its fallback token when
+  `vwa_earcon` returns false.
 - **Hooks never speak.** Patched game events set state or enqueue; speech
   happens once per frame from the pump/diff. Sanctioned one-shot exception:
   the boot announcement in oInitGlobals Create.

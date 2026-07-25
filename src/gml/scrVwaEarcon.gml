@@ -22,7 +22,18 @@
 // and oSoundMgr's pausable registry would mute them exactly when they
 // matter. audio_play_sound at priority 100 (gameplay sfx run at 1, so
 // an earcon is never the voice stolen under load), per-instance gain
-// from global.vwaEarconVolume applied at time 0, pitch untouched.
+// applied at time 0, pitch untouched.
+//
+// Volume (decided in play with Rashad, replacing the earlier mod-side
+// volume variable): per-play gain is 1.5 * global.volumeMax_SFX, read
+// live - earcons ride 50 percent above the game's own sfx so they
+// always overpower them, and the game's SFX slider stays the player's
+// one volume control. Consequence, accepted: the slider at zero
+// silences earcons too, with no spoken fallback (vwa_earcon's false
+// means failed-to-start, never merely quiet). global.vwaEarconMute
+// (dev builds: the test sweeps) zeroes the gain without touching
+// playback - events still start and the tap still observes, so a
+// dev-driven sweep does not bombard whoever is at the machine.
 //
 // One event = one or more sound assets started together (the airlock
 // layering). A new event STOPS the previous event's still-playing
@@ -43,15 +54,9 @@
 // global.vwaSpeakTap. It observes, never plays. Live audition through
 // the dev driver: `call vwa_earcon <name>`.
 //
-// Settings-forward state (a future settings screen binds it; the
-// default holds until then): global.vwaEarconVolume (0..1, default 0.8,
-// the probe's by-ear level) - the earcon layer's own volume, NEVER
-// multiplied by global.volumeMax_SFX (the game's SFX slider must not be
-// able to silence navigation audio).
-
 function vwa_earcon_init()
 {
-    global.vwaEarconVolume = 0.8;
+    global.vwaEarconMute = false;
     global.vwaEarconLive = [];
     vwa_log("earcon: layer initialized");
 }
@@ -100,6 +105,7 @@ function vwa_earcon(name)
         }
     }
     global.vwaEarconLive = [];
+    var gain = global.vwaEarconMute ? 0 : (1.5 * global.volumeMax_SFX);
     var ok = true;
     for (var i = 0; i < array_length(sounds); i++)
     {
@@ -111,7 +117,7 @@ function vwa_earcon(name)
                 + audio_get_name(sounds[i]) + " failed to play");
             continue;
         }
-        audio_sound_gain(inst, global.vwaEarconVolume, 0);
+        audio_sound_gain(inst, gain, 0);
         array_push(global.vwaEarconLive, inst);
     }
     if (variable_global_exists("vwaEarconTap") && global.vwaEarconTap != undefined)
