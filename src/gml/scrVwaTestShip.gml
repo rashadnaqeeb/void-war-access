@@ -30,7 +30,10 @@
 // vwa_ship_move_parts / block-token render, and the game's own
 // connectivity truth - a door crossing's target cell must sit in the
 // from-cell's connectedCellList and the door in its doorsList; a
-// wall-blocked existing neighbor must still be in adjCellList. At the
+// wall-blocked existing neighbor must still be in adjCellList. The
+// cached passability graph (vwa_ship_geom_adj, what the scanner's
+// paths ride on) is cross-checked per move: its pass bit must equal
+// the move plan's outcome. At the
 // end: the visited set must exactly cover the geometry index (membership
 // derived live from the built index, never hardcoded), no section may
 // have quarantined, and the cursor is restored to its starting tile.
@@ -161,6 +164,26 @@ function vwa_dev_shipwalk_move(tc, w, alliedSide, dx, dy, mustMove)
     var plan = vwa_ship_move_plan(fromE, toE, edge);
     var tag = string(oldTx) + "," + string(oldTy)
         + " d" + string(dx) + "," + string(dy);
+    // The cached passability graph must agree with this move's live
+    // resolve - the scanner's path distances and legs ride on it.
+    var adjNode = variable_struct_get(vwa_ship_geom_adj(alliedSide),
+        string(oldTx) + "," + string(oldTy));
+    var dirsTbl = vwa_ship_dirs();
+    var dirIx = -1;
+    for (var i = 0; i < array_length(dirsTbl); i++)
+    {
+        if (dirsTbl[i].dx == dx && dirsTbl[i].dy == dy)
+        {
+            dirIx = i;
+            break;
+        }
+    }
+    vwa_test_ok(tc, "shipwalk: passability graph agrees with the plan " + tag,
+        adjNode != undefined && dirIx >= 0
+            && adjNode.pass[dirIx] == plan.moved,
+        (adjNode == undefined) ? "tile not on the graph"
+            : ("pass " + string(adjNode.pass[dirIx])
+                + " plan " + string(plan.moved)));
     if (plan.moved && plan.cellChanged)
     {
         vwa_test_ok(tc, "shipwalk: door cross agrees with connectedCellList " + tag,

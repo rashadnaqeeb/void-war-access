@@ -5,7 +5,7 @@
 // instance, no subcategories: categories cycle with Ctrl+PageUp/PageDown,
 // items with PageUp/PageDown, instances with Alt+PageUp/PageDown. Action
 // keys on the announced entry: Home jumps the tile cursor to it (the
-// bridge from perception to orders), End re-speaks its offsets without
+// bridge from perception to orders), End re-speaks its path without
 // moving, Backspace returns the cursor to where it was before the last
 // jump. Ctrl+F opens a typed search over every entry on the ship. All
 // scanner keys live in the "ship" input category (scrVwaShipLayer's
@@ -89,14 +89,25 @@
 // - Sort keys (dist from the snapshot origin, then row, then column;
 //   stable sort so full ties - co-located hazard types - keep emission
 //   order) are stamped at build for SORTING only; announcements always
-//   recompute offsets live from the cursor.
+//   recompute the path live from the cursor. dist is CURSOR-PATH
+//   distance, not geometric: BFS moves over the ship layer's
+//   passability graph (vwa_ship_geom_adj - rooms connect only through
+//   doors), so "nearest" means nearest to walk to. An entry unreachable
+//   from the origin is a mod bug (hulls are door-connected): logged,
+//   sorted last.
 //
 // Announcements (always interrupt: direct user-caused feedback): item
-// name, exact tile offsets from the cursor as ONE space-joined phrase,
-// ALWAYS vertical then horizontal ("2 up 3 left" - one part, so the
-// chokepoint puts no pause between the axis tokens; "here" at zero) -
-// instance position n of m only when the item has more than one
-// instance, then the backend detail clause. A category cycle prefixes
+// name, then the CURSOR PATH to the entry as ONE space-joined phrase of
+// walking legs in walking order ("1 down 2 right 1 up": follow the legs
+// and you arrive - never a straight-line offset the cursor cannot
+// follow). The path is the shortest in MOVES, with TURNS as the
+// tie-break (a straight "3 up 2 left" beats an equal-length zigzag) and
+// remaining ties resolved toward vwa_ship_dirs order, so a same-room
+// straight shot keeps the old vertical-then-horizontal convention. One
+// part, so the chokepoint puts no pause between the leg tokens; "here"
+// at zero; an unreachable entry logs and speaks "error" (the announce
+// part guard's precedent). Then instance position n of m only when the
+// item has more than one instance, then the backend detail clause. A category cycle prefixes
 // the category name; an emptied-out category speaks the category name
 // plus "empty". Home resolves the entry, remembers the
 // cursor tile (preJump), moves the cursor, and speaks the full tile read
@@ -104,7 +115,7 @@
 // on the entry speaks "here" and leaves the preJump anchor alone.
 // Backspace restores the preJump tile with a full read, once ("nothing
 // to return to" after that, or when the tile no longer resolves). End
-// re-announces the current entry, offsets recomputed from the cursor.
+// re-announces the current entry, the path recomputed from the cursor.
 //
 // SEARCH (Ctrl+F): arms a typed-query capture. While armed the ship
 // category goes dead (scrVwaShipLayer's mode gates on
@@ -133,7 +144,10 @@
 //
 // Pure and fixture-tested in vwa_dev_selftest (vwa_test_shipscan):
 // vwa_scan_group (grouping, both sorts, tie-breaks, empty categories),
-// vwa_scan_offset_str, vwa_scan_next_nonempty (the category skip rule),
+// vwa_scan_path_dists (BFS distances, door-only room crossings),
+// vwa_scan_path_legs (shortest-move min-turn legs, tie order,
+// unreachable), vwa_scan_path_str (the leg phrase, "here" at zero),
+// vwa_scan_next_nonempty (the category skip rule),
 // vwa_scan_prune (instance removal, item drop,
 // prune-to-empty), vwa_scan_locate (re-seat by key), and
 // vwa_scan_search_group (tier filter and ordering, no-match undefined).
@@ -803,34 +817,168 @@ function vwa_scan_search_group(entries, query)
     return { cats: [cat] };
 }
 
-// PURE: the spoken offset phrase from cursor to entry, ONE space-joined
-// string - ALWAYS vertical then horizontal ("2 up 1 right"), never the
-// reverse, and no comma between the axis tokens (a single part, so the
-// chokepoint's join puts no pause inside it). dtx positive is right, dty
-// positive is DOWN (internal tile rows grow down; the words match the
-// arrow keys, so "up" agrees with the spoken coordinates' y-up). Zero
-// distance speaks "here".
-function vwa_scan_offset_str(dtx, dty)
+// PURE: breadth-first cursor-move distances from one tile over the
+// passability graph ({tileKey: moves} for every REACHABLE tile) - the
+// scanner's sort metric. A tile absent from the result is unreachable;
+// a from-tile not on the graph answers the empty struct (the impure
+// caller logs).
+function vwa_scan_path_dists(adj, fromKey)
 {
-    if (dtx == 0 && dty == 0)
+    var dists = {};
+    if (!variable_struct_exists(adj, fromKey))
+    {
+        return dists;
+    }
+    var dirs = vwa_ship_dirs();
+    variable_struct_set(dists, fromKey, 0);
+    var queue = [fromKey];
+    var qi = 0;
+    while (qi < array_length(queue))
+    {
+        var k = queue[qi];
+        qi += 1;
+        var node = variable_struct_get(adj, k);
+        var nd = variable_struct_get(dists, k) + 1;
+        for (var i = 0; i < array_length(dirs); i++)
+        {
+            if (!node.pass[i])
+            {
+                continue;
+            }
+            var nk = string(node.tx + dirs[i].dx) + ","
+                + string(node.ty + dirs[i].dy);
+            if (!variable_struct_exists(adj, nk)
+                || variable_struct_exists(dists, nk))
+            {
+                continue;
+            }
+            variable_struct_set(dists, nk, nd);
+            array_push(queue, nk);
+        }
+    }
+    return dists;
+}
+
+// PURE: the shortest cursor path between two tiles of the passability
+// graph, as walking legs [{dir, n}] in walking order - minimal in MOVES
+// first, then in TURNS (a straight "3 up 2 left" beats an equal-length
+// zigzag), remaining ties toward vwa_ship_dirs order (vertical legs
+// surface first, the convention the phrase inherits). [] for the same
+// tile; undefined when no path exists (the impure caller logs - hulls
+// are door-connected, so unreachable is a mod bug). Dijkstra over
+// (tile, arrival direction) states with scalar cost moves * stride +
+// turns; turns never exceeds moves and moves never exceeds the state
+// count, so the stride keeps the ranking lexicographic. State arrays
+// stay in creation order and the min scan takes the first minimum, so
+// the result is deterministic.
+function vwa_scan_path_legs(adj, fromKey, toKey)
+{
+    if (fromKey == toKey)
+    {
+        return [];
+    }
+    if (!variable_struct_exists(adj, fromKey)
+        || !variable_struct_exists(adj, toKey))
+    {
+        return undefined;
+    }
+    var dirs = vwa_ship_dirs();
+    var stride = (array_length(variable_struct_get_names(adj)) * 4) + 1;
+    var states = [{ tileKey: fromKey, dirIx: -1, cost: 0,
+                    prevIx: -1, closed: false }];
+    var lookup = {};
+    variable_struct_set(lookup, fromKey + ":-1", 0);
+    var goalIx = -1;
+    while (goalIx < 0)
+    {
+        var curIx = -1;
+        for (var i = 0; i < array_length(states); i++)
+        {
+            if (!states[i].closed
+                && (curIx < 0 || states[i].cost < states[curIx].cost))
+            {
+                curIx = i;
+            }
+        }
+        if (curIx < 0)
+        {
+            return undefined;
+        }
+        var s = states[curIx];
+        s.closed = true;
+        if (s.tileKey == toKey)
+        {
+            goalIx = curIx;
+            break;
+        }
+        var node = variable_struct_get(adj, s.tileKey);
+        for (var d = 0; d < array_length(dirs); d++)
+        {
+            if (!node.pass[d])
+            {
+                continue;
+            }
+            var nk = string(node.tx + dirs[d].dx) + ","
+                + string(node.ty + dirs[d].dy);
+            if (!variable_struct_exists(adj, nk))
+            {
+                continue;
+            }
+            var turn = (s.dirIx >= 0 && s.dirIx != d) ? 1 : 0;
+            var cost = s.cost + stride + turn;
+            var lk = nk + ":" + string(d);
+            if (!variable_struct_exists(lookup, lk))
+            {
+                variable_struct_set(lookup, lk, array_length(states));
+                array_push(states, { tileKey: nk, dirIx: d, cost: cost,
+                    prevIx: curIx, closed: false });
+            }
+            else
+            {
+                var ex = states[variable_struct_get(lookup, lk)];
+                if (!ex.closed && cost < ex.cost)
+                {
+                    ex.cost = cost;
+                    ex.prevIx = curIx;
+                }
+            }
+        }
+    }
+    // The predecessor chain, straight runs compressed into legs.
+    var legs = [];
+    var ix = goalIx;
+    while (ix >= 0 && states[ix].dirIx >= 0)
+    {
+        var dkey = dirs[states[ix].dirIx].key;
+        if (array_length(legs) > 0 && legs[0].dir == dkey)
+        {
+            legs[0].n += 1;
+        }
+        else
+        {
+            array_insert(legs, 0, { dir: dkey, n: 1 });
+        }
+        ix = states[ix].prevIx;
+    }
+    return legs;
+}
+
+// PURE: the spoken phrase for path legs - ONE space-joined string, the
+// legs in walking order, each through its direction token, no comma
+// between legs (a single part, so the chokepoint's join puts no pause
+// inside it). No legs speaks "here".
+function vwa_scan_path_str(legs)
+{
+    if (array_length(legs) == 0)
     {
         return vwa_t("vwa--ship-scan-here");
     }
     var s = "";
-    if (dty < 0)
+    for (var i = 0; i < array_length(legs); i++)
     {
-        s = vwa_sheet_t("vwa--ship-scan-up", ["n"], [-dty]);
-    }
-    if (dty > 0)
-    {
-        s = vwa_sheet_t("vwa--ship-scan-down", ["n"], [dty]);
-    }
-    if (dtx != 0)
-    {
-        var h = (dtx < 0)
-            ? vwa_sheet_t("vwa--ship-scan-left", ["n"], [-dtx])
-            : vwa_sheet_t("vwa--ship-scan-right", ["n"], [dtx]);
-        s = (s == "") ? h : (s + " " + h);
+        var part = vwa_sheet_t("vwa--ship-scan-" + legs[i].dir,
+            ["n"], [legs[i].n]);
+        s = (s == "") ? part : (s + " " + part);
     }
     return s;
 }
@@ -885,12 +1033,26 @@ function vwa_ship_scan_drop(alliedSide)
 }
 
 // Gather the flat entry list from every backend, sort keys stamped
-// against the given origin. Fresh entries are resolved immediately; an
-// entry its own backend cannot resolve straight after scanning is a
-// backend bug - logged, skipped.
+// against the given origin. dist is cursor-path moves from the origin
+// (vwa_scan_path_dists over the passability graph); an unreachable
+// entry is a mod bug - logged, sorted last. An origin missing from the
+// graph is likewise a mod bug (it was a cursor tile of this same
+// immutable geometry) - logged, Manhattan keeps this build's sort
+// usable. Fresh entries are resolved immediately; an entry its own
+// backend cannot resolve straight after scanning is a backend bug -
+// logged, skipped.
 function vwa_ship_scan_gather(alliedSide, originTx, originTy)
 {
     var geom = vwa_ship_geom(alliedSide);
+    var adj = vwa_ship_geom_adj(alliedSide);
+    var originKey = string(originTx) + "," + string(originTy);
+    var dists = vwa_scan_path_dists(adj, originKey);
+    if (!variable_struct_exists(dists, originKey))
+    {
+        vwa_log("ERROR: ship scan: sort origin " + originKey
+            + " not on the passability graph; Manhattan fallback");
+        dists = undefined;
+    }
     var entries = [];
     var bs = global.vwaShipScanBackends;
     for (var i = 0; i < array_length(bs); i++)
@@ -910,7 +1072,21 @@ function vwa_ship_scan_gather(alliedSide, originTx, originTy)
             }
             e.tx = res.tx;
             e.ty = res.ty;
-            e.dist = abs(res.tx - originTx) + abs(res.ty - originTy);
+            var ek = string(res.tx) + "," + string(res.ty);
+            if (dists == undefined)
+            {
+                e.dist = abs(res.tx - originTx) + abs(res.ty - originTy);
+            }
+            else if (variable_struct_exists(dists, ek))
+            {
+                e.dist = variable_struct_get(dists, ek);
+            }
+            else
+            {
+                vwa_log("ERROR: ship scan: entry unreachable from the sort origin: "
+                    + b.cat + " " + string(e.item) + " at " + ek);
+                e.dist = 1000000;
+            }
             array_push(entries, e);
         }
     }
@@ -1046,8 +1222,21 @@ function vwa_ship_scan_announce_parts(alliedSide, st, withCat)
     }
     array_push(parts, curE.entry.item);
     var cur = vwa_ship_cursor(alliedSide);
-    array_push(parts, vwa_scan_offset_str(curE.res.tx - cur.tx,
-        curE.res.ty - cur.ty));
+    var legs = vwa_scan_path_legs(vwa_ship_geom_adj(alliedSide),
+        string(cur.tx) + "," + string(cur.ty),
+        string(curE.res.tx) + "," + string(curE.res.ty));
+    if (legs == undefined)
+    {
+        // Hulls are door-connected; unreachable is a mod bug. Audible
+        // and actionable, the announce part guard's precedent.
+        vwa_log("ERROR: ship scan: no cursor path to " + string(curE.entry.item)
+            + " at " + string(curE.res.tx) + "," + string(curE.res.ty));
+        array_push(parts, "error");
+    }
+    else
+    {
+        array_push(parts, vwa_scan_path_str(legs));
+    }
     var n = array_length(curE.item.entries);
     if (n > 1)
     {

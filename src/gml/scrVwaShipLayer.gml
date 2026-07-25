@@ -34,7 +34,13 @@
 // hull's oCell instances once (each tile of a cell is one crew slot;
 // slot world coords slot1x..slot4y), invalidated on room change (a jump
 // is a room_goto and world coords shift; relative coords are what
-// survive). Everything stateful is re-queried live.
+// survive). The tile-passability graph (vwa_ship_geom_adj) is part of
+// the same cache, built lazily onto the index from the same edge
+// resolution the cursor uses: same-cell neighbors pass, cross-cell
+// neighbors pass only through a door (whatever its state - every door
+// state passes the cursor, so passability is topology, not state),
+// walls/airlocks/off-hull block. The scanner's path distances and
+// spoken path legs ride on it. Everything stateful is re-queried live.
 //
 // Focus: the ship-focus-toggle action (Tab; the game's own Tab, the map
 // toggle, stays behind the default-deny gate - the map gets screen
@@ -167,7 +173,9 @@
 // vwa_live_categories directly. The live analog is vwa_dev_shipwalk
 // (scrVwaTestShip): a full arrow-driven sweep of the focused hull against
 // fresh resolves and the game's own connectivity lists, which also
-// drives every slot-level section on live instances.
+// drives every slot-level section on live instances and cross-checks
+// the cached passability graph (vwa_ship_geom_adj) against every real
+// move's outcome.
 
 function vwa_ship_layer_init()
 {
@@ -368,14 +376,17 @@ function vwa_ship_geom_build(records)
     // the literal at runtime under the UTMT importer). ox/oy is the world
     // origin the tiles were normalized against, kept so arbitrary world
     // positions (a mid-walk crew, the scanner's quantization) map to
-    // tiles: tile = round((worldCoord - origin) / 36).
+    // tiles: tile = round((worldCoord - origin) / 36). adj is the
+    // passability graph, built lazily by vwa_ship_geom_adj (it needs
+    // live edge instances, so the pure builder leaves it empty).
     return {
         tiles: tiles, count: count, dupes: dupes,
         w: maxTx + 1, h: maxTy + 1,
         cx: floor(maxTx / 2), cy: floor(maxTy / 2),
         defaultTile: { tx: defTx, ty: defTy },
         ox: minX, oy: minY,
-        builtRoom: undefined
+        builtRoom: undefined,
+        adj: undefined
     };
 }
 
@@ -393,6 +404,75 @@ function vwa_ship_coord_str(v)
 function vwa_ship_geom_tile(geom, tx, ty)
 {
     return variable_struct_get(geom.tiles, string(tx) + "," + string(ty));
+}
+
+// The cursor's four moves, in the ONE deterministic order every
+// adjacency and path consumer iterates. Vertical entries first: path
+// ties resolve toward this order, so a straight-shot phrase keeps the
+// vertical-before-horizontal convention. Each entry's key names the
+// vwa--ship-scan-* direction token.
+function vwa_ship_dirs()
+{
+    return [
+        { key: "up", dx: 0, dy: -1 },
+        { key: "down", dx: 0, dy: 1 },
+        { key: "left", dx: -1, dy: 0 },
+        { key: "right", dx: 1, dy: 0 }
+    ];
+}
+
+// The hull's tile-passability graph, built lazily onto the geometry
+// index and cached with it (see the cache note in the header: door
+// PRESENCE is topology and every door state passes the cursor, so
+// passability never changes within an encounter; door state is not
+// stored). Keyed like the tile index ("tx,ty"): { tx, ty, pass } with
+// one boolean per vwa_ship_dirs entry. A cross-cell neighbor with no
+// resolvable edge instance blocks as a wall, logged - the cursor's own
+// rule.
+function vwa_ship_geom_adj(alliedSide)
+{
+    var geom = vwa_ship_geom(alliedSide);
+    if (geom.adj != undefined)
+    {
+        return geom.adj;
+    }
+    var dirs = vwa_ship_dirs();
+    var adj = {};
+    var keys = variable_struct_get_names(geom.tiles);
+    for (var i = 0; i < array_length(keys); i++)
+    {
+        var t = variable_struct_get(geom.tiles, keys[i]);
+        var pass = [false, false, false, false];
+        for (var d = 0; d < array_length(dirs); d++)
+        {
+            var toE = vwa_ship_geom_tile(geom,
+                t.tx + dirs[d].dx, t.ty + dirs[d].dy);
+            if (toE == undefined)
+            {
+                continue;
+            }
+            if (t.cell == toE.cell)
+            {
+                pass[d] = true;
+                continue;
+            }
+            var edge = vwa_ship_edge_resolve(t, dirs[d].dx, dirs[d].dy);
+            if (edge == undefined)
+            {
+                vwa_log("ERROR: ship: no edge instance between tiles "
+                    + string(t.tx) + "," + string(t.ty) + " and "
+                    + string(t.tx + dirs[d].dx) + ","
+                    + string(t.ty + dirs[d].dy) + " on allied "
+                    + string(alliedSide) + " (adjacency build)");
+                continue;
+            }
+            pass[d] = (edge.kind == "door");
+        }
+        variable_struct_set(adj, keys[i], { tx: t.tx, ty: t.ty, pass: pass });
+    }
+    geom.adj = adj;
+    vwa_log("ship: passability graph built for allied " + string(alliedSide));
+    return adj;
 }
 
 // The focused hull's cursor tile, initialized to the geometry's default

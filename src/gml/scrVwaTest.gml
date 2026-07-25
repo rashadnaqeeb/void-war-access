@@ -120,24 +120,66 @@ function vwa_test_shipscan(tc)
     vwa_test_eq(tc, "shipscan: item full tie keeps emission order",
         snap2.cats[0].items[0].name, "x");
 
-    // Offsets: one space-joined phrase, always vertical before
-    // horizontal, no comma between the axis tokens; "here" at zero.
-    vwa_test_eq(tc, "shipscan: offsets here",
-        vwa_scan_offset_str(0, 0), vwa_t("vwa--ship-scan-here"));
-    vwa_test_eq(tc, "shipscan: offsets up-right one phrase",
-        vwa_scan_offset_str(2, -3),
-        vwa_sheet_t("vwa--ship-scan-up", ["n"], [3]) + " "
-            + vwa_sheet_t("vwa--ship-scan-right", ["n"], [2]));
-    vwa_test_eq(tc, "shipscan: offsets down-left one phrase",
-        vwa_scan_offset_str(-1, 4),
-        vwa_sheet_t("vwa--ship-scan-down", ["n"], [4]) + " "
-            + vwa_sheet_t("vwa--ship-scan-left", ["n"], [1]));
-    vwa_test_eq(tc, "shipscan: offsets vertical alone",
-        vwa_scan_offset_str(0, 2),
-        vwa_sheet_t("vwa--ship-scan-down", ["n"], [2]));
-    vwa_test_eq(tc, "shipscan: offsets horizontal alone",
-        vwa_scan_offset_str(-3, 0),
-        vwa_sheet_t("vwa--ship-scan-left", ["n"], [3]));
+    // Paths: BFS distances and spoken legs over a hand-authored
+    // passability graph. The map: a 2x2 left room (tiles 0,0 1,0 0,1
+    // 1,1), a 1x2 right room (2,0 2,1), a WALL between 1,0 and 2,0, a
+    // DOOR between 1,1 and 2,1, plus an isolated tile 9,9. pass order
+    // matches vwa_ship_dirs: up, down, left, right.
+    var padj = {};
+    variable_struct_set(padj, "0,0",
+        { tx: 0, ty: 0, pass: [false, true, false, true] });
+    variable_struct_set(padj, "1,0",
+        { tx: 1, ty: 0, pass: [false, true, true, false] });
+    variable_struct_set(padj, "0,1",
+        { tx: 0, ty: 1, pass: [true, false, false, true] });
+    variable_struct_set(padj, "1,1",
+        { tx: 1, ty: 1, pass: [true, false, true, true] });
+    variable_struct_set(padj, "2,0",
+        { tx: 2, ty: 0, pass: [false, true, false, false] });
+    variable_struct_set(padj, "2,1",
+        { tx: 2, ty: 1, pass: [true, false, true, false] });
+    variable_struct_set(padj, "9,9",
+        { tx: 9, ty: 9, pass: [false, false, false, false] });
+    var pd = vwa_scan_path_dists(padj, "0,0");
+    vwa_test_eq(tc, "shipscan: path dist same tile",
+        variable_struct_get(pd, "0,0"), 0);
+    vwa_test_eq(tc, "shipscan: path dist through the door",
+        variable_struct_get(pd, "2,1"), 3);
+    vwa_test_eq(tc, "shipscan: path dist detours the wall",
+        variable_struct_get(pd, "2,0"), 4);
+    vwa_test_eq(tc, "shipscan: unreachable tile absent from dists",
+        variable_struct_exists(pd, "9,9"), false);
+    // Legs: the wall detour walks down, through the door, back up -
+    // minimal moves AND minimal turns (the right-first path of the same
+    // length has one turn more).
+    var legs = vwa_scan_path_legs(padj, "0,0", "2,0");
+    vwa_test_ok(tc, "shipscan: detour legs",
+        legs != undefined && array_length(legs) == 3
+            && legs[0].dir == "down" && legs[0].n == 1
+            && legs[1].dir == "right" && legs[1].n == 2
+            && legs[2].dir == "up" && legs[2].n == 1,
+        string(legs));
+    vwa_test_ok(tc, "shipscan: same-tile legs empty",
+        array_length(vwa_scan_path_legs(padj, "1,1", "1,1")) == 0, "legs");
+    vwa_test_eq(tc, "shipscan: unreachable legs undefined",
+        vwa_scan_path_legs(padj, "0,0", "9,9"), undefined);
+    // A same-room diagonal tie keeps the vertical leg first (the dir
+    // table's order).
+    var tlegs = vwa_scan_path_legs(padj, "0,0", "1,1");
+    vwa_test_ok(tc, "shipscan: diagonal tie walks vertical first",
+        tlegs != undefined && array_length(tlegs) == 2
+            && tlegs[0].dir == "down" && tlegs[0].n == 1
+            && tlegs[1].dir == "right" && tlegs[1].n == 1,
+        string(tlegs));
+    // The phrase: one space-joined string, legs in walking order;
+    // "here" at zero.
+    vwa_test_eq(tc, "shipscan: path phrase here",
+        vwa_scan_path_str([]), vwa_t("vwa--ship-scan-here"));
+    vwa_test_eq(tc, "shipscan: path phrase legs in walking order",
+        vwa_scan_path_str(legs),
+        vwa_sheet_t("vwa--ship-scan-down", ["n"], [1]) + " "
+            + vwa_sheet_t("vwa--ship-scan-right", ["n"], [2]) + " "
+            + vwa_sheet_t("vwa--ship-scan-up", ["n"], [1]));
 
     // The category-cycle skip rule: empty categories are stepped over,
     // wrapping; a lone non-empty category wraps to itself; all empty
