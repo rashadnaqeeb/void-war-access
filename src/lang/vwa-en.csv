@@ -159,3 +159,4 @@ vwa--action-ship-search-delete,Search: delete character
 vwa--ship-scan-search,search results
 vwa--ship-scan-search-prompt,Search
 vwa--ship-scan-no-return,nothing to return to
+vwa--ship-detached,detached
