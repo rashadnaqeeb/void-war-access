@@ -9,11 +9,12 @@
 // airlock's live door-state sound layered with a hiss that marks it as
 // an airlock; the layering is provisional, judged by ear in play), the
 // door-cross events door-open / door-closed / door-battered - and the
-// scanner channel (scrVwaShipScan) - scan-wrap plus the direction tone
-// below. Selection events join with piece 6.
+// scanner channel (scrVwaShipScan): the direction tone below (a wrap
+// click shipped here briefly and was removed in play - not needed).
+// Selection events join with piece 6.
 // Imported by tools/build-mod.csx as a new global script. Ships in release.
 //
-// The scanner direction tone (vwa_earcon_dir(up, rt, withWrap)): a
+// The scanner direction tone (vwa_earcon_dir(up, rt)): a
 // SPATIAL pointer to the announced entry, synthesized at play time -
 // the straight-line tile offset from the cursor, cursor-relative
 // up/right positive matching the spoken coordinate convention, NEVER
@@ -46,8 +47,7 @@
 //   stay perceptually even where a linear ramp would compress the
 //   short distances that matter most).
 // A zero-zero offset ("here") is the horizontal anchor at center, full
-// loudness. withWrap layers the scan-wrap click into the same event
-// (one user action, one interrupt). The tone AUGMENTS speech and its
+// loudness. The tone AUGMENTS speech and its
 // information lives in the spoken legs, so a failed tone logs but
 // needs no spoken fallback.
 //
@@ -79,8 +79,7 @@
 // dev-driven sweep does not bombard whoever is at the machine.
 //
 // One event = one or more sounds started together (the airlock
-// layering; the wrap click plus direction tone of one scanner
-// announcement). A new event STOPS the previous event's still-playing
+// layering). A new event STOPS the previous event's still-playing
 // instances and frees the previous tone's buffer - the audio analog of
 // the speech interrupt on direct user-caused movement, keeping fast
 // arrowing and fast browsing crisp; only instances this module itself
@@ -99,7 +98,7 @@
 // global.vwaSpeakTap. info is undefined for named events and {up, rt}
 // for the direction tone. It observes, never plays. Live audition
 // through the dev driver: `call vwa_earcon <name>` or
-// `call vwa_earcon_dir <up> <rt> <withWrap>`.
+// `call vwa_earcon_dir <up> <rt>`.
 
 function vwa_earcon_init()
 {
@@ -132,8 +131,6 @@ function vwa_earcon_sounds(name)
             return [sfxDoorClose_crop];
         case "door-battered":
             return [Metlimpt_Ji_B_03_soundbits];
-        case "scan-wrap":
-            return [buttonSmall_doubleClick1_SmartSoundFXPOND5];
     }
     return undefined;
 }
@@ -250,8 +247,7 @@ function vwa_earcon_dir_segments(up, rt)
 }
 
 // THE audio chokepoint for the scanner direction tone (see header).
-// One event: withWrap layers the scan-wrap click in before the tone.
-// The toggle suppresses only the tone. Synthesis: 48kHz stereo s16,
+// The toggle suppresses it entirely. Synthesis: 48kHz stereo s16,
 // 55ms segments (5ms fades), constant-power pan and the distance ratio
 // baked per segment on the header's base amplitude (the loop stays
 // multi-segment-capable with a 10ms gap, though the current tone is a
@@ -259,18 +255,12 @@ function vwa_earcon_dir_segments(up, rt)
 // (one outstanding tone at most). Failures log; the tone augments
 // speech, so there is no spoken fallback (the walking legs carry the
 // information).
-function vwa_earcon_dir(up, rt, withWrap)
+function vwa_earcon_dir(up, rt)
 {
     vwa_earcon_stop_prev();
-    var okAll = true;
-    if (withWrap)
-    {
-        okAll = vwa_earcon_play_assets("scan-wrap", vwa_earcon_sounds("scan-wrap"));
-        vwa_earcon_tap_call("scan-wrap", okAll, undefined);
-    }
     if (!global.vwaEarconDirTones)
     {
-        return okAll;
+        return true;
     }
     var segs = vwa_earcon_dir_segments(up, rt);
     var rate = 48000;
@@ -343,5 +333,5 @@ function vwa_earcon_dir(up, rt, withWrap)
         }
     }
     vwa_earcon_tap_call("scan-dir", ok, { up: up, rt: rt });
-    return okAll && ok;
+    return ok;
 }

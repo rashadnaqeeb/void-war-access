@@ -331,9 +331,9 @@ function vwa_dev_shipwalk_earjoin(ear)
 // non-empty categories (the skip rule; the bare empty token when every
 // category is empty), and the earcon channel verified per announcement
 // (vwa_dev_shipscan_earcheck: the direction tone with its straight-line
-// offset on every entry announcement, the wrap click exactly on item/
-// instance wraps, silence on jump and return; earcons run muted with
-// the tone toggle forced on, both restored); after each rebuild every snapshot entry - of all
+// offset on every entry announcement, silence on jump and return;
+// earcons run muted with the tone toggle forced on, both restored);
+// after each rebuild every snapshot entry - of all
 // categories, skipped ones included - must pass its own backend's
 // resolve, sit in its category, carry a stable key, and honor the
 // visibility gate
@@ -441,7 +441,7 @@ function vwa_dev_shipscan()
             }
             if (anyFull)
             {
-                vwa_dev_shipscan_earcheck(tc, alliedSide, st, w.ear, false,
+                vwa_dev_shipscan_earcheck(tc, alliedSide, st, w.ear,
                     "cat press " + string(lap));
             }
             else
@@ -472,11 +472,6 @@ function vwa_dev_shipscan()
                 !rr.built && !rr.lost
                     && vwa_ship_scan_current_key(st) == keyBefore,
                 string(keyBefore) + " -> " + string(vwa_ship_scan_current_key(st)));
-            // Wrap expectation derived live: from index 0, one forward
-            // step wraps exactly when the list holds a single item (the
-            // wrap click joins the direction tone in one event).
-            var wrapItem =
-                (array_length(st.snap.cats[st.catIx].items) == 1);
             w.tap = [];
             w.ear = [];
             vwa_ship_scan_item_cycle(1);
@@ -488,16 +483,14 @@ function vwa_dev_shipscan()
                     vwa_speak_render(
                         vwa_ship_scan_announce_parts(alliedSide, st, false)));
             }
-            vwa_dev_shipscan_earcheck(tc, alliedSide, st, w.ear, wrapItem,
+            vwa_dev_shipscan_earcheck(tc, alliedSide, st, w.ear,
                 "item cycle");
-            var wrapInst = (array_length(
-                st.snap.cats[st.catIx].items[st.itemIx].entries) == 1);
             w.tap = [];
             w.ear = [];
             vwa_ship_scan_inst_cycle(1);
             vwa_test_ok(tc, "shipscan: one utterance on instance cycle",
                 array_length(w.tap) == 1, vwa_test_join(w.tap));
-            vwa_dev_shipscan_earcheck(tc, alliedSide, st, w.ear, wrapInst,
+            vwa_dev_shipscan_earcheck(tc, alliedSide, st, w.ear,
                 "instance cycle");
             w.tap = [];
             w.ear = [];
@@ -510,7 +503,7 @@ function vwa_dev_shipscan()
                     vwa_speak_render(
                         vwa_ship_scan_announce_parts(alliedSide, st, false)));
             }
-            vwa_dev_shipscan_earcheck(tc, alliedSide, st, w.ear, false,
+            vwa_dev_shipscan_earcheck(tc, alliedSide, st, w.ear,
                 "orient");
             var curE = vwa_ship_scan_current(alliedSide, st);
             vwa_test_ok(tc, "shipscan: current entry resolves for the jump",
@@ -576,7 +569,7 @@ function vwa_dev_shipscan()
                 st.snap.isSearch == true, "not a search snapshot");
             if (st.snap.isSearch)
             {
-                vwa_dev_shipscan_earcheck(tc, alliedSide, st, w.ear, false,
+                vwa_dev_shipscan_earcheck(tc, alliedSide, st, w.ear,
                     "search apply");
             }
             if (st.snap.isSearch)
@@ -614,7 +607,7 @@ function vwa_dev_shipscan()
                     vwa_test_eq(tc, "shipscan: search exit restores the category",
                         st.catIx, wantIx);
                     vwa_dev_shipscan_earcheck(tc, alliedSide, st, w.ear,
-                        false, "search exit");
+                        "search exit");
                 }
             }
         }
@@ -659,17 +652,15 @@ function vwa_dev_shipscan()
 }
 
 // One scanner announcement's earcon channel verified: the tap holds
-// exactly the expected events in order (scan-wrap only on a wrap,
-// always before the tone; the earjoin's failed-markers make a
-// failed-to-start sound break the equality), and the direction tone's
-// offset matches a fresh STRAIGHT-LINE compute from the live cursor to
-// the current entry - the spatial-pointer contract, deliberately not
-// the spoken walking legs.
-function vwa_dev_shipscan_earcheck(tc, alliedSide, st, ear, wantWrap, tag)
+// exactly the direction tone (the earjoin's failed-marker makes a
+// failed-to-start tone break the equality), and the tone's offset
+// matches a fresh STRAIGHT-LINE compute from the live cursor to the
+// current entry - the spatial-pointer contract, deliberately not the
+// spoken walking legs.
+function vwa_dev_shipscan_earcheck(tc, alliedSide, st, ear, tag)
 {
     vwa_test_eq(tc, "shipscan: earcon events on " + tag,
-        vwa_dev_shipwalk_earjoin(ear),
-        wantWrap ? "scan-wrap | scan-dir" : "scan-dir");
+        vwa_dev_shipwalk_earjoin(ear), "scan-dir");
     var d = undefined;
     for (var i = 0; i < array_length(ear); i++)
     {

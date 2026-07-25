@@ -405,17 +405,18 @@ chokepoint (`vwa_earcon` for named events, `vwa_earcon_dir` for the
 synthesized direction tone), the wall-block, airlock-block, and
 door-cross events with the spoken tokens demoted to earcon-failure
 fallbacks (scrVwaShipLayer), and the scanner channel (scrVwaShipScan):
-the scan-wrap click on item/instance wraps and the direction tone on
-every entry announcement. The tone is a SPATIAL pointer (Rashad's
-rule): ONE tone on the straight line from cursor to entry - pitch is
-the line's angle blended across the oni-access anchor frequencies
-(297 down, 457 flat, 709 up), pan the horizontal fraction (full at
-due east/west, half at 45 degrees), loudness the Euclidean distance -
-never the zigzag walking legs the announcement speaks (revised in
-play from the oni-access two-segment sequence); distance falls 1 dB
-per tile flooring at -20 dB from 20 tiles (hull-scale, vs
-oni-access's hundreds), base amplitude set by ear in play over the
-music (initially ffmpeg-calibrated against the layer's click sounds). The `global.vwaEarconDirTones` toggle shipped
+the direction tone on every entry announcement (a scan-wrap click on
+item/instance wraps shipped here briefly and was REMOVED in play -
+not needed). The tone is a SPATIAL pointer (Rashad's rule): ONE tone
+on the straight line from cursor to entry - pitch is the line's angle
+blended across the oni-access anchor frequencies (297 down, 457 flat,
+709 up), pan the horizontal fraction (full at due east/west, half at
+45 degrees), loudness the Euclidean distance - never the zigzag
+walking legs the announcement speaks (revised in play from the
+oni-access two-segment sequence); distance falls 1 dB per tile
+flooring at -20 dB from 20 tiles (hull-scale, vs oni-access's
+hundreds), base amplitude set by ear in play over the music
+(initially ffmpeg-calibrated against the layer's click sounds). The `global.vwaEarconDirTones` toggle shipped
 settings-forward. Volume was revised in play: gain is 1.5 x
 `global.volumeMax_SFX` read live, so the game's SFX slider is the one
 volume control and there is no mod-side volume setting (the
@@ -444,7 +445,7 @@ six verified present in the game data by asset name):
   audio-only; that open decision is settled).
 - scanner wrap: `buttonSmall_doubleClick1_SmartSoundFXPOND5` -
   additive; wrap had no speech, and the scanner's spoken "n of m"
-  position stays.
+  position stays. DROPPED at build (tried in play, not needed).
 - scanner direction: the ONI-style synthesized tone sequence
   (vertical-then-horizontal, pan and volume coded), AUGMENTING the
   spoken offsets, never replacing them.
@@ -506,8 +507,7 @@ channel per move - event name re-derived from the live edge state,
 blocks audio-only, the fallback token spoken exactly when the earcon
 reports failure; the shipscan verifies the scanner channel per
 announcement - the direction tone carrying the straight-line offset
-recomputed live, the wrap click exactly on item/instance wraps,
-silence on jump and return.
+recomputed live, silence on jump and return.
 
 Still to build with their pieces:
 
@@ -541,8 +541,9 @@ before the next starts.
    check vwa_dev_shipscan.)
 5. DONE - Earcon layer (the chokepoint in scrVwaEarcon): door-cross
    and wall/airlock block wired with spoken tokens as earcon-failure
-   fallbacks; scanner wrap click and the spatial direction tone on
-   announcements. Selection events join at piece 6.
+   fallbacks; the spatial direction tone on scanner announcements
+   (the wrap click was tried and dropped). Selection events join at
+   piece 6.
    Pulled ahead of selection and orders (Rashad's call): a
    lot of their decisions rest on what the audio channel can carry.
    Selection events join when piece 6 lands.

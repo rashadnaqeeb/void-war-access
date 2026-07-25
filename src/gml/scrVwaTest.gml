@@ -393,7 +393,7 @@ function vwa_test_shiplayer(tc)
     // fallback tokens. An unknown name stays unresolved - the
     // chokepoint throws on it, a mod bug.
     var evs = ["wall-block", "airlock-open-block", "airlock-closed-block",
-               "door-open", "door-closed", "door-battered", "scan-wrap"];
+               "door-open", "door-closed", "door-battered"];
     for (var i = 0; i < array_length(evs); i++)
     {
         var snds = vwa_earcon_sounds(evs[i]);
