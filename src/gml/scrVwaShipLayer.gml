@@ -60,8 +60,10 @@
 //   localized token before the tile - the spoken interim until the
 //   earcon layer exists, revisited at piece 5;
 // - an oWall, an oAirlock, or off the hull entirely: blocked, cursor
-//   stays, a localized "wall" or "airlock" token speaks (airlock only
-//   when an airlock edge instance is actually there - space beyond).
+//   stays, a localized "wall" token speaks - or, when an airlock edge
+//   instance is actually there (space beyond), an airlock token carrying
+//   its live state (0 open, 1 closed; airlocks have no HP and cannot be
+//   battered - the game's door-attack path scans oDoor only).
 // The edge is resolved from the from-cell's sideData (the game's own
 // per-edge cache): the entry whose sideID's bounding box contains the
 // midpoint between the two slot centers (midpoints sit 18px from segment
@@ -544,7 +546,8 @@ function vwa_ship_edge_resolve(fromEntry, dx, dy)
         }
         return {
             kind: kind,
-            doorState: (kind == "door") ? inst.state : undefined,
+            doorState: (kind == "door" || kind == "airlock")
+                ? inst.state : undefined,
             inst: inst
         };
     }
@@ -1004,8 +1007,15 @@ function vwa_ship_cursor_move(dx, dy)
     }
     if (!plan.moved)
     {
-        vwa_speak([vwa_t((plan.blocked == "airlock")
-            ? "vwa--ship-airlock" : "vwa--ship-wall")], true);
+        // blocked == "airlock" only when a live airlock edge resolved, so
+        // its captured state (0 open, 1 closed) is always present.
+        var blockedKey = "vwa--ship-wall";
+        if (plan.blocked == "airlock")
+        {
+            blockedKey = (edge.doorState == 1)
+                ? "vwa--ship-airlock-closed" : "vwa--ship-airlock-open";
+        }
+        vwa_speak([vwa_t(blockedKey)], true);
         return;
     }
     cur.tx += dx;

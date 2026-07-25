@@ -224,8 +224,15 @@ function vwa_dev_shipwalk_move(tc, w, alliedSide, dx, dy, mustMove)
     }
     else
     {
-        expected = vwa_speak_render([vwa_t((plan.blocked == "airlock")
-            ? "vwa--ship-airlock" : "vwa--ship-wall")]);
+        // Airlock expectation re-derives open/closed from the live edge
+        // instance's own state, not from the plan's captured copy.
+        var blockedKey = "vwa--ship-wall";
+        if (plan.blocked == "airlock")
+        {
+            blockedKey = (edge.inst.state == 1)
+                ? "vwa--ship-airlock-closed" : "vwa--ship-airlock-open";
+        }
+        expected = vwa_speak_render([vwa_t(blockedKey)]);
     }
     vwa_test_ok(tc, "shipwalk: one utterance " + tag,
         array_length(w.tap) == 1, vwa_test_join(w.tap));

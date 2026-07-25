@@ -360,10 +360,10 @@ function vwa_test_shiplayer(tc)
     mp = vwa_ship_move_plan(fA1, fB, { kind: "wall", doorState: undefined, inst: undefined });
     vwa_test_ok(tc, "shiplayer: wall blocks",
         !mp.moved && mp.blocked == "wall" && !mp.missingEdge, string(mp));
-    mp = vwa_ship_move_plan(fA1, fB, { kind: "airlock", doorState: undefined, inst: undefined });
+    mp = vwa_ship_move_plan(fA1, fB, { kind: "airlock", doorState: 1, inst: undefined });
     vwa_test_ok(tc, "shiplayer: airlock blocks",
         !mp.moved && mp.blocked == "airlock", string(mp));
-    mp = vwa_ship_move_plan(fA1, undefined, { kind: "airlock", doorState: undefined, inst: undefined });
+    mp = vwa_ship_move_plan(fA1, undefined, { kind: "airlock", doorState: 0, inst: undefined });
     vwa_test_ok(tc, "shiplayer: off-hull airlock edge blocks as airlock",
         !mp.moved && mp.blocked == "airlock" && !mp.missingEdge, string(mp));
     mp = vwa_ship_move_plan(fA1, undefined, undefined);

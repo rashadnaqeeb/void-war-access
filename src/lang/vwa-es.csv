@@ -103,7 +103,8 @@ vwa--ship-room-wide,sala ancha
 vwa--ship-room-tall,sala alta
 vwa--ship-room-large,sala grande
 vwa--ship-wall,pared
-vwa--ship-airlock,esclusa
+vwa--ship-airlock-open,esclusa abierta
+vwa--ship-airlock-closed,esclusa cerrada
 vwa--ship-door-open,puerta abierta
 vwa--ship-door-closed,puerta cerrada
 vwa--ship-door-battered,puerta destrozada

@@ -103,7 +103,8 @@ vwa--ship-room-wide,breiter Raum
 vwa--ship-room-tall,hoher Raum
 vwa--ship-room-large,großer Raum
 vwa--ship-wall,Wand
-vwa--ship-airlock,Luftschleuse
+vwa--ship-airlock-open,offene Luftschleuse
+vwa--ship-airlock-closed,geschlossene Luftschleuse
 vwa--ship-door-open,offene Tür
 vwa--ship-door-closed,geschlossene Tür
 vwa--ship-door-battered,aufgebrochene Tür
