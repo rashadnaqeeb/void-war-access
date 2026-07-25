@@ -406,10 +406,26 @@ Named audio events, no implementation commitments yet: wall-block,
 airlock-block, door-cross (state-flavored: open / closed / battered),
 scanner wrap, ship toggle, selection corner set / rectangle complete.
 One chokepoint function (`vwa_earcon(name)` shape), failures logged,
-never silent. Implementation waits on choosing an audio path with pitch
-and pan control; until then the chokepoint may no-op with a log line,
-and any event whose information exists nowhere else keeps a spoken
-fallback so the player is never stranded.
+never silent. Any event whose information exists nowhere else keeps a
+spoken fallback so the player is never stranded.
+
+Audio path DECIDED (verified live, `vwa_dev_earcon_probe`): native
+GameMaker audio, no external library. Tones are synthesized at runtime
+in GML - stereo s16 PCM at 48kHz written with `buffer_write`, turned
+into a sound asset by `audio_create_buffer_sound` - and played through
+the game's own audio system; per-play volume and pitch use the same
+`audio_sound_gain`/`audio_sound_pitch` calls the game's `sfx_start`
+uses, and pan is baked into the stereo samples as constant-power
+left/right amplitudes (the game has no pan function; emitters are not
+needed). The probe proved the whole path under the UTMT importer and
+this runner: asset length sample-accurate, playback live, free and
+re-create clean. Multi-segment earcons (the ONI-style direction
+sequence) are baked as one buffer per sequence or scheduled frame-based
+from the pump - an implementation choice at build, not a library
+question. Earcon volume is NOT multiplied by `global.volumeMax_SFX` by
+default (the game's SFX slider must not be able to silence navigation
+audio); whether earcons get their own volume setting is a piece-5 build
+decision.
 
 ## Testing
 
@@ -502,4 +518,6 @@ before the next starts.
 - Whether the scanner gets an auto-move option (cursor follows each
   announced entry) in addition to explicit jump; cheap, but changes how
   distance announcements read, so decided in play.
-- Audio library / implementation path for pitch+pan earcons.
+- DECIDED - Audio path for pitch+pan earcons: native GameMaker audio
+  with runtime PCM synthesis, no external library (details in the
+  earcon layer section above).

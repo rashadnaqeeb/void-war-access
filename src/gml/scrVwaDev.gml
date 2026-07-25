@@ -1077,3 +1077,81 @@ function vwa_dev_dispatch(cmd)
             return "unknown command: " + word + " (try help)";
     }
 }
+
+// ---- earcon audio-path probe (piece 5 groundwork) ----
+
+// vwa_dev_earcon_probe(freq, pan) - live probe for the earcon audio-path
+// decision: synthesizes a 150ms stereo sine tone at runtime (5ms fade
+// envelope, constant-power pan baked into the samples) into a buffer,
+// turns it into a sound asset with audio_create_buffer_sound, and plays
+// it through the game's own audio system with audio_sound_gain and
+// audio_sound_pitch applied. Nothing in the vanilla game references
+// buffer_* or audio_create_buffer_sound, so this is the live check that
+// the UTMT importer and this runner support the whole native-synthesis
+// path. Args optional (undefined: 440Hz, pan 0); pan is -1..1. A repeat
+// call stops and frees the previous probe's sound and buffer, which also
+// exercises audio_free_buffer_sound. Returns diagnostics JSON; failures
+// throw and surface as ERROR through the pump.
+function vwa_dev_earcon_probe(freq, pan)
+{
+    if (freq == undefined) { freq = 440; }
+    if (pan == undefined) { pan = 0; }
+    if (variable_global_exists("vwaDevEarconProbe")
+        && global.vwaDevEarconProbe != undefined)
+    {
+        var prev = global.vwaDevEarconProbe;
+        if (audio_is_playing(prev.inst))
+        {
+            audio_stop_sound(prev.inst);
+        }
+        audio_free_buffer_sound(prev.snd);
+        buffer_delete(prev.buf);
+        global.vwaDevEarconProbe = undefined;
+    }
+
+    var rate = 48000;
+    var n = 7200;   // 150ms
+    var fadeN = 240; // 5ms
+    var ang = (pan + 1) * pi / 4;
+    var ampL = cos(ang);
+    var ampR = sin(ang);
+    var amp = 0.25 * 32767;
+
+    var buf = buffer_create(n * 4, buffer_fixed, 2);
+    buffer_seek(buf, buffer_seek_start, 0);
+    for (var i = 0; i < n; i++)
+    {
+        var env = 1;
+        if (i < fadeN) { env = i / fadeN; }
+        else if (i >= n - fadeN) { env = (n - i) / fadeN; }
+        var s = sin(2 * pi * freq * i / rate) * env * amp;
+        buffer_write(buf, buffer_s16, round(s * ampL));
+        buffer_write(buf, buffer_s16, round(s * ampR));
+    }
+
+    var snd = audio_create_buffer_sound(buf, buffer_s16, rate, 0, n * 4,
+        audio_stereo);
+    if (snd < 0)
+    {
+        buffer_delete(buf);
+        throw ("audio_create_buffer_sound failed (returned "
+            + string(snd) + ")");
+    }
+    var inst = audio_play_sound(snd, 1, false);
+    if (inst < 0)
+    {
+        audio_free_buffer_sound(snd);
+        buffer_delete(buf);
+        throw ("audio_play_sound failed (returned " + string(inst) + ")");
+    }
+    audio_sound_gain(inst, 0.8, 0);
+    audio_sound_pitch(inst, 1);
+    global.vwaDevEarconProbe = { buf: buf, snd: snd, inst: inst };
+
+    return "{\"sound\":" + vwa_json_num(snd)
+        + ",\"instance\":" + vwa_json_num(inst)
+        + ",\"assetLength\":" + vwa_json_num(audio_sound_length(snd))
+        + ",\"playing\":" + (audio_is_playing(inst) ? "true" : "false")
+        + ",\"freq\":" + vwa_json_num(freq)
+        + ",\"pan\":" + vwa_json_num(pan) + "}";
+}
