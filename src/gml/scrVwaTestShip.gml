@@ -1,8 +1,8 @@
 // scrVwaTestShip - Void War Access live ship-layer sweeps, DEV BUILDS ONLY
 // (one of the three test scripts; the assertion collector, the selftest,
-// and the derive-expectations-live design rule live in scrVwaTest). Two
-// SYNCHRONOUS entry points, both invoked through the dev driver's `call`
-// command and both requiring the ship mode active with no stacked screen:
+// and the derive-expectations-live design rule live in scrVwaTest). Three
+// SYNCHRONOUS entry points, all invoked through the dev driver's `call`
+// command and all requiring the ship mode active with no stacked screen:
 //
 // - vwa_dev_shipwalk: the walker analog for the spatial mode
 //   (scrVwaShipLayer) - a DFS cursor sweep of the FOCUSED hull by real
@@ -11,6 +11,9 @@
 // - vwa_dev_shipscan: the live scanner contract check (scrVwaShipScan) -
 //   a category lap, per-entry backend validation, and the browse, jump,
 //   return, and search probes. Full spec in its doc comment below.
+//
+// - vwa_dev_shipdesc: the live describer consistency check
+//   (scrVwaShipDesc). Full spec in its doc comment below.
 
 // ---- the ship-layer cursor sweep ----
 
@@ -601,4 +604,88 @@ function vwa_dev_shipscan_validate(tc, alliedSide, st, geom, catIx)
     vwa_test_eq(tc, "shipscan: " + cat.key + " total matches live enumeration",
         n, want);
     return n;
+}
+
+// ---- the describer consistency check ----
+
+// vwa_dev_shipdesc() - the live check for the ship describer
+// (scrVwaShipDesc), invoked as `call vwa_dev_shipdesc`. SYNCHRONOUS,
+// silent (composes, never speaks). Asserts on the FOCUSED hull:
+// - determinism: two full gathers and compositions in the same frame
+//   yield identical lines (the double-build identity the module's
+//   deterministic sorts exist for);
+// - shape: at least a gestalt line plus one segment line;
+// - cross-module agreement: every system entry the scanner's backend
+//   emits is named across the description exactly as often as the
+//   backend emits its name (both features run the same backend, so a
+//   drift here is a desc assignment bug, not content drift).
+// Returns {checks, failures, lines}.
+function vwa_dev_shipdesc()
+{
+    if (!vwa_ship_mode_active())
+    {
+        throw "shipdesc: ship mode is not active";
+    }
+    if (array_length(global.vwaScreenStack) > 0)
+    {
+        throw "shipdesc: a screen is stacked";
+    }
+    var tc = vwa_test_ctx();
+    var alliedSide = vwa_ship_focus();
+    var geom = vwa_ship_geom(alliedSide);
+    var adj = vwa_ship_geom_adj(alliedSide);
+    var sys = vwa_ship_desc_systems(alliedSide, geom);
+    var lines = vwa_ship_desc_lines(geom, adj, sys,
+        vwa_ship_desc_airlocks(geom));
+    var again = vwa_ship_desc_lines(geom, adj,
+        vwa_ship_desc_systems(alliedSide, geom),
+        vwa_ship_desc_airlocks(geom));
+    var flatA = [];
+    var flatB = [];
+    for (var i = 0; i < array_length(lines); i++)
+    {
+        array_push(flatA, vwa_test_join(lines[i]));
+    }
+    for (var i = 0; i < array_length(again); i++)
+    {
+        array_push(flatB, vwa_test_join(again[i]));
+    }
+    vwa_test_eq(tc, "shipdesc: double build identical",
+        vwa_test_join(flatA), vwa_test_join(flatB));
+    vwa_test_ok(tc, "shipdesc: gestalt plus at least one segment",
+        array_length(lines) >= 2, string(array_length(lines)));
+    // Expected name counts from the backend itself, fresh.
+    var wantNames = [];
+    var wantCounts = [];
+    for (var i = 0; i < array_length(sys); i++)
+    {
+        var ix = vwa_array_index_of(wantNames, sys[i].name);
+        if (ix < 0)
+        {
+            array_push(wantNames, sys[i].name);
+            array_push(wantCounts, 1);
+        }
+        else
+        {
+            wantCounts[ix] += 1;
+        }
+    }
+    for (var i = 0; i < array_length(wantNames); i++)
+    {
+        var hits = 0;
+        for (var li = 0; li < array_length(lines); li++)
+        {
+            for (var lp = 0; lp < array_length(lines[li]); lp++)
+            {
+                if (lines[li][lp] == wantNames[i])
+                {
+                    hits += 1;
+                }
+            }
+        }
+        vwa_test_eq(tc, "shipdesc: system named exactly per backend: "
+            + string(wantNames[i]), hits, wantCounts[i]);
+    }
+    return { checks: tc.checks, failures: tc.failures,
+        lines: array_length(lines) };
 }

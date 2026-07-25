@@ -200,7 +200,7 @@ list here beyond the core above (it drifts as features ship): screens in
 scrVwaScreens, text edit in scrVwaText, encounter numbers in
 scrVwaMenuEncounter, the in-run ship layer (Tab/arrows/K/R) in
 scrVwaShipLayer, its scanner (PageUp/PageDown family, Ctrl+F search) in
-scrVwaShipScan.
+scrVwaShipScan, its shape describer (D) in scrVwaShipDesc.
 
 ## Hard rules (the audit command checks these)
 

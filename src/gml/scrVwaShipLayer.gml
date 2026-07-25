@@ -3,7 +3,8 @@
 // tile speech model - sections, visibility gating, on-demand reads
 // (docs/ship-layer-plan.md is the build-to document; this header is the
 // authoritative spec of what is built; piece 4, the scanner, lives in
-// scrVwaShipScan on this substrate). The ship layer is a MODE, not a
+// scrVwaShipScan on this substrate, and the shape describer (D) in
+// scrVwaShipDesc). The ship layer is a MODE, not a
 // screen: it never enters the screen stack (screens are control graphs;
 // this is spatial). Its input category "ship" goes live through the
 // mode-provider hook in scrVwaInput, which admits mode categories only
