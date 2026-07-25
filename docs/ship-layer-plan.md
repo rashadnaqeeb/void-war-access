@@ -410,9 +410,14 @@ Event sounds, chosen by Rashad from the game's own sound assets (all
 six verified present in the game data by asset name):
 
 - wall-block: `vs_ui_click2` - REPLACES the spoken "wall" token.
-- airlock-block:
-  `clickHiss03b_filtered_EXOSKELETONBluezone_SmartSoundFXPOND5` -
-  REPLACES the spoken "airlock" token.
+- airlock-block: the door sound for the airlock's live state (open
+  `sfxDoorOpen_crop`, closed `sfxDoorClose_crop` - airlocks cannot be
+  battered) layered with
+  `clickHiss03b_filtered_EXOSKELETONBluezone_SmartSoundFXPOND5`, both
+  played at once (the hiss marks it as an airlock, the door sound
+  carries the state) - REPLACES the spoken "open airlock" / "closed
+  airlock" tokens. The layering is provisional: judged by ear in play
+  when the layer is built.
 - door-cross, per state: open `sfxDoorOpen_crop`, closed
   `sfxDoorClose_crop`, battered `Metlimpt_Ji_B_03_soundbits` -
   REPLACE the spoken door state tokens (the door channel goes
