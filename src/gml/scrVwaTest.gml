@@ -445,37 +445,59 @@ function vwa_test_shiplayer(tc)
             && vwa_ship_door_token(0) != vwa_ship_door_token(2),
         "collision");
 
-    // The direction tone's pure pieces (scrVwaEarcon): segment building
-    // (the spatial-pointer contract - at most one vertical plus one
-    // horizontal segment, never a path) and the distance falloff.
+    // The direction tone's pure pieces (scrVwaEarcon): the single-tone
+    // spatial contract - one segment always, pitch from the
+    // straight-line angle across the three anchors, pan toward the
+    // side by the horizontal fraction, loudness from Euclidean
+    // distance - and the falloff itself.
     var dz = vwa_earcon_dir_segments(0, 0);
     vwa_test_ok(tc, "earcon: dir zero-zero is one centered full blip",
         array_length(dz) == 1 && dz[0].pan == 0 && dz[0].ratio == 1,
         string(dz));
     var dv = vwa_earcon_dir_segments(3, 0);
     var dvd = vwa_earcon_dir_segments(-3, 0);
-    vwa_test_ok(tc, "earcon: vertical-only is one centered segment",
+    vwa_test_ok(tc, "earcon: pure vertical is one centered segment",
         array_length(dv) == 1 && dv[0].pan == 0
             && array_length(dvd) == 1 && dvd[0].pan == 0,
         string(dv));
-    vwa_test_ok(tc, "earcon: up and down speak different tones",
-        dv[0].freq != dvd[0].freq, string(dv[0].freq));
+    vwa_test_ok(tc, "earcon: up is the top anchor, down the bottom",
+        dv[0].freq > dz[0].freq && dvd[0].freq < dz[0].freq,
+        string(dvd[0].freq) + " / " + string(dv[0].freq));
     var dr = vwa_earcon_dir_segments(0, 3);
     var dl = vwa_earcon_dir_segments(0, -3);
-    vwa_test_ok(tc, "earcon: horizontal pans toward its side",
-        array_length(dr) == 1 && dr[0].pan > 0
-            && array_length(dl) == 1 && dl[0].pan < 0,
+    vwa_test_ok(tc, "earcon: due east is full right pan, west its mirror",
+        array_length(dr) == 1 && dr[0].pan == 1
+            && array_length(dl) == 1 && dl[0].pan == -1,
         string(dr[0].pan) + " / " + string(dl[0].pan));
-    vwa_test_ok(tc, "earcon: horizontal keeps one tone either side",
+    vwa_test_ok(tc, "earcon: horizontal keeps the middle anchor either side",
         dr[0].freq == dl[0].freq && dr[0].freq == dz[0].freq,
         string(dr[0].freq));
-    var db = vwa_earcon_dir_segments(2, -3);
-    vwa_test_ok(tc, "earcon: diagonal is vertical then horizontal",
-        array_length(db) == 2 && db[0].pan == 0 && db[1].pan < 0
-            && db[0].freq == dv[0].freq && db[1].freq == dl[0].freq,
-        string(db));
-    vwa_test_ok(tc, "earcon: never more than two segments",
-        array_length(vwa_earcon_dir_segments(15, 15)) == 2, "path leak");
+    // The 45-degree diagonal sits at the perceptual (log-space) halfway
+    // between the middle and top anchors - Rashad's calibration example
+    // ("1 right 1 up is half way between middle and highest") - with
+    // half the full pan; the down-left mirror sits below the middle.
+    var db = vwa_earcon_dir_segments(1, 1);
+    vwa_test_ok(tc, "earcon: up-right diagonal is one segment",
+        array_length(db) == 1, string(array_length(db)));
+    vwa_test_ok(tc, "earcon: diagonal pitch is the log-space halfway",
+        abs(db[0].freq - sqrt(dz[0].freq * dv[0].freq)) < 0.01,
+        string(db[0].freq));
+    vwa_test_ok(tc, "earcon: diagonal pan is half the full pan",
+        abs(db[0].pan - (dr[0].pan * 0.5)) < 0.001, string(db[0].pan));
+    var dbd = vwa_earcon_dir_segments(-1, -1);
+    vwa_test_ok(tc, "earcon: down-left mirrors below the middle",
+        dbd[0].freq < dz[0].freq && dbd[0].freq > dvd[0].freq
+            && dbd[0].pan < 0,
+        string(dbd[0].freq) + " pan " + string(dbd[0].pan));
+    var dst = vwa_earcon_dir_segments(3, 1);
+    vwa_test_ok(tc, "earcon: steeper offsets pitch higher",
+        dst[0].freq > db[0].freq && dst[0].freq < dv[0].freq,
+        string(dst[0].freq));
+    vwa_test_ok(tc, "earcon: always a single segment",
+        array_length(vwa_earcon_dir_segments(15, -15)) == 1, "path leak");
+    var deu = vwa_earcon_dir_segments(3, 4);
+    vwa_test_ok(tc, "earcon: loudness codes the straight-line distance",
+        deu[0].ratio == vwa_earcon_dir_ratio(5), string(deu[0].ratio));
     vwa_test_ok(tc, "earcon: falloff fades with distance",
         vwa_earcon_dir_ratio(1) < 1
             && vwa_earcon_dir_ratio(5) < vwa_earcon_dir_ratio(1)
@@ -485,10 +507,6 @@ function vwa_test_shiplayer(tc)
         vwa_earcon_dir_ratio(25) == vwa_earcon_dir_ratio(20)
             && vwa_earcon_dir_ratio(-4) == vwa_earcon_dir_ratio(4),
         string(vwa_earcon_dir_ratio(25)));
-    vwa_test_ok(tc, "earcon: dir segment ratios follow the falloff",
-        db[0].ratio == vwa_earcon_dir_ratio(2)
-            && db[1].ratio == vwa_earcon_dir_ratio(3),
-        string(db));
 
     // The composer runner on fixture sections: order kept, a throwing
     // section quarantines (once) while the rest still run. The quarantine

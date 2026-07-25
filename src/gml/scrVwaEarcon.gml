@@ -13,30 +13,40 @@
 // below. Selection events join with piece 6.
 // Imported by tools/build-mod.csx as a new global script. Ships in release.
 //
-// The scanner direction tone (vwa_earcon_dir(up, rt, withWrap), the
-// oni-access design carried over): a SPATIAL pointer to the announced
-// entry, synthesized at play time - the straight-line tile offset from
-// the cursor, cursor-relative up/right positive matching the spoken
-// coordinate convention, NEVER the walking path the announcement speaks
-// (a zigzag route must not become a multi-tone sequence; the tone says
-// where it IS, the spoken legs say how to walk there). One or two
-// 55ms segments with 5ms fades and a 10ms gap: the vertical component
-// first, center-panned, 709Hz for up / 297Hz for down; then the
-// horizontal component at 457Hz, constant-power panned 0.79 toward its
-// side. A zero component is skipped; a zero-zero offset ("here") is the
-// single horizontal tone at center. Segment loudness codes that
-// component's distance: baked base amplitude 0.25 of full scale (sine
-// RMS about -15 dBFS, calibrated with ffmpeg against the game assets
-// this layer already plays - vs_ui_click2 mean -17 dB, sfxDoorOpen_crop
-// mean -18 dB), falling 1 dB per tile and flooring at -20 dB (ratio
-// 0.1) from 20 tiles out - hulls run at most about 20 tiles across, so
-// the whole audible range maps onto real ship distances (oni-access
-// reaches the same floor over its hundreds-of-tiles maps; per-tile dB
-// steps stay perceptually even where a linear ramp would compress the
-// short distances that matter most). withWrap layers the scan-wrap
-// click into the same event (one user action, one interrupt). The tone
-// AUGMENTS speech and its information lives in the spoken legs, so a
-// failed tone logs but needs no spoken fallback.
+// The scanner direction tone (vwa_earcon_dir(up, rt, withWrap)): a
+// SPATIAL pointer to the announced entry, synthesized at play time -
+// the straight-line tile offset from the cursor, cursor-relative
+// up/right positive matching the spoken coordinate convention, NEVER
+// the walking path the announcement speaks (the tone says where it IS,
+// the spoken legs say how to walk there). ONE 55ms tone (5ms fades)
+// carrying the whole vector - revised in play with Rashad from
+// oni-access's vertical-then-horizontal two-segment sequence, keeping
+// its three anchor frequencies:
+// - PITCH is the vertical angle: the offset's angle fraction toward
+//   vertical (arctan of |up|/|right|, 0 flat to 1 straight up or
+//   down) blends from the 457Hz horizontal anchor toward 709Hz for up
+//   or 297Hz for down, in LOG space so the blend is perceptually even
+//   ("1 up 1 right" sounds halfway between middle and highest).
+// - PAN is the horizontal fraction: constant-power toward the
+//   offset's side, scaled by the remaining angle fraction - full pan
+//   (1) due east or west, 0.5 at 45 degrees, center at pure vertical
+//   (Rashad's calibration; oni-access's 0.79 cap dropped with the
+//   two-segment shape).
+// - LOUDNESS is straight-line (Euclidean) distance: baked base
+//   amplitude 0.25 of full scale (sine RMS about -15 dBFS, calibrated
+//   with ffmpeg against the game assets this layer already plays -
+//   vs_ui_click2 mean -17 dB, sfxDoorOpen_crop mean -18 dB), falling
+//   1 dB per tile and flooring at -20 dB (ratio 0.1) from 20 tiles
+//   out - hulls run at most about 20 tiles across, so the whole
+//   audible range maps onto real ship distances (oni-access reaches
+//   the same floor over its hundreds-of-tiles maps; per-tile dB steps
+//   stay perceptually even where a linear ramp would compress the
+//   short distances that matter most).
+// A zero-zero offset ("here") is the horizontal anchor at center, full
+// loudness. withWrap layers the scan-wrap click into the same event
+// (one user action, one interrupt). The tone AUGMENTS speech and its
+// information lives in the spoken legs, so a failed tone logs but
+// needs no spoken fallback.
 //
 // Settings-forward state (a future settings screen binds it; the
 // default holds until then): global.vwaEarconDirTones (default true) -
@@ -210,38 +220,42 @@ function vwa_earcon_dir_ratio(d)
 
 // PURE: the direction tone's segment list for a straight-line tile
 // offset (up positive up, rt positive right - the spoken coordinate
-// convention). Vertical component first, center-panned, 709Hz up /
-// 297Hz down; horizontal at 457Hz panned 0.79 toward its side; zero
-// components skipped; a zero-zero offset is the single horizontal tone
-// at center, full ratio - the "here" blip.
+// convention). Always exactly ONE segment (see header): pitch blends
+// the vertical angle across the 297/457/709 anchors in log space, pan
+// scales toward the offset's side by the horizontal fraction, ratio is
+// the Euclidean-distance falloff. A zero-zero offset is the horizontal
+// anchor at center, full ratio - the "here" blip. Kept as a list: the
+// synthesis loop stays segment-generic.
 function vwa_earcon_dir_segments(up, rt)
 {
     if (up == 0 && rt == 0)
     {
         return [{ freq: 457, pan: 0, ratio: 1 }];
     }
-    var segs = [];
-    if (up != 0)
+    var t = arctan2(abs(up), abs(rt)) / (pi / 2);
+    var freq = 457;
+    if (up > 0)
     {
-        array_push(segs, { freq: (up > 0) ? 709 : 297, pan: 0,
-                           ratio: vwa_earcon_dir_ratio(up) });
+        freq = 457 * power(709 / 457, t);
     }
-    if (rt != 0)
+    else if (up < 0)
     {
-        array_push(segs, { freq: 457, pan: (rt > 0) ? 0.79 : -0.79,
-                           ratio: vwa_earcon_dir_ratio(rt) });
+        freq = 457 * power(297 / 457, t);
     }
-    return segs;
+    return [{ freq: freq, pan: sign(rt) * (1 - t),
+              ratio: vwa_earcon_dir_ratio(sqrt((up * up) + (rt * rt))) }];
 }
 
 // THE audio chokepoint for the scanner direction tone (see header).
 // One event: withWrap layers the scan-wrap click in before the tone.
 // The toggle suppresses only the tone. Synthesis: 48kHz stereo s16,
-// 55ms segments (5ms fades) with a 10ms silent gap, constant-power pan
-// and the distance ratio baked per segment on the 0.25 base amplitude;
-// the buffer sound is freed by the NEXT event's stop (one outstanding
-// tone at most). Failures log; the tone augments speech, so there is
-// no spoken fallback (the walking legs carry the information).
+// 55ms segments (5ms fades), constant-power pan and the distance ratio
+// baked per segment on the 0.25 base amplitude (the loop stays
+// multi-segment-capable with a 10ms gap, though the current tone is a
+// single segment); the buffer sound is freed by the NEXT event's stop
+// (one outstanding tone at most). Failures log; the tone augments
+// speech, so there is no spoken fallback (the walking legs carry the
+// information).
 function vwa_earcon_dir(up, rt, withWrap)
 {
     vwa_earcon_stop_prev();

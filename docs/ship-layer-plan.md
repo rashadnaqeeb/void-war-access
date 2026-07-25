@@ -407,12 +407,15 @@ door-cross events with the spoken tokens demoted to earcon-failure
 fallbacks (scrVwaShipLayer), and the scanner channel (scrVwaShipScan):
 the scan-wrap click on item/instance wraps and the direction tone on
 every entry announcement. The tone is a SPATIAL pointer (Rashad's
-rule): the straight-line offset from cursor to entry - at most a
-vertical then a horizontal segment - never the zigzag walking legs the
-announcement speaks; loudness codes distance at 1 dB per tile flooring
-at -20 dB from 20 tiles (hull-scale, vs oni-access's hundreds), base
-amplitude ffmpeg-calibrated against the click sounds this layer
-already plays. The `global.vwaEarconDirTones` toggle shipped
+rule): ONE tone on the straight line from cursor to entry - pitch is
+the line's angle blended across the oni-access anchor frequencies
+(297 down, 457 flat, 709 up), pan the horizontal fraction (full at
+due east/west, half at 45 degrees), loudness the Euclidean distance -
+never the zigzag walking legs the announcement speaks (revised in
+play from the oni-access two-segment sequence); distance falls 1 dB
+per tile flooring at -20 dB from 20 tiles (hull-scale, vs
+oni-access's hundreds), base amplitude ffmpeg-calibrated against the
+click sounds this layer already plays. The `global.vwaEarconDirTones` toggle shipped
 settings-forward. Volume was revised in play: gain is 1.5 x
 `global.volumeMax_SFX` read live, so the game's SFX slider is the one
 volume control and there is no mod-side volume setting (the
