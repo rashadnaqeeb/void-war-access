@@ -159,3 +159,26 @@ vwa--action-ship-search-delete,Recherche : effacer un caractère
 vwa--ship-scan-search,résultats de recherche
 vwa--ship-scan-search-prompt,Recherche
 vwa--ship-scan-no-return,rien où revenir
+vwa--ship-detached,détaché
+vwa--action-ship-describe,Décrire le vaisseau
+vwa--ship-desc-size,"{w} de large, {h} de haut, {n} salles"
+vwa--ship-desc-sym,symétrique
+vwa--ship-desc-sym-rough,presque symétrique
+vwa--ship-desc-sections,{n} sections
+vwa--ship-desc-detached,"section détachée, {n} salles"
+vwa--ship-desc-range,{a} à {b}
+vwa--ship-desc-tall,{n} de haut
+vwa--ship-desc-tall-max,jusqu'à {n} de haut
+vwa--ship-desc-wide,{n} de large
+vwa--ship-desc-wide-max,jusqu'à {n} de large
+vwa--ship-desc-upper,en haut
+vwa--ship-desc-lower,en bas
+vwa--ship-desc-left,à gauche
+vwa--ship-desc-right,à droite
+vwa--ship-desc-airlock-one,1 sas
+vwa--ship-desc-airlocks,{n} sas
+vwa--ship-desc-n-top,{n} en haut
+vwa--ship-desc-n-bottom,{n} en bas
+vwa--ship-desc-n-left,{n} à gauche
+vwa--ship-desc-n-right,{n} à droite
+vwa--ship-desc-n-interior,{n} intérieurs
