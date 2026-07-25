@@ -140,10 +140,14 @@ any other form won't match the permission rule.
   scripts are dumb runners.
 - **Testing rules** (session-11 redesign; the old per-screen smokes burned
   whole sessions on expectation drift): a test asserts BEHAVIOR, never a
-  snapshot of current content - no hardcoded composed speech strings, no
-  hardcoded counts or whole-set equality where membership is the property
-  under test. Expected values are DERIVED LIVE (from /gui/mod, game
-  globals, `vwa_t` templates, or post-activation game state). New assertion
+  snapshot of current content OR environment - no hardcoded composed
+  speech strings, no hardcoded counts or whole-set equality where
+  membership is the property under test, and no facts a harmless state
+  change can alter (room names, which object variant exists,
+  save-dependent labels - the title screen's room varies with
+  meta-progression and broke drive-smoke). Expected values are DERIVED
+  LIVE (from /gui/mod, game globals, `vwa_t` templates, or
+  post-activation game state). New assertion
   logic goes in GML (the scrVwaTest* scripts), not PowerShell. PS 5.1 gotchas when a
   runner change is unavoidable: nested arrays returned through a PS
   function collapse (fetch scalars); non-ASCII `.ps1` needs a UTF-8 BOM

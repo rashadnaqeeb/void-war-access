@@ -3,8 +3,13 @@
 # Exercises the whole session-2 surface against a live game: /health, the
 # eval-lite interpreter (ping/room/get/set/dump/instances/call), /gui/raw,
 # and /screenshot. Assumes a launcher (run-game.ps1) is already up and the
-# game sits at the main menu; it drives over HTTP only, so it needs no
-# terminal focus. Exits nonzero on the first failed check.
+# game is at (or heading to) the main menu; the smoke settles that
+# precondition itself, because boot can pass through transition rooms
+# where the menu object does not exist yet. No check asserts state a
+# harmless change can alter (room names, exact instance counts,
+# save-dependent list content) - anchors derive from the live game and
+# checks assert plumbing consistency. Drives over HTTP only, so it needs
+# no terminal focus. Exits nonzero on the first failed check.
 #
 # Usage: powershell -NoProfile -File scripts\drive-smoke.ps1
 
@@ -41,7 +46,8 @@ Check 'health pumping' ($h.pumpAgeMs -ge 0 -and $h.pumpAgeMs -lt 5000) $h.pumpAg
 # --- interpreter basics ---
 Check 'ping' ((Cmd 'ping') -eq 'pong') 'no pong'
 $room = Cmd 'room'
-Check 'room is main menu' ($room.room -eq 'rmMainMenu') $room.room
+Check 'room command answers a room name' ($room.room -is [string] -and
+    $room.room.Length -gt 0) ($room | ConvertTo-Json -Compress)
 
 # --- get/set round trip on a scratch global ---
 Cmd 'set global.vwaSmokeProbe 123.5' | Out-Null
@@ -74,18 +80,35 @@ Check 'log tail shim' ($logShim -is [string] -and $logShim.Length -gt 0) $logShi
 $logMod = Invoke-RestMethod "$base/log?which=mod&lines=10" -TimeoutSec 5
 Check 'log tail mod' ($logMod -is [string] -and $logMod.Length -gt 0) $logMod
 
-# --- dump the main menu buttonList: the reverse-engineering path ---
+# --- settle the main-menu precondition: boot can pass through transition
+#     rooms where oMainMenuControls does not exist yet; the object checks
+#     below need it live, so wait for it rather than assume it ---
+$inst = $null
+$settled = $false
+for ($i = 0; $i -lt 30; $i++) {
+    $inst = Cmd 'instances oMainMenuControls'
+    if ($inst.count -ge 1) { $settled = $true; break }
+    Start-Sleep -Seconds 1
+}
+Check 'main menu controls settled' $settled $inst.count
+
+# --- dump the main menu buttonList: the reverse-engineering path. The
+#     list's content is save-dependent (Continue comes and goes), so the
+#     checks are shape and cross-path consistency, never membership ---
 $buttons = Cmd 'dump oMainMenuControls.buttonList 3'
 $labels = @($buttons | ForEach-Object { $_.buttonStr })
-Check 'buttonList dump yields labeled buttons' ($labels.Count -ge 1 -and $labels -contains 'New Game') ($labels -join ',')
+$named = @($labels | Where-Object { $_ -is [string] -and $_.Length -gt 0 })
+Check 'buttonList dump yields labeled buttons' ($labels.Count -ge 1 -and
+    $named.Count -eq $labels.Count) ($labels -join ',')
 
-# --- indexed member read ---
+# --- indexed member read, cross-checked against the dump ---
 $oneLabel = Cmd 'get oMainMenuControls.buttonList[0].buttonStr'
 Check 'indexed member read' ($oneLabel -is [string] -and $oneLabel.Length -gt 0) $oneLabel
+Check 'indexed read agrees with the dump' ($labels.Count -ge 1 -and
+    $labels[0] -eq $oneLabel) "$($labels -join ',') vs $oneLabel"
 
-# --- instances enumeration ---
-$inst = Cmd 'instances oMainMenuControls'
-Check 'instances count 1' ($inst.count -eq 1) $inst.count
+# --- instances enumeration (count is state; presence was settled above) ---
+Check 'instances lists the menu controls' ($inst.count -ge 1) $inst.count
 Check 'instance has id' ($inst.instances[0].id -gt 0) $inst.instances[0].id
 
 # --- call a harmless script and get its return ---
@@ -106,9 +129,12 @@ Check 'missing global errors cleanly' ($err -like 'ERROR:*') $err
 $ping2 = Cmd 'ping'
 Check 'pump alive after error' ($ping2 -eq 'pong') $ping2
 
-# --- /gui/raw ---
+# --- /gui/raw: the room agrees with the interpreter's answer (two
+#     independent driver paths), never a hardcoded room name ---
+$roomNow = (Cmd 'room').room
 $gui = Invoke-RestMethod "$base/gui/raw" -TimeoutSec 10
-Check 'gui/raw room' ($gui.room -eq 'rmMainMenu') $gui.room
+Check 'gui/raw room agrees with the interpreter' ($gui.room -eq $roomNow) `
+    "$($gui.room) vs $roomNow"
 Check 'gui/raw lists main menu' ($null -ne $gui.families.oMainMenuControls) 'missing family'
 
 # --- agent-drive quiet window: a POST arms it; GETs alone let it expire ---
