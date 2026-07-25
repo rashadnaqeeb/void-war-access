@@ -26,9 +26,13 @@
 // tile edge gets exercised from both sides. Per attempted move, the
 // expected outcome is resolved fresh (geometry lookup, sideData edge,
 // vwa_ship_move_plan) and checked against: the cursor's actual movement,
-// exactly one utterance through the speak tap whose text matches a fresh
-// vwa_ship_move_parts / block-token render, and the game's own
-// connectivity truth - a door crossing's target cell must sit in the
+// both feedback channels - the earcon tap (a door crossing or a block
+// fires exactly one event, named from the live edge state; interior
+// moves fire none) and the speak tap (a moved tile speaks one utterance
+// matching a fresh vwa_ship_move_parts render, prefixed by the door
+// fallback token only when the earcon reported failure; a block with a
+// working earcon is audio-only, its token render expected only on
+// earcon failure) - and the game's own connectivity truth - a door crossing's target cell must sit in the
 // from-cell's connectedCellList and the door in its doorsList; a
 // wall-blocked existing neighbor must still be in adjCellList. The
 // cached passability graph (vwa_ship_geom_adj, what the scanner's
@@ -53,16 +57,28 @@ function vwa_dev_shipwalk()
     var geom = vwa_ship_geom(alliedSide);
     var c = vwa_ship_container(alliedSide);
     var cur = vwa_ship_cursor(alliedSide);
-    var w = { tap: [] };
-    // The tap global is lazily owned (the chokepoint reads it through
+    var w = { tap: [], ear: [] };
+    // The tap globals are lazily owned (the chokepoints read them through
     // variable_global_exists); a fresh session may reach here before
-    // anything has set it.
+    // anything has set them.
     var priorTap = variable_global_exists("vwaSpeakTap")
         ? global.vwaSpeakTap : undefined;
     global.vwaSpeakTap = method({ w: w }, function(text, intr)
     {
         array_push(self.w.tap, text);
     });
+    var priorEarTap = variable_global_exists("vwaEarconTap")
+        ? global.vwaEarconTap : undefined;
+    global.vwaEarconTap = method({ w: w }, function(name, ok)
+    {
+        array_push(self.w.ear, { name: name, ok: ok });
+    });
+    // The sweep drives hundreds of real moves; earcons still PLAY (the
+    // chokepoint's whole path stays under test) but at zero volume, so
+    // a dev-driven run does not bombard whoever is at the machine. The
+    // player's volume is restored on every exit path.
+    var priorVol = global.vwaEarconVolume;
+    global.vwaEarconVolume = 0;
     var startTx = cur.tx;
     var startTy = cur.ty;
     var visited = {};
@@ -119,9 +135,13 @@ function vwa_dev_shipwalk()
     {
         // try/finally is unverified under the importer: restore-and-rethrow.
         global.vwaSpeakTap = priorTap;
+        global.vwaEarconTap = priorEarTap;
+        global.vwaEarconVolume = priorVol;
         throw err;
     }
     global.vwaSpeakTap = priorTap;
+    global.vwaEarconTap = priorEarTap;
+    global.vwaEarconVolume = priorVol;
     var tileKeys = variable_struct_get_names(geom.tiles);
     var missing = 0;
     for (var i = 0; i < array_length(tileKeys); i++)
@@ -205,6 +225,7 @@ function vwa_dev_shipwalk_move(tc, w, alliedSide, dx, dy, mustMove)
             plan.moved, string(plan.blocked));
     }
     w.tap = [];
+    w.ear = [];
     vwa_ship_cursor_move(dx, dy);
     var movedActual = (cur.tx != oldTx || cur.ty != oldTy);
     vwa_test_eq(tc, "shipwalk: cursor agrees with the plan " + tag,
@@ -215,32 +236,89 @@ function vwa_dev_shipwalk_move(tc, w, alliedSide, dx, dy, mustMove)
             cur.tx == oldTx + dx && cur.ty == oldTy + dy,
             string(cur.tx) + "," + string(cur.ty));
     }
-    var expected;
+    // Both feedback channels, expectations re-derived from the live edge
+    // state (like the airlock speech before the earcon layer). The
+    // speech expectation follows the ACTUAL earcon outcome: on a
+    // reported earcon failure the never-strand fallback token must
+    // speak.
     if (plan.moved)
     {
-        expected = vwa_speak_render(vwa_ship_move_parts(alliedSide, toE,
-            { cellChanged: plan.cellChanged, door: plan.door,
-              tx: oldTx + dx, ty: oldTy + dy, cx: geom.cx, cy: geom.cy }));
+        if (plan.cellChanged)
+        {
+            vwa_test_ok(tc, "shipwalk: door-cross earcon " + tag,
+                array_length(w.ear) == 1
+                    && w.ear[0].name == vwa_ship_door_earcon(edge.inst.state),
+                vwa_dev_shipwalk_earjoin(w.ear));
+        }
+        else
+        {
+            vwa_test_ok(tc, "shipwalk: no earcon inside a cell " + tag,
+                array_length(w.ear) == 0, vwa_dev_shipwalk_earjoin(w.ear));
+        }
+        var pref = [];
+        if (plan.cellChanged
+            && !(array_length(w.ear) == 1 && w.ear[0].ok))
+        {
+            array_push(pref, vwa_t(vwa_ship_door_token(edge.inst.state)));
+        }
+        var body = vwa_ship_move_parts(alliedSide, toE,
+            { cellChanged: plan.cellChanged,
+              tx: oldTx + dx, ty: oldTy + dy, cx: geom.cx, cy: geom.cy });
+        for (var i = 0; i < array_length(body); i++)
+        {
+            array_push(pref, body[i]);
+        }
+        vwa_test_ok(tc, "shipwalk: one utterance " + tag,
+            array_length(w.tap) == 1, vwa_test_join(w.tap));
+        if (array_length(w.tap) == 1)
+        {
+            vwa_test_eq(tc, "shipwalk: speech " + tag, w.tap[0],
+                vwa_speak_render(pref));
+        }
     }
     else
     {
-        // Airlock expectation re-derives open/closed from the live edge
-        // instance's own state, not from the plan's captured copy.
+        var wantEar = "wall-block";
         var blockedKey = "vwa--ship-wall";
         if (plan.blocked == "airlock")
         {
+            wantEar = (edge.inst.state == 1)
+                ? "airlock-closed-block" : "airlock-open-block";
             blockedKey = (edge.inst.state == 1)
                 ? "vwa--ship-airlock-closed" : "vwa--ship-airlock-open";
         }
-        expected = vwa_speak_render([vwa_t(blockedKey)]);
-    }
-    vwa_test_ok(tc, "shipwalk: one utterance " + tag,
-        array_length(w.tap) == 1, vwa_test_join(w.tap));
-    if (array_length(w.tap) == 1)
-    {
-        vwa_test_eq(tc, "shipwalk: speech " + tag, w.tap[0], expected);
+        vwa_test_ok(tc, "shipwalk: block earcon " + tag,
+            array_length(w.ear) == 1 && w.ear[0].name == wantEar,
+            vwa_dev_shipwalk_earjoin(w.ear));
+        if (array_length(w.ear) == 1 && w.ear[0].ok)
+        {
+            vwa_test_ok(tc, "shipwalk: block is audio-only " + tag,
+                array_length(w.tap) == 0, vwa_test_join(w.tap));
+        }
+        else
+        {
+            vwa_test_ok(tc, "shipwalk: block fallback spoke " + tag,
+                array_length(w.tap) == 1
+                    && w.tap[0] == vwa_speak_render([vwa_t(blockedKey)]),
+                vwa_test_join(w.tap));
+        }
     }
     return { moved: movedActual };
+}
+
+// Earcon tap entries joined into a check's detail string.
+function vwa_dev_shipwalk_earjoin(ear)
+{
+    var s = "";
+    for (var i = 0; i < array_length(ear); i++)
+    {
+        if (i > 0)
+        {
+            s += " | ";
+        }
+        s += ear[i].name + (ear[i].ok ? "" : " (failed)");
+    }
+    return (s == "") ? "(no earcons)" : s;
 }
 
 // ---- the ship-scanner live check ----

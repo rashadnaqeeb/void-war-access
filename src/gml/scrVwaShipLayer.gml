@@ -56,14 +56,21 @@
 // the edge rules evaluated at move time (vwa_ship_move_plan, PURE):
 // - target tile inside the same cell: free move, no edge resolution;
 // - across a cell edge holding an oDoor: passes whatever the door state,
-//   and every state (0 open, 1 closed, 2 battered) speaks its own short
-//   localized token before the tile - the spoken interim until the
-//   earcon layer exists, revisited at piece 5;
+//   and every state (0 open, 1 closed, 2 battered) plays its own
+//   door-cross earcon (vwa_earcon, scrVwaEarcon - the door channel is
+//   audio-only, the piece-5 decision). The old spoken state token
+//   survives ONLY as the never-strand fallback, prepended to the tile
+//   speech when the earcon reports failure;
 // - an oWall, an oAirlock, or off the hull entirely: blocked, cursor
-//   stays, a localized "wall" token speaks - or, when an airlock edge
-//   instance is actually there (space beyond), an airlock token carrying
-//   its live state (0 open, 1 closed; airlocks have no HP and cannot be
-//   battered - the game's door-attack path scans oDoor only).
+//   stays, the block earcon plays - wall-block for walls and bare
+//   off-hull edges, or the airlock-block pair carrying the airlock's
+//   live state (0 open, 1 closed; airlocks have no HP and cannot be
+//   battered - the game's door-attack path scans oDoor only). The
+//   spoken wall/airlock tokens are the same never-strand fallback on
+//   earcon failure. A blocked bump with a working earcon no longer
+//   interrupts ongoing speech (the cursor did not move, so it is not
+//   focus movement); the fallback token, when it must speak, interrupts
+//   as refusal feedback.
 // The edge is resolved from the from-cell's sideData (the game's own
 // per-edge cache): the entry whose sideID's bounding box contains the
 // midpoint between the two slot centers (midpoints sit 18px from segment
@@ -79,9 +86,8 @@
 // each is { name, slotLevel, interior, read } with read(hull, cell,
 // slot, ctx) -> array of parts, invoked directly (never
 // script_execute_ext). ctx carries what the move computed once:
-// cellChanged (did this move cross into a different cell), door (the
-// edge crossed, when it was a door), the landed tile tx/ty with the
-// spoken origin cx/cy, and vision - the landed cell's playerHasVision,
+// cellChanged (did this move cross into a different cell), the landed
+// tile tx/ty with the spoken origin cx/cy, and vision - the landed cell's playerHasVision,
 // stamped by vwa_ship_move_parts at compose time (the game's own
 // per-room visibility rule: own rooms need own sensors, enemy rooms
 // sensor parity, a room holding own crew always visible).
@@ -145,8 +151,8 @@
 //   oUICursor.currSelected, the game's selection truth, read live.
 // - position (slot): signed x/y from the hull's center, the every-move
 //   feedback that a move landed (kept after weighing the slot sections:
-//   blocked moves speak their token, so a silent success would be
-//   ambiguous). Spoken coordinates are SIGNED X/Y FROM THE HULL'S
+//   blocked moves sound their block earcon, so a silent success would
+//   be ambiguous). Spoken coordinates are SIGNED X/Y FROM THE HULL'S
 //   CENTER: the origin is the bounding-box center tile
 //   (floor((w-1)/2), floor((h-1)/2) - for even dimensions the tile just
 //   left/above true center), x positive right, y positive UP (up-arrow
@@ -947,24 +953,41 @@ function vwa_ship_compose_run(sections, quar, hull, cell, slot, ctx)
     return parts;
 }
 
-// The full spoken parts for landing on a tile: the door-crossing token
-// (every state speaks - open, closed, battered), then the sections.
+// The door-state mappings, shared by the cursor and the dev walker:
+// state (0 open, 1 closed, 2 battered) to the door-cross earcon event
+// and to its never-strand fallback token key.
+function vwa_ship_door_earcon(doorState)
+{
+    if (doorState == 1)
+    {
+        return "door-closed";
+    }
+    if (doorState == 2)
+    {
+        return "door-battered";
+    }
+    return "door-open";
+}
+
+function vwa_ship_door_token(doorState)
+{
+    if (doorState == 1)
+    {
+        return "vwa--ship-door-closed";
+    }
+    if (doorState == 2)
+    {
+        return "vwa--ship-door-battered";
+    }
+    return "vwa--ship-door-open";
+}
+
+// The spoken parts for landing on a tile: the sections in order. The
+// door-cross channel is the caller's (audio, with the spoken token only
+// on earcon failure - vwa_ship_cursor_move).
 function vwa_ship_move_parts(alliedSide, entry, ctx)
 {
     var parts = [];
-    if (ctx.door != undefined)
-    {
-        var doorKey = "vwa--ship-door-open";
-        if (ctx.door.doorState == 1)
-        {
-            doorKey = "vwa--ship-door-closed";
-        }
-        if (ctx.door.doorState == 2)
-        {
-            doorKey = "vwa--ship-door-battered";
-        }
-        array_push(parts, vwa_t(doorKey));
-    }
     var hull = get_hull(alliedSide);
     if (hull == 0 || !instance_exists(hull))
     {
@@ -1007,29 +1030,52 @@ function vwa_ship_cursor_move(dx, dy)
     }
     if (!plan.moved)
     {
+        // The block channel is audio; the spoken token is the
+        // never-strand fallback on earcon failure (see header).
         // blocked == "airlock" only when a live airlock edge resolved, so
         // its captured state (0 open, 1 closed) is always present.
+        var earName = "wall-block";
         var blockedKey = "vwa--ship-wall";
         if (plan.blocked == "airlock")
         {
+            earName = (edge.doorState == 1)
+                ? "airlock-closed-block" : "airlock-open-block";
             blockedKey = (edge.doorState == 1)
                 ? "vwa--ship-airlock-closed" : "vwa--ship-airlock-open";
         }
-        vwa_speak([vwa_t(blockedKey)], true);
+        if (!vwa_earcon(earName))
+        {
+            vwa_speak([vwa_t(blockedKey)], true);
+        }
         return;
     }
     cur.tx += dx;
     cur.ty += dy;
-    var ctx = { cellChanged: plan.cellChanged, door: plan.door,
+    var parts = [];
+    if (plan.door != undefined)
+    {
+        // Door-cross is audio-only; the spoken state token survives as
+        // the fallback ahead of the tile speech.
+        if (!vwa_earcon(vwa_ship_door_earcon(plan.door.doorState)))
+        {
+            array_push(parts, vwa_t(vwa_ship_door_token(plan.door.doorState)));
+        }
+    }
+    var ctx = { cellChanged: plan.cellChanged,
                 tx: cur.tx, ty: cur.ty, cx: geom.cx, cy: geom.cy };
-    vwa_speak(vwa_ship_move_parts(alliedSide, toE, ctx), true);
+    var body = vwa_ship_move_parts(alliedSide, toE, ctx);
+    for (var i = 0; i < array_length(body); i++)
+    {
+        array_push(parts, body[i]);
+    }
+    vwa_speak(parts, true);
 }
 
-// A full-read ctx for the cursor tile: nothing dampened, no door token.
+// A full-read ctx for the cursor tile: nothing dampened.
 // vwa_ship_move_parts stamps the vision field.
 function vwa_ship_read_ctx(geom, cur)
 {
-    return { cellChanged: true, door: undefined, tx: cur.tx, ty: cur.ty,
+    return { cellChanged: true, tx: cur.tx, ty: cur.ty,
              cx: geom.cx, cy: geom.cy };
 }
 

@@ -9,9 +9,7 @@ is history.
 
 Out of scope for now, deliberately: the top-bar buttons and their menus
 (upgrade, loadout, encyclopedia, escape - the overlay-menu framework will
-cover them later), the local/sector map screens, weapon targeting, and
-the audio/earcon implementation (interface stubbed here, library chosen
-later).
+cover them later), the local/sector map screens, and weapon targeting.
 
 ## Verified game model (what everything below builds on)
 
@@ -402,6 +400,17 @@ survey, order, unpause" is the intended rhythm of the whole layer.
 
 ## Earcon layer
 
+BUILT (piece 5, cursor half): the chokepoint (`vwa_earcon`;
+scrVwaEarcon's header is the authoritative spec), the wall-block,
+airlock-block, and door-cross events with their sounds, the spoken
+tokens demoted to earcon-failure fallbacks (scrVwaShipLayer), and the
+walker's earcon-channel assertions (earcons play at zero volume during
+dev sweeps). The settings-forward volume variable shipped
+(`global.vwaEarconVolume`). Still to build from this section: the
+scanner wrap, the direction tones with their toggle, and the piece-6
+selection events - the sound list and notes below stay the build-to
+reference for them.
+
 Named audio events through one chokepoint (`vwa_earcon(name)` shape),
 failures logged, never silent. Any event whose information exists
 nowhere else keeps a spoken fallback so the player is never stranded.
@@ -478,6 +487,12 @@ gate and per-category totals cross-checked against direct live
 enumeration, an identity-preserving refresh check, a verified jump with
 Backspace return, and a live search apply and exit.
 
+BUILT (piece 5, cursor half, in vwa_test_shiplayer plus the walker):
+the earcon cursor vocabulary and door-state mappings on fixtures; the
+shipwalk verifies the earcon channel per move - event name re-derived
+from the live edge state, blocks audio-only, the fallback token spoken
+exactly when the earcon reports failure.
+
 Still to build with their pieces:
 
 - Rectangle geometry (piece 6): corners, accumulation,
@@ -508,11 +523,12 @@ before the next starts.
 4. DONE - Scanner: backends, snapshot, category/item/instance keys,
    jump and orient. (scrVwaShipScan; fixtures in vwa_dev_selftest, live
    check vwa_dev_shipscan.)
-5. Earcon layer: wiring for the events that exist (door-cross,
-   wall/airlock block, scanner wrap; ship toggle dropped for now) with
-   the chosen sounds, the scanner direction tones, spoken tokens
-   removed where audio replaces them (audio path and sound choices are
-   in the earcon layer section).
+5. Earcon layer - cursor half DONE (the chokepoint in scrVwaEarcon;
+   door-cross and wall/airlock block wired, spoken tokens now
+   earcon-failure fallbacks). Remaining: scanner wrap and the scanner
+   direction tones, built after the cursor events are confirmed in
+   play (audio path and sound choices are in the earcon layer
+   section).
    Pulled ahead of selection and orders (Rashad's call): a
    lot of their decisions rest on what the audio channel can carry.
    Selection events join when piece 6 lands.

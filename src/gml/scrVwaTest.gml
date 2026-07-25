@@ -275,9 +275,11 @@ function vwa_test_shipscan(tc)
 }
 
 // The ship-layer substrate (scrVwaShipLayer): the pure geometry-index
-// builder and focus decision on fixtures, plus the mode-provider
-// suspension rule in vwa_live_categories (live globals saved/restored,
-// the gate-test pattern) and the live mode gate outside a run.
+// builder and focus decision on fixtures, the earcon layer's cursor
+// vocabulary and door-state mappings (scrVwaEarcon), plus the
+// mode-provider suspension rule in vwa_live_categories (live globals
+// saved/restored, the gate-test pattern) and the live mode gate outside
+// a run.
 function vwa_test_shiplayer(tc)
 {
     // A wide cell (two tiles across the top) and a single below-left,
@@ -383,6 +385,66 @@ function vwa_test_shiplayer(tc)
     vwa_test_eq(tc, "shiplayer: bare oCellSide is unknown",
         vwa_ship_side_kind(oCellSide), undefined);
 
+    // The earcon layer's cursor vocabulary (scrVwaEarcon): every cursor
+    // event resolves to real playable sounds; the two airlock-block
+    // events share the airlock marker sound and differ on the
+    // state-carrying one (the layering design); the three door states
+    // map to three distinct resolvable earcons and three distinct
+    // fallback tokens. An unknown name stays unresolved - the
+    // chokepoint throws on it, a mod bug.
+    var evs = ["wall-block", "airlock-open-block", "airlock-closed-block",
+               "door-open", "door-closed", "door-battered"];
+    for (var i = 0; i < array_length(evs); i++)
+    {
+        var snds = vwa_earcon_sounds(evs[i]);
+        var allExist = is_array(snds) && array_length(snds) > 0;
+        if (allExist)
+        {
+            for (var j = 0; j < array_length(snds); j++)
+            {
+                allExist = allExist && audio_exists(snds[j]);
+            }
+        }
+        vwa_test_ok(tc, "earcon: " + evs[i] + " resolves to real sounds",
+            allExist, string(snds));
+    }
+    vwa_test_eq(tc, "earcon: unknown event stays unresolved",
+        vwa_earcon_sounds("no-such-event"), undefined);
+    var alo = vwa_earcon_sounds("airlock-open-block");
+    var alc = vwa_earcon_sounds("airlock-closed-block");
+    var earShared = false;
+    var earDiffers = false;
+    for (var i = 0; i < array_length(alo); i++)
+    {
+        if (vwa_array_index_of(alc, alo[i]) >= 0)
+        {
+            earShared = true;
+        }
+        else
+        {
+            earDiffers = true;
+        }
+    }
+    vwa_test_ok(tc, "earcon: airlock blocks share the marker, split the state",
+        earShared && earDiffers,
+        "shared " + string(earShared) + " differs " + string(earDiffers));
+    for (var ds = 0; ds <= 2; ds++)
+    {
+        vwa_test_ok(tc, "earcon: door state " + string(ds) + " event resolves",
+            vwa_earcon_sounds(vwa_ship_door_earcon(ds)) != undefined,
+            vwa_ship_door_earcon(ds));
+    }
+    vwa_test_ok(tc, "earcon: door states map to distinct events",
+        vwa_ship_door_earcon(0) != vwa_ship_door_earcon(1)
+            && vwa_ship_door_earcon(1) != vwa_ship_door_earcon(2)
+            && vwa_ship_door_earcon(0) != vwa_ship_door_earcon(2),
+        "collision");
+    vwa_test_ok(tc, "earcon: door states map to distinct tokens",
+        vwa_ship_door_token(0) != vwa_ship_door_token(1)
+            && vwa_ship_door_token(1) != vwa_ship_door_token(2)
+            && vwa_ship_door_token(0) != vwa_ship_door_token(2),
+        "collision");
+
     // The composer runner on fixture sections: order kept, a throwing
     // section quarantines (once) while the rest still run. The quarantine
     // log line this writes is the sanctioned once-per-quarantine log.
@@ -406,14 +468,14 @@ function vwa_test_shiplayer(tc)
             return ["SLOT"];
         } }
     ];
-    var ctxT = { cellChanged: true, door: undefined, tx: 0, ty: 0,
+    var ctxT = { cellChanged: true, tx: 0, ty: 0,
                  vision: true };
     vwa_test_eq(tc, "shiplayer: composer runs past a throw",
         vwa_test_join(vwa_ship_compose_run(fsecs, quar, undefined, undefined, 1, ctxT)),
         "CELL | SLOT");
     vwa_test_ok(tc, "shiplayer: throwing section quarantined",
         variable_struct_exists(quar, "boom"), "not quarantined");
-    var ctxF = { cellChanged: false, door: undefined, tx: 0, ty: 0,
+    var ctxF = { cellChanged: false, tx: 0, ty: 0,
                  vision: true };
     vwa_test_eq(tc, "shiplayer: cell fixture dampens when cell unchanged",
         vwa_test_join(vwa_ship_compose_run(fsecs, quar, undefined, undefined, 1, ctxF)),
@@ -451,15 +513,15 @@ function vwa_test_shiplayer(tc)
     var gq = {};
     vwa_test_eq(tc, "shiplayer: vision true runs every section",
         vwa_test_join(vwa_ship_compose_run(gsecs, gq, undefined, undefined, 1,
-            { cellChanged: true, door: undefined, vision: true })),
+            { cellChanged: true, vision: true })),
         "GEOC | INTC | INTS | GEOS");
     vwa_test_eq(tc, "shiplayer: vision false speaks unknown in place",
         vwa_test_join(vwa_ship_compose_run(gsecs, gq, undefined, undefined, 1,
-            { cellChanged: true, door: undefined, vision: false })),
+            { cellChanged: true, vision: false })),
         "GEOC | " + vwa_t("vwa--ship-unknown") + " | GEOS");
     vwa_test_eq(tc, "shiplayer: dark within-room step stays terse",
         vwa_test_join(vwa_ship_compose_run(gsecs, gq, undefined, undefined, 1,
-            { cellChanged: false, door: undefined, vision: false })),
+            { cellChanged: false, vision: false })),
         "GEOS");
 
     // One/many count wording: silent at zero, bare token at one,
@@ -486,7 +548,7 @@ function vwa_test_shiplayer(tc)
     // cell unchanged every cell-level section bails before touching the
     // (dummy) cell. Slot-level sections read live instances and are
     // exercised by the live shipwalk, not fixtures.
-    var dctx = { cellChanged: false, door: undefined, tx: 4, ty: 2,
+    var dctx = { cellChanged: false, tx: 4, ty: 2,
                  cx: 1, cy: 3, vision: true };
     for (var i = 0; i < array_length(global.vwaShipSections); i++)
     {
@@ -506,7 +568,7 @@ function vwa_test_shiplayer(tc)
     vwa_test_eq(tc, "shiplayer: position section speaks every move",
         vwa_test_join(posSec.read(undefined, {}, 1, dctx)),
         vwa_sheet_t("vwa--ship-pos", ["x", "y"], ["3", "1"]));
-    var nctx = { cellChanged: false, door: undefined, tx: 0, ty: 4,
+    var nctx = { cellChanged: false, tx: 0, ty: 4,
                  cx: 1, cy: 3, vision: true };
     vwa_test_eq(tc, "shiplayer: position section negative coords",
         vwa_test_join(posSec.read(undefined, {}, 1, nctx)),
@@ -519,7 +581,7 @@ function vwa_test_shiplayer(tc)
     // outside a run). Tile 2,1 with origin 1,3 is x 1, y 2.
     var wcell = { object_index: oCellSingle,
                   system: { name: "Test System", currHP: 2, maxHP: 2 } };
-    var wctx = { cellChanged: true, door: undefined, tx: 2, ty: 1,
+    var wctx = { cellChanged: true, tx: 2, ty: 1,
                  cx: 1, cy: 3, vision: true };
     vwa_test_eq(tc, "shiplayer: where reads position, name, then shape",
         vwa_test_join(vwa_ship_compose_run(vwa_ship_where_sections(), {},
