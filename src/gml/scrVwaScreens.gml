@@ -775,6 +775,10 @@ function vwa_nav_typeahead_tick()
     {
         vwa_nav_search_clear(false);
         nav.screenKey = (scr != undefined) ? scr.key : undefined;
+        // No focused screen: this frame's typed characters belong to the
+        // ship scanner's Ctrl+F capture, when armed (scrVwaShipScan;
+        // no-op otherwise).
+        vwa_ship_scan_typed(typed);
         return;
     }
     if (nav.screenKey != scr.key)

@@ -2,7 +2,8 @@
 // substrate everything spatial sits on, the tile cursor, and the full
 // tile speech model - sections, visibility gating, on-demand reads
 // (docs/ship-layer-plan.md is the build-to document; this header is the
-// authoritative spec of what is built). The ship layer is a MODE, not a
+// authoritative spec of what is built; piece 4, the scanner, lives in
+// scrVwaShipScan on this substrate). The ship layer is a MODE, not a
 // screen: it never enters the screen stack (screens are control graphs;
 // this is spatial). Its input category "ship" goes live through the
 // mode-provider hook in scrVwaInput, which admits mode categories only
@@ -21,7 +22,8 @@
 //
 // State model: global.vwaShipLayer holds focusAllied (1 player, 0 enemy)
 // plus one container per hull - cursor tile, geometry index, section
-// quarantine, and the hull instance they belong to. Positions are
+// quarantine, the scanner state (owned by scrVwaShipScan), and the hull
+// instance they belong to. Positions are
 // HULL-RELATIVE tile coordinates (36px grid, origin the hull's top-left
 // slot), never cell instance ids; the cell and slot resolve from
 // coordinates at speak time. A container self-resets when its hull
@@ -179,7 +181,11 @@ function vwa_ship_layer_init()
         category: "ship",
         isActive: function()
         {
-            return vwa_ship_mode_active();
+            // The scanner's Ctrl+F capture suspends the ship category
+            // (letters must type, not fire status keys); the ship-search
+            // mode's own category carries the capture keys meanwhile
+            // (scrVwaShipScan).
+            return vwa_ship_mode_active() && !vwa_ship_scan_search_armed();
         }
     });
     vwa_action_register("ship-focus-toggle", "vwa--action-ship-focus", "ship",
@@ -223,7 +229,10 @@ function vwa_ship_layer_init()
 
 function vwa_ship_container_new()
 {
-    return { cursor: undefined, geom: undefined, hullInst: undefined, quar: {} };
+    // scan is owned by scrVwaShipScan (piece 4): the hull's scanner
+    // state, lazily created there, reset with the container.
+    return { cursor: undefined, geom: undefined, hullInst: undefined,
+             quar: {}, scan: undefined };
 }
 
 // The ship layer's liveness gate (see header). Stateless: the game owns
@@ -261,6 +270,7 @@ function vwa_ship_container(alliedSide)
         c.cursor = undefined;
         c.geom = undefined;
         c.quar = {};
+        c.scan = undefined;
         c.hullInst = hull;
     }
     return c;
@@ -355,12 +365,16 @@ function vwa_ship_geom_build(records)
     }
     // builtRoom (set by the impure caller): the room the index was built
     // in - never name a struct field after a GML builtin ("room" crashed
-    // the literal at runtime under the UTMT importer).
+    // the literal at runtime under the UTMT importer). ox/oy is the world
+    // origin the tiles were normalized against, kept so arbitrary world
+    // positions (a mid-walk crew, the scanner's quantization) map to
+    // tiles: tile = round((worldCoord - origin) / 36).
     return {
         tiles: tiles, count: count, dupes: dupes,
         w: maxTx + 1, h: maxTy + 1,
         cx: floor(maxTx / 2), cy: floor(maxTy / 2),
         defaultTile: { tx: defTx, ty: defTy },
+        ox: minX, oy: minY,
         builtRoom: undefined
     };
 }
@@ -996,6 +1010,9 @@ function vwa_ship_focus_toggle()
         return;
     }
     st.focusAllied = next.allied;
+    // The toggled-to ship's scanner snapshot rebuilds fresh on its next
+    // scanner key (scrVwaShipScan).
+    vwa_ship_scan_drop(next.allied);
     vwa_ship_announce_focus();
 }
 

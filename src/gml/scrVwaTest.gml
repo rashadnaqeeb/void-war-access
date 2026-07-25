@@ -89,7 +89,158 @@ function vwa_dev_selftest()
     vwa_test_ship(tc);
     vwa_test_encounter(tc);
     vwa_test_shiplayer(tc);
+    vwa_test_shipscan(tc);
     return { checks: tc.checks, failures: tc.failures };
+}
+
+// The ship scanner's pure pieces (scrVwaShipScan): grouping and both
+// sorts with their tie-breaks, offset wording, prune behavior.
+function vwa_test_shipscan(tc)
+{
+    // Grouping: every given category present in order, empty allowed;
+    // items group by name and order by their nearest instance; instances
+    // sort by distance.
+    var snap = vwa_scan_group(["ca", "cb", "cc"], [
+        { cat: "ca", item: "far", dist: 5, tx: 5, ty: 0 },
+        { cat: "ca", item: "near", dist: 4, tx: 0, ty: 4 },
+        { cat: "ca", item: "near", dist: 2, tx: 2, ty: 0 },
+        { cat: "cb", item: "solo", dist: 1, tx: 1, ty: 0 }
+    ]);
+    vwa_test_eq(tc, "shipscan: category count", array_length(snap.cats), 3);
+    vwa_test_eq(tc, "shipscan: empty category present",
+        array_length(snap.cats[2].items), 0);
+    vwa_test_eq(tc, "shipscan: item grouping",
+        array_length(snap.cats[0].items), 2);
+    vwa_test_eq(tc, "shipscan: nearest item first",
+        snap.cats[0].items[0].name, "near");
+    vwa_test_eq(tc, "shipscan: instance distance sort",
+        snap.cats[0].items[0].entries[0].dist, 2);
+    vwa_test_eq(tc, "shipscan: other category untouched",
+        snap.cats[1].items[0].name, "solo");
+
+    // Tie-breaks: equal distance breaks by row then column; a FULL tie
+    // (co-located hazard types) keeps emission order - the sort must be
+    // stable.
+    var snap2 = vwa_scan_group(["c"], [
+        { cat: "c", item: "x", dist: 3, tx: 0, ty: 3 },
+        { cat: "c", item: "x", dist: 3, tx: 3, ty: 0 },
+        { cat: "c", item: "afterx", dist: 3, tx: 3, ty: 0 }
+    ]);
+    vwa_test_eq(tc, "shipscan: distance tie breaks by row",
+        snap2.cats[0].items[0].entries[0].ty, 0);
+    vwa_test_eq(tc, "shipscan: item full tie keeps emission order",
+        snap2.cats[0].items[0].name, "x");
+
+    // Offsets: one space-joined phrase, always vertical before
+    // horizontal, no comma between the axis tokens; "here" at zero.
+    vwa_test_eq(tc, "shipscan: offsets here",
+        vwa_scan_offset_str(0, 0), vwa_t("vwa--ship-scan-here"));
+    vwa_test_eq(tc, "shipscan: offsets up-right one phrase",
+        vwa_scan_offset_str(2, -3),
+        vwa_sheet_t("vwa--ship-scan-up", ["n"], [3]) + " "
+            + vwa_sheet_t("vwa--ship-scan-right", ["n"], [2]));
+    vwa_test_eq(tc, "shipscan: offsets down-left one phrase",
+        vwa_scan_offset_str(-1, 4),
+        vwa_sheet_t("vwa--ship-scan-down", ["n"], [4]) + " "
+            + vwa_sheet_t("vwa--ship-scan-left", ["n"], [1]));
+    vwa_test_eq(tc, "shipscan: offsets vertical alone",
+        vwa_scan_offset_str(0, 2),
+        vwa_sheet_t("vwa--ship-scan-down", ["n"], [2]));
+    vwa_test_eq(tc, "shipscan: offsets horizontal alone",
+        vwa_scan_offset_str(-3, 0),
+        vwa_sheet_t("vwa--ship-scan-left", ["n"], [3]));
+
+    // The category-cycle skip rule: empty categories are stepped over,
+    // wrapping; a lone non-empty category wraps to itself; all empty
+    // answers -1.
+    var scats = [
+        { key: "a", items: [1] },
+        { key: "b", items: [] },
+        { key: "c", items: [1] }
+    ];
+    vwa_test_eq(tc, "shipscan: skip forward over empty",
+        vwa_scan_next_nonempty(scats, 0, 1), 2);
+    vwa_test_eq(tc, "shipscan: skip wraps forward",
+        vwa_scan_next_nonempty(scats, 2, 1), 0);
+    vwa_test_eq(tc, "shipscan: skip backward over empty",
+        vwa_scan_next_nonempty(scats, 0, -1), 2);
+    var lone = [
+        { key: "a", items: [1] },
+        { key: "b", items: [] }
+    ];
+    vwa_test_eq(tc, "shipscan: lone category wraps to itself",
+        vwa_scan_next_nonempty(lone, 0, 1), 0);
+    var none = [
+        { key: "a", items: [] },
+        { key: "b", items: [] }
+    ];
+    vwa_test_eq(tc, "shipscan: all empty answers minus one",
+        vwa_scan_next_nonempty(none, 0, 1), -1);
+
+    // Prune: the instance goes and the item survives; the last instance
+    // drops the item; the last item empties the category.
+    var pcat = vwa_scan_group(["c"], [
+        { cat: "c", item: "a", dist: 1, tx: 1, ty: 0 },
+        { cat: "c", item: "a", dist: 2, tx: 2, ty: 0 },
+        { cat: "c", item: "b", dist: 3, tx: 3, ty: 0 }
+    ]).cats[0];
+    vwa_scan_prune(pcat, 0, 1);
+    vwa_test_eq(tc, "shipscan: prune removes the instance",
+        array_length(pcat.items[0].entries), 1);
+    vwa_test_eq(tc, "shipscan: prune keeps the item",
+        array_length(pcat.items), 2);
+    vwa_scan_prune(pcat, 0, 0);
+    vwa_test_eq(tc, "shipscan: last instance drops the item",
+        array_length(pcat.items), 1);
+    vwa_test_eq(tc, "shipscan: surviving item is the other one",
+        pcat.items[0].name, "b");
+    vwa_scan_prune(pcat, 0, 0);
+    vwa_test_eq(tc, "shipscan: category prunes to empty",
+        array_length(pcat.items), 0);
+
+    // Locate by stable key: the re-seat primitive of the identity-
+    // preserving rebuild. Found anywhere in the snapshot; missing keys
+    // answer undefined.
+    var lsnap = vwa_scan_group(["c1", "c2"], [
+        { cat: "c1", item: "a", key: "k1", dist: 1, tx: 1, ty: 0 },
+        { cat: "c2", item: "b", key: "k2", dist: 2, tx: 2, ty: 0 },
+        { cat: "c2", item: "b", key: "k3", dist: 1, tx: 0, ty: 1 }
+    ]);
+    var loc = vwa_scan_locate(lsnap, "k2");
+    vwa_test_ok(tc, "shipscan: locate finds the key",
+        loc != undefined && loc.catIx == 1 && loc.itemIx == 0
+            && loc.instIx == 1,
+        string(loc));
+    vwa_test_eq(tc, "shipscan: locate missing key",
+        vwa_scan_locate(lsnap, "nope"), undefined);
+
+    // Search grouping: any-tier matches land in one synthetic category,
+    // items ordered by best tier then distance (start-of-string before
+    // substring, whatever the distances); instances sort by distance;
+    // no matches at all answer undefined.
+    var ssnap = vwa_scan_search_group([
+        { cat: "x", item: "Reactor", key: "s1", dist: 1, tx: 1, ty: 0 },
+        { cat: "x", item: "Grim Reaper", key: "s2", dist: 9, tx: 9, ty: 0 },
+        { cat: "x", item: "Reactor", key: "s3", dist: 5, tx: 5, ty: 0 },
+        { cat: "x", item: "Thrall Pit", key: "s4", dist: 0, tx: 0, ty: 0 }
+    ], "rea");
+    vwa_test_ok(tc, "shipscan: search snapshot shape",
+        ssnap != undefined && array_length(ssnap.cats) == 1
+            && ssnap.cats[0].key == "search",
+        string(ssnap));
+    if (ssnap != undefined)
+    {
+        vwa_test_eq(tc, "shipscan: search match count",
+            array_length(ssnap.cats[0].items), 2);
+        vwa_test_eq(tc, "shipscan: search tier order",
+            ssnap.cats[0].items[0].name, "Reactor");
+        vwa_test_eq(tc, "shipscan: search instance distance sort",
+            ssnap.cats[0].items[0].entries[0].key, "s1");
+    }
+    vwa_test_eq(tc, "shipscan: search no match undefined",
+        vwa_scan_search_group([
+            { cat: "x", item: "Reactor", key: "s1", dist: 1, tx: 1, ty: 0 }
+        ], "zzz"), undefined);
 }
 
 // The ship-layer substrate (scrVwaShipLayer): the pure geometry-index
@@ -124,6 +275,8 @@ function vwa_test_shiplayer(tc)
         string(g.defaultTile.tx) + "," + string(g.defaultTile.ty));
     vwa_test_ok(tc, "shiplayer: 2x2 origin at the left/upper center tile",
         g.cx == 0 && g.cy == 0, string(g.cx) + "," + string(g.cy));
+    vwa_test_ok(tc, "shiplayer: geom keeps its world origin",
+        g.ox == 738 && g.oy == 306, string(g.ox) + "," + string(g.oy));
 
     // Default tile picks minimum row first, then minimum column.
     var g2 = vwa_ship_geom_build([
@@ -1484,4 +1637,371 @@ function vwa_dev_shipwalk_move(tc, w, alliedSide, dx, dy, mustMove)
         vwa_test_eq(tc, "shipwalk: speech " + tag, w.tap[0], expected);
     }
     return { moved: movedActual };
+}
+
+// ---- the ship-scanner live check ----
+
+// vwa_dev_shipscan() - live scanner contract check (scrVwaShipScan),
+// invoked as `call vwa_dev_shipscan`. SYNCHRONOUS. Requires the ship
+// mode active and no stacked screen; checks the FOCUSED hull. One full
+// category lap through the real cycle handler: per press exactly one
+// utterance whose text matches a fresh announce compose, landing only on
+// non-empty categories (the skip rule; the bare empty token when every
+// category is empty); after each rebuild every snapshot entry - of all
+// categories, skipped ones included - must pass its own backend's
+// resolve, sit in its category, carry a stable key, and honor the
+// visibility gate
+// (gated entries only on vision-true cells), with per-category totals
+// cross-checked against direct live enumeration (deduplicated crew on
+// visible cells, distinct visible systems, per-type hazard rooms) -
+// membership derived live, never hardcoded. Then, on the first non-empty
+// category: an identity-preserving refresh must re-seat the browse on
+// the same entry key; an item cycle, an instance cycle, and an orient
+// speak one verified utterance each; a Home jump's cursor must land on
+// the entry's resolved tile with the full-tile-read utterance and a
+// Backspace return must land it back where it left; and a live search
+// apply (query = a prefix of a real item name) must install a frozen
+// search snapshot whose every entry matches the query and resolves,
+// with the category cycle exiting it back to a normal snapshot at the
+// pre-search category. Scanner state and cursor are restored, the
+// snapshot dropped; no section may have quarantined.
+// Returns {checks, failures, entries}.
+function vwa_dev_shipscan()
+{
+    if (!vwa_ship_mode_active())
+    {
+        throw "shipscan: ship mode is not active";
+    }
+    if (array_length(global.vwaScreenStack) > 0)
+    {
+        throw "shipscan: a screen is stacked";
+    }
+    var tc = vwa_test_ctx();
+    var alliedSide = vwa_ship_focus();
+    var st = vwa_ship_scan_state(alliedSide);
+    var geom = vwa_ship_geom(alliedSide);
+    var c = vwa_ship_container(alliedSide);
+    var cur = vwa_ship_cursor(alliedSide);
+    var save = { catIx: st.catIx, itemIx: st.itemIx, instIx: st.instIx,
+                 tx: cur.tx, ty: cur.ty };
+    var w = { tap: [] };
+    var priorTap = variable_global_exists("vwaSpeakTap")
+        ? global.vwaSpeakTap : undefined;
+    global.vwaSpeakTap = method({ w: w }, function(text, intr)
+    {
+        array_push(self.w.tap, text);
+    });
+    var total = 0;
+    try
+    {
+        // The category lap: nCats presses through the real handler. The
+        // game is frozen within this call (the dev pump runs one command
+        // per frame), so a recompute of the same announce must render
+        // identically. The cycle skips empty categories, so every landing
+        // must be non-empty (bare empty token when everything is); ALL
+        // categories of each fresh snapshot are validated, landed on or
+        // skipped - the want-zero cross-check on an empty category is the
+        // vision gate's negative test.
+        var nCats = array_length(vwa_ship_scan_cats());
+        var firstFull = -1;
+        for (var lap = 0; lap < nCats; lap++)
+        {
+            w.tap = [];
+            vwa_ship_scan_cat_cycle(1);
+            var anyFull = false;
+            for (var ci = 0; ci < array_length(st.snap.cats); ci++)
+            {
+                if (array_length(st.snap.cats[ci].items) > 0)
+                {
+                    anyFull = true;
+                    break;
+                }
+            }
+            var catKey = st.snap.cats[st.catIx].key;
+            vwa_test_ok(tc, "shipscan: one utterance on category press " + string(lap),
+                array_length(w.tap) == 1, vwa_test_join(w.tap));
+            if (array_length(w.tap) == 1)
+            {
+                if (anyFull)
+                {
+                    vwa_test_ok(tc, "shipscan: cycle skips empty categories (" + catKey + ")",
+                        array_length(st.snap.cats[st.catIx].items) > 0,
+                        "landed on an empty category");
+                    vwa_test_eq(tc, "shipscan: category speech " + catKey, w.tap[0],
+                        vwa_speak_render(
+                            vwa_ship_scan_announce_parts(alliedSide, st, true)));
+                }
+                else
+                {
+                    vwa_test_eq(tc, "shipscan: all-empty speaks the bare token",
+                        w.tap[0],
+                        vwa_speak_render([vwa_t("vwa--ship-scan-empty")]));
+                }
+            }
+            total = 0;
+            for (var ci = 0; ci < array_length(st.snap.cats); ci++)
+            {
+                total += vwa_dev_shipscan_validate(tc, alliedSide, st, geom, ci);
+            }
+            if (firstFull < 0 && array_length(st.snap.cats[st.catIx].items) > 0)
+            {
+                firstFull = st.catIx;
+            }
+        }
+        if (firstFull >= 0)
+        {
+            st.catIx = firstFull;
+            st.itemIx = 0;
+            st.instIx = 0;
+            // The identity-preserving refresh: same entity, same key,
+            // after a full rebuild.
+            var keyBefore = vwa_ship_scan_current_key(st);
+            var rr = vwa_ship_scan_refresh(alliedSide, st);
+            vwa_test_ok(tc, "shipscan: refresh preserves identity",
+                !rr.built && !rr.lost
+                    && vwa_ship_scan_current_key(st) == keyBefore,
+                string(keyBefore) + " -> " + string(vwa_ship_scan_current_key(st)));
+            w.tap = [];
+            vwa_ship_scan_item_cycle(1);
+            vwa_test_ok(tc, "shipscan: one utterance on item cycle",
+                array_length(w.tap) == 1, vwa_test_join(w.tap));
+            if (array_length(w.tap) == 1)
+            {
+                vwa_test_eq(tc, "shipscan: item cycle speech", w.tap[0],
+                    vwa_speak_render(
+                        vwa_ship_scan_announce_parts(alliedSide, st, false)));
+            }
+            w.tap = [];
+            vwa_ship_scan_inst_cycle(1);
+            vwa_test_ok(tc, "shipscan: one utterance on instance cycle",
+                array_length(w.tap) == 1, vwa_test_join(w.tap));
+            w.tap = [];
+            vwa_ship_scan_orient();
+            vwa_test_ok(tc, "shipscan: one utterance on orient",
+                array_length(w.tap) == 1, vwa_test_join(w.tap));
+            if (array_length(w.tap) == 1)
+            {
+                vwa_test_eq(tc, "shipscan: orient speech", w.tap[0],
+                    vwa_speak_render(
+                        vwa_ship_scan_announce_parts(alliedSide, st, false)));
+            }
+            var curE = vwa_ship_scan_current(alliedSide, st);
+            vwa_test_ok(tc, "shipscan: current entry resolves for the jump",
+                curE != undefined, "none");
+            if (curE != undefined)
+            {
+                var fromTx = cur.tx;
+                var fromTy = cur.ty;
+                w.tap = [];
+                vwa_ship_scan_jump();
+                vwa_test_ok(tc, "shipscan: cursor landed on the entry",
+                    cur.tx == curE.res.tx && cur.ty == curE.res.ty,
+                    string(cur.tx) + "," + string(cur.ty));
+                var entryTile = vwa_ship_geom_tile(geom, cur.tx, cur.ty);
+                vwa_test_ok(tc, "shipscan: one utterance on jump",
+                    array_length(w.tap) == 1, vwa_test_join(w.tap));
+                if (array_length(w.tap) == 1 && entryTile != undefined)
+                {
+                    vwa_test_eq(tc, "shipscan: jump speech", w.tap[0],
+                        vwa_speak_render(vwa_ship_move_parts(alliedSide,
+                            entryTile, vwa_ship_read_ctx(geom, cur))));
+                }
+                // Backspace return, only when the jump actually moved
+                // (an in-place jump keeps the anchor by design).
+                if (cur.tx != fromTx || cur.ty != fromTy)
+                {
+                    w.tap = [];
+                    vwa_ship_scan_return();
+                    vwa_test_ok(tc, "shipscan: return lands on the pre-jump tile",
+                        cur.tx == fromTx && cur.ty == fromTy,
+                        string(cur.tx) + "," + string(cur.ty));
+                    vwa_test_ok(tc, "shipscan: one utterance on return",
+                        array_length(w.tap) == 1, vwa_test_join(w.tap));
+                    w.tap = [];
+                    vwa_ship_scan_return();
+                    vwa_test_ok(tc, "shipscan: second return refuses",
+                        array_length(w.tap) == 1
+                            && w.tap[0] == vwa_speak_render(
+                                [vwa_t("vwa--ship-scan-no-return")]),
+                        vwa_test_join(w.tap));
+                }
+            }
+            // Live search: a prefix of a real item name must match; the
+            // installed snapshot is frozen, every entry resolves and
+            // matches; the category cycle exits back to a normal
+            // snapshot at the pre-search category.
+            var itemName = st.snap.cats[st.catIx].items[0].name;
+            var q = string_copy(string(itemName), 1,
+                min(3, string_length(string(itemName))));
+            var preCat = st.catIx;
+            w.tap = [];
+            vwa_ship_scan_search_apply(q);
+            vwa_test_ok(tc, "shipscan: one utterance on search apply",
+                array_length(w.tap) == 1, vwa_test_join(w.tap));
+            vwa_test_ok(tc, "shipscan: search snapshot installed",
+                st.snap.isSearch == true, "not a search snapshot");
+            if (st.snap.isSearch)
+            {
+                var sitems = st.snap.cats[0].items;
+                vwa_test_ok(tc, "shipscan: search found the seed item",
+                    array_length(sitems) > 0, "no items");
+                for (var i = 0; i < array_length(sitems); i++)
+                {
+                    vwa_test_ok(tc, "shipscan: search item matches "
+                        + string(sitems[i].name),
+                        vwa_search_match_tier(string(sitems[i].name), q).tier >= 0,
+                        "tier below zero");
+                    for (var j = 0; j < array_length(sitems[i].entries); j++)
+                    {
+                        var se = sitems[i].entries[j];
+                        vwa_test_ok(tc, "shipscan: search entry resolves "
+                            + string(se.item),
+                            vwa_ship_scan_backend(se.cat)
+                                .resolve(alliedSide, geom, se) != undefined,
+                            "stale in a fresh search snapshot");
+                    }
+                }
+                w.tap = [];
+                vwa_ship_scan_cat_cycle(1);
+                vwa_test_ok(tc, "shipscan: category cycle exits search",
+                    !st.snap.isSearch, "still a search snapshot");
+                // The expected landing derives through the skip rule on
+                // the fresh snapshot: the next NON-EMPTY category after
+                // the pre-search one.
+                var wantIx = vwa_scan_next_nonempty(st.snap.cats, preCat, 1);
+                if (wantIx >= 0)
+                {
+                    vwa_test_eq(tc, "shipscan: search exit restores the category",
+                        st.catIx, wantIx);
+                }
+            }
+        }
+        else
+        {
+            vwa_log("shipscan: every category empty (browse keys not exercised)");
+        }
+    }
+    catch (err)
+    {
+        // try/finally is unverified under the importer: restore-and-rethrow.
+        global.vwaSpeakTap = priorTap;
+        c.cursor = { tx: save.tx, ty: save.ty };
+        st.catIx = save.catIx;
+        st.itemIx = save.itemIx;
+        st.instIx = save.instIx;
+        st.snap = undefined;
+        st.preJump = undefined;
+        st.preSearchCatIx = undefined;
+        throw err;
+    }
+    global.vwaSpeakTap = priorTap;
+    c.cursor = { tx: save.tx, ty: save.ty };
+    st.catIx = save.catIx;
+    st.itemIx = save.itemIx;
+    st.instIx = save.instIx;
+    st.snap = undefined;
+    st.preJump = undefined;
+    st.preSearchCatIx = undefined;
+    vwa_test_eq(tc, "shipscan: no section quarantined",
+        array_length(variable_struct_get_names(c.quar)), 0);
+    vwa_log("shipscan: allied " + string(alliedSide) + " done, "
+        + string(total) + " entries, " + string(tc.checks) + " checks, "
+        + string(array_length(tc.failures)) + " failures");
+    return { checks: tc.checks, failures: tc.failures, entries: total };
+}
+
+// One just-rebuilt category validated (by index - skipped-over empty
+// categories get checked too): every entry re-resolves through its own
+// backend, wears the right category, honors the vision gate; the entry
+// total matches a direct, independent live enumeration. Returns the
+// entry count.
+function vwa_dev_shipscan_validate(tc, alliedSide, st, geom, catIx)
+{
+    var cat = st.snap.cats[catIx];
+    var b = vwa_ship_scan_backend(cat.key);
+    var n = 0;
+    for (var i = 0; i < array_length(cat.items); i++)
+    {
+        var item = cat.items[i];
+        for (var j = 0; j < array_length(item.entries); j++)
+        {
+            var e = item.entries[j];
+            n += 1;
+            vwa_test_eq(tc, "shipscan: entry category " + cat.key, e.cat, cat.key);
+            vwa_test_ok(tc, "shipscan: entry carries a key " + string(e.item),
+                is_string(e.key) && e.key != "", string(e.key));
+            var res = b.resolve(alliedSide, geom, e);
+            vwa_test_ok(tc, "shipscan: fresh entry resolves " + cat.key
+                + " " + string(e.item), res != undefined,
+                "stale immediately after rebuild");
+            if (cat.key != "systems")
+            {
+                vwa_test_ok(tc, "shipscan: gated entry has vision " + cat.key
+                    + " " + string(e.item), e.cell.playerHasVision,
+                    "vision-false cell in a gated category");
+            }
+        }
+    }
+    var want = 0;
+    var cells = vwa_ship_scan_cells(geom);
+    if (cat.key == "my-crew" || cat.key == "enemy-crew")
+    {
+        var channel = (cat.key == "my-crew") ? 1 : 0;
+        var seen = [];
+        for (var i = 0; i < array_length(cells); i++)
+        {
+            var cc = cells[i].cell;
+            if (!cc.playerHasVision)
+            {
+                continue;
+            }
+            with (oCrew)
+            {
+                if (!crew_is_dead(id) && allied == channel
+                    && position_meeting(x, y, cc)
+                    && vwa_array_index_of(seen, id) < 0)
+                {
+                    array_push(seen, id);
+                }
+            }
+        }
+        want = array_length(seen);
+    }
+    else if (cat.key == "systems")
+    {
+        var seenSys = [];
+        for (var i = 0; i < array_length(cells); i++)
+        {
+            var cc = cells[i].cell;
+            if (cc.system != 0
+                && vwa_ship_scan_cell_visible(alliedSide, cc, false)
+                && vwa_array_index_of(seenSys, cc.system) < 0)
+            {
+                array_push(seenSys, cc.system);
+                want += 1;
+            }
+        }
+    }
+    else
+    {
+        var types = ["fire", "warpfire", "breach"];
+        for (var i = 0; i < array_length(cells); i++)
+        {
+            var cc = cells[i].cell;
+            if (!cc.playerHasVision)
+            {
+                continue;
+            }
+            for (var j = 0; j < array_length(types); j++)
+            {
+                if (vwa_ship_scan_hazard_count(cc, types[j]) > 0)
+                {
+                    want += 1;
+                }
+            }
+        }
+    }
+    vwa_test_eq(tc, "shipscan: " + cat.key + " total matches live enumeration",
+        n, want);
+    return n;
 }

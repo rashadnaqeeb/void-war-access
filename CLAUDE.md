@@ -105,6 +105,9 @@ the hard rules.
   per-hull state + geometry index, ship focus toggle, tile cursor with
   edge rules + section composer - an input
   MODE via scrVwaInput's mode providers, never on the screen stack),
+  `scrVwaShipScan` (the ship layer's scanner: category/item/instance
+  browser over the focused hull, stateless backends + snapshot, jump and
+  orient keys),
   `scrVwaWidgets` (generic widget adapter, oButton
   activation mirror, dropdown child screen, auto-paging), `scrVwaMenus`
   (screen registration dispatcher + generic fallback) with one
@@ -210,7 +213,15 @@ fields whose text is live as typed). On the in-run ship layer (no menu, no
 popup, not warping): **Tab** toggles which ship the tools look at,
 **arrows** move the tile cursor (walls and airlocks block, doors pass),
 **K** speaks position, room, and system, **R** reads the full current
-tile.
+tile. The scanner (browse what's on the focused ship):
+**Ctrl+PageUp/PageDown** cycle categories (my crew, enemy crew, systems,
+hazards), **PageUp/PageDown** cycle items, **Alt+PageUp/PageDown** cycle
+instances of an item, **Home** jumps the tile cursor to the announced
+entry, **End** re-speaks its distance without moving, **Backspace**
+returns the cursor to the pre-jump tile, **Ctrl+F** searches every entry
+by typed name (letters type silently, **Enter** commits into a browsable
+results category, **Escape** cancels, **Ctrl+PageUp/PageDown** exits the
+results).
 
 The authoritative behavior models live in the script headers: submenus and
 jump edges in scrVwaGraph, type-ahead matching in scrVwaSearch, the
@@ -219,7 +230,7 @@ model in scrVwaText, the crew sheet structure in scrVwaSheet, the widget
 adapter and auto-paging in scrVwaWidgets, the real game screens in the
 scrVwaMenu* family files (dispatcher and menuToggle registry in
 scrVwaMenus), the in-run ship layer's mode, state, and cursor model in
-scrVwaShipLayer.
+scrVwaShipLayer, its scanner in scrVwaShipScan.
 
 ## Hard rules (the audit command checks these)
 

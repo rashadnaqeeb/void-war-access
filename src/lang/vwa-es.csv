@@ -133,3 +133,29 @@ vwa--ship-breach-here,brecha aquí
 vwa--ship-console,consola
 vwa--ship-manned,tripulada
 vwa--ship-selected,seleccionado
+vwa--action-ship-scan-cat-prev,Escáner: categoría anterior
+vwa--action-ship-scan-cat-next,Escáner: categoría siguiente
+vwa--action-ship-scan-item-prev,Escáner: elemento anterior
+vwa--action-ship-scan-item-next,Escáner: elemento siguiente
+vwa--action-ship-scan-inst-prev,Escáner: ejemplar anterior
+vwa--action-ship-scan-inst-next,Escáner: ejemplar siguiente
+vwa--action-ship-scan-jump,Escáner: cursor a la entrada
+vwa--action-ship-scan-orient,Escáner: distancia de la entrada
+vwa--ship-scan-my-crew,mi tripulación
+vwa--ship-scan-enemy-crew,tripulación enemiga
+vwa--ship-scan-systems,sistemas
+vwa--ship-scan-hazards,peligros
+vwa--ship-scan-empty,vacío
+vwa--ship-scan-here,aquí
+vwa--ship-scan-up,{n} arriba
+vwa--ship-scan-down,{n} abajo
+vwa--ship-scan-left,{n} a la izquierda
+vwa--ship-scan-right,{n} a la derecha
+vwa--action-ship-scan-return,Escáner: volver a la casilla anterior
+vwa--action-ship-scan-search,Escáner: buscar
+vwa--action-ship-search-commit,Búsqueda: confirmar
+vwa--action-ship-search-cancel,Búsqueda: cancelar
+vwa--action-ship-search-delete,Búsqueda: borrar carácter
+vwa--ship-scan-search,resultados de búsqueda
+vwa--ship-scan-search-prompt,Búsqueda
+vwa--ship-scan-no-return,nada a lo que volver

@@ -133,3 +133,29 @@ vwa--ship-breach-here,breach here
 vwa--ship-console,console
 vwa--ship-manned,manned
 vwa--ship-selected,selected
+vwa--action-ship-scan-cat-prev,Scanner: previous category
+vwa--action-ship-scan-cat-next,Scanner: next category
+vwa--action-ship-scan-item-prev,Scanner: previous item
+vwa--action-ship-scan-item-next,Scanner: next item
+vwa--action-ship-scan-inst-prev,Scanner: previous instance
+vwa--action-ship-scan-inst-next,Scanner: next instance
+vwa--action-ship-scan-jump,Scanner: jump cursor to entry
+vwa--action-ship-scan-orient,Scanner: entry distance
+vwa--ship-scan-my-crew,my crew
+vwa--ship-scan-enemy-crew,enemy crew
+vwa--ship-scan-systems,systems
+vwa--ship-scan-hazards,hazards
+vwa--ship-scan-empty,empty
+vwa--ship-scan-here,here
+vwa--ship-scan-up,{n} up
+vwa--ship-scan-down,{n} down
+vwa--ship-scan-left,{n} left
+vwa--ship-scan-right,{n} right
+vwa--action-ship-scan-return,Scanner: return to pre-jump tile
+vwa--action-ship-scan-search,Scanner: search
+vwa--action-ship-search-commit,Search: commit
+vwa--action-ship-search-cancel,Search: cancel
+vwa--action-ship-search-delete,Search: delete character
+vwa--ship-scan-search,search results
+vwa--ship-scan-search-prompt,Search
+vwa--ship-scan-no-return,nothing to return to

@@ -311,59 +311,30 @@ section is history.
 
 ## Tool 2: the scanner
 
-The "what's on this ship" browser: categories cycled with one key pair
-(Ctrl+PageUp/PageDown), items within the category with another,
-instances of an item with a third. Hierarchy is category > item >
-instance - no subcategories.
-
-Categories (v1): my crew, enemy crew, systems, hazards. All scoped to
-the FOCUSED ship, which does real work: "enemy crew" while focused on
-the player ship IS the boarder list - the most urgent query in the game
-gets there in one category cycle plus Tab. Doors/airlocks (finding the
-battered-open hole) are a candidate fifth category, decided in play.
-
-Backends, one per data family, stateless, queried fresh per rebuild:
-
-    scan(hull) -> array of entries
-      entry: { category, itemName, tile coords, payload }
-
-- Crew backends enumerate `crewInCell_*` lists per cell (or the crew
-  instances directly), one entry per crew, item = crew name.
-- The systems backend emits one entry per `oSysGroup` on the hull -
-  a system is one instance, so a Large room's system is born as one
-  entry; no clustering machinery needed.
-- The hazards backend groups `oFire`/`oBreach` instances by their
-  `currentCellID`: one entry per (type, room), item like "fire", with
-  the slot count carried in the payload ("3 fires" - slot count is the
-  honest severity number). This dictionary group-by replaces the
-  union-find clustering wholesale; rooms are our natural clusters.
-
-Visibility lives in the backends: interior-gated backends (crew,
-hazards) emit entries only for cells with `playerHasVision`; the systems
-backend emits regardless of parity on the enemy ship (matching what the
-game draws) and respects the own-ship dark-below-sensor-1 rule via the
-same flag. The snapshot can never contain what a sighted player can't
-see.
-
-The snapshot is rebuilt from all backends every time the player cycles
-categories and on every ship toggle - our worst case is tens of entries,
-so freshness is cheaper than invalidation bookkeeping. Within items,
-instances sort by tile distance from the cursor, nearest first. Category
-position is preserved across rebuilds when the category still exists.
-
-Staleness inside a category (browsing items/instances between rebuilds)
-is handled at speak time: before announcing an entry, its backend
-validates it against live state (crew alive and still located there,
-fire still burning, system still exists); a stale entry is pruned and
-the cursor advances, with an iteration cap and a log line. Stale speech
-is the cardinal sin; this is the last line of defense.
-
-Announcements: item name, then exact tile offsets from the cursor,
-vertical then horizontal ("2 up, 3 left"), then instance position ("1 of
-4"), plus a backend-supplied detail clause (system damage, fire count).
-Two action keys: jump (move the cursor to the entry's tile - the bridge
-from perception to orders) and orient (re-speak distance from the
-current cursor without moving).
+BUILT (piece 4: backends, snapshot, category/item/instance browsing,
+jump, orient, pre-jump return, and Ctrl+F search; scrVwaShipScan's
+header is the authoritative spec, vwa_dev_shipscan the live check).
+Decisions settled at build: keys are Ctrl+PageUp/PageDown for
+categories, PageUp/PageDown for items, Alt+PageUp/PageDown for
+instances, Home jump, End orient, Backspace pre-jump return, Ctrl+F
+search (chosen with Rashad); the four v1 categories shipped
+(doors/airlocks as a fifth stays an in-play decision below); instance
+position "n of m" speaks only when an item has more than one instance;
+the category cycle skips empty categories (revised in play: nothing in
+them means not discoverable; a category that empties mid-browse still
+answers "empty"); offsets speak as one phrase, always vertical then
+horizontal ("2 up 1 right"). The refresh model (revised with Rashad
+at build): every browse key rebuilds the snapshot from live backends
+and re-seats the browse on the same entity by a stable per-entry key
+with the sort origin preserved, so new and dead things are always
+current and a resort never moves the browse; the category cycle is the
+explicit reorient. Ctrl+F search: a committed query filters the live
+entry list through the scrVwaSearch tiered matcher into a frozen
+single-category snapshot the normal keys browse, exited by the
+category cycle. The backend contract
+(identity-only scan, resolve as the one source of location/detail),
+visibility gating, deterministic sorting, and the speak-time staleness
+pruning live in the header. This section is history.
 
 ## Tool 3: selection
 
@@ -455,12 +426,18 @@ content verified against a fresh independent resolve, coverage derived
 live from the geometry index, cross-checked against the game's own
 connectivity lists.
 
+BUILT (piece 4, in `vwa_test_shipscan` plus the live `vwa_dev_shipscan`):
+snapshot grouping, sorting and tie-breaks, offset wording, prune
+behavior, locate-by-key, and search-group filtering on synthetic
+entries; live, a full category lap through the real handlers with every
+utterance verified against a fresh compose, every snapshot entry
+re-resolved through its own backend right after the rebuild, the vision
+gate and per-category totals cross-checked against direct live
+enumeration, an identity-preserving refresh check, a verified jump with
+Backspace return, and a live search apply and exit.
+
 Still to build with their pieces:
 
-- Snapshot building (piece 4): a synthetic entry list; assert grouping,
-  distance sort, prune-on-empty behavior. Live: every snapshot entry
-  passes its own backend's validation immediately after a rebuild, and
-  gated backends emit nothing for a vision-false cell.
 - Rectangle geometry (piece 5): corners, accumulation,
   exclude-decompose, area membership. Live: a rect over known crew
   fixture positions lands exactly those crew in `currSelected`.
@@ -486,8 +463,9 @@ before the next starts.
    markers, console, visibility gating, where-am-I (K) and details (R)
    keys. (scrVwaShipLayer; fixture gating tests in vwa_dev_selftest,
    live coverage via vwa_dev_shipwalk.)
-4. Scanner: backends, snapshot, category/item/instance keys, jump and
-   orient.
+4. DONE - Scanner: backends, snapshot, category/item/instance keys,
+   jump and orient. (scrVwaShipScan; fixtures in vwa_dev_selftest, live
+   check vwa_dev_shipscan.)
 5. Selection: pure rect module + application to `select_crew`.
 6. Orders: send, send-to-console, door toggle; the key overwrite map
    decided here, alongside the game-hotkey help layer.
@@ -501,7 +479,10 @@ before the next starts.
   send/activate key). Decided per key during pieces 1 and 6; the full
   inventory to decide over is the key inventory section above. Already
   taken on the ship category: Tab (focus toggle), arrows (cursor),
-  K (where am I), R (details).
+  K (where am I), R (details), Ctrl/plain/Alt+PageUp/PageDown (scanner
+  categories/items/instances), Home (scanner jump), End (scanner
+  orient), Backspace (scanner pre-jump return), Ctrl+F (scanner search;
+  while its capture is armed, Enter/Escape/Backspace belong to it).
 - Status review shape: how the general status surfaces (their own
   section above) get spoken - dedicated keys per status family, a
   single review ring cycled with one key pair, or a status screen on

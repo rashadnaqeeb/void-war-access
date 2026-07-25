@@ -12,6 +12,7 @@ vwa_screens_init();
 vwa_text_init();
 vwa_menus_init();
 vwa_ship_layer_init();
+vwa_ship_scan_init();
 if (global.vwaShimReady)
 {
     vwa_speak([vwa_t("vwa--boot")], false);
