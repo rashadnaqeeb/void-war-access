@@ -296,7 +296,7 @@ x/y from the hull's bounding-box center (x right, y UP, bare values
 with a localized minus word - "minus 4, 1"); the door-speech interim is
 every door state speaking its own short token (open/closed/battered);
 where-am-I is K and details R (letters are status keys in this mode;
-piece 6's key map decides around them); oxygen speaks only when below
+piece 7's key map decides around them); oxygen speaks only when below
 full, with vacuum/venting/poisoned state tokens; the dark-room token is
 a bare "unknown", speaking at cell granularity (entering a dark room,
 not every step inside it); the selection-marker section shipped here,
@@ -438,7 +438,7 @@ Backspace return, and a live search apply and exit.
 
 Still to build with their pieces:
 
-- Rectangle geometry (piece 5): corners, accumulation,
+- Rectangle geometry (piece 6): corners, accumulation,
   exclude-decompose, area membership. Live: a rect over known crew
   fixture positions lands exactly those crew in `currSelected`.
 
@@ -466,17 +466,21 @@ before the next starts.
 4. DONE - Scanner: backends, snapshot, category/item/instance keys,
    jump and orient. (scrVwaShipScan; fixtures in vwa_dev_selftest, live
    check vwa_dev_shipscan.)
-5. Selection: pure rect module + application to `select_crew`.
-6. Orders: send, send-to-console, door toggle; the key overwrite map
+5. Earcon layer: library choice, wiring for the events that exist
+   (door-cross, wall/airlock block, scanner wrap, ship toggle), spoken
+   fallbacks removed where audio replaces them (revisit the door speech
+   decision). Pulled ahead of selection and orders (Rashad's call): a
+   lot of their decisions rest on what the audio channel can carry.
+   Selection events join when piece 6 lands.
+6. Selection: pure rect module + application to `select_crew`.
+7. Orders: send, send-to-console, door toggle; the key overwrite map
    decided here, alongside the game-hotkey help layer.
-7. Earcon layer: library choice, door-cross audio, spoken fallbacks
-   removed where audio replaces them (revisit door speech decision).
 
 ## Open decisions
 
 - Key map: which game functions earn a rebound key and where each
   lands (notably return-to-stations, formerly Enter, vs our
-  send/activate key). Decided per key during pieces 1 and 6; the full
+  send/activate key). Decided per key during pieces 1 and 7; the full
   inventory to decide over is the key inventory section above. Already
   taken on the ship category: Tab (focus toggle), arrows (cursor),
   K (where am I), R (details), Ctrl/plain/Alt+PageUp/PageDown (scanner
@@ -490,14 +494,12 @@ before the next starts.
   earn a spoken interrupt versus review-only. Decided alongside the
   key map.
 - Door information channel: audio-only vs audio-plus-terse-speech;
-  decided when the earcon layer exists (piece 7). The piece-2 spoken
+  decided when the earcon layer exists (piece 5). The piece-2 spoken
   interim: every door state speaks its own short token.
 - Fine selection gestures: room-select, slot-select, additive modifiers
-  (piece 5/6 debate).
+  (piece 6/7 debate).
 - Whether doors/airlocks become a fifth scanner category.
 - Whether the scanner gets an auto-move option (cursor follows each
   announced entry) in addition to explicit jump; cheap, but changes how
   distance announcements read, so decided in play.
-- Whether enemy-ship announcements need mirrored direction language, or
-  absolute screen left/right reads fine in play (v1: absolute).
 - Audio library / implementation path for pitch+pan earcons.

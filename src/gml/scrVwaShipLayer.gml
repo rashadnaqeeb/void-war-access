@@ -52,7 +52,7 @@
 // - across a cell edge holding an oDoor: passes whatever the door state,
 //   and every state (0 open, 1 closed, 2 battered) speaks its own short
 //   localized token before the tile - the spoken interim until the
-//   earcon layer exists, revisited at piece 7;
+//   earcon layer exists, revisited at piece 5;
 // - an oWall, an oAirlock, or off the hull entirely: blocked, cursor
 //   stays, a localized "wall" or "airlock" token speaks (airlock only
 //   when an airlock edge instance is actually there - space beyond).
@@ -147,7 +147,7 @@
 //   0-based from the top-left; only vwa_ship_coord_str and the position
 //   section convert.
 //
-// On-demand keys (category "ship", chosen at build; piece 6's key map
+// On-demand keys (category "ship", chosen at build; piece 7's key map
 // decides around them): K - where am I: position, then system name,
 // then shape, through the same section reads and quarantine (the game
 // has NO room names, verified - cells carry no name field, so system
