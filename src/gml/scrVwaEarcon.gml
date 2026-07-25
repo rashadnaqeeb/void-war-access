@@ -33,12 +33,12 @@
 //   (Rashad's calibration; oni-access's 0.79 cap dropped with the
 //   two-segment shape).
 // - LOUDNESS is straight-line (Euclidean) distance: the baked base
-//   amplitude is 0.4/1.5 of full scale, so after the 1.5x gain the
-//   tone rides at a FULL 0.4 with the game's SFX slider at 100
-//   percent (Rashad's by-ear target over the music; revised up from
-//   the original ffmpeg calibration of 0.25 against the click assets
-//   this layer plays - vs_ui_click2 mean -17 dB, sfxDoorOpen_crop
-//   mean -18 dB), falling
+//   amplitude is 0.3 of full scale, so after the 1.5x gain the tone
+//   rides at 0.45 with the game's SFX slider at 100 percent -
+//   Rashad's by-ear target over the music, 1.2x the amplitude of the
+//   original ffmpeg calibration (0.25 baked, matched against the
+//   click assets this layer plays - vs_ui_click2 mean -17 dB,
+//   sfxDoorOpen_crop mean -18 dB), falling
 //   1 dB per tile and flooring at -20 dB (ratio 0.1) from 20 tiles
 //   out - hulls run at most about 20 tiles across, so the whole
 //   audible range maps onto real ship distances (oni-access reaches
@@ -295,9 +295,9 @@ function vwa_earcon_dir(up, rt, withWrap)
         var ang = (sg.pan + 1) * pi / 4;
         var ampL = cos(ang);
         var ampR = sin(ang);
-        // 0.4/1.5: a full 0.4 effective after the 1.5x gain at SFX 100
+        // 0.3 baked = 0.45 effective after the 1.5x gain at SFX 100
         // (the by-ear target in the header).
-        var amp = (0.4 / 1.5) * 32767 * sg.ratio;
+        var amp = 0.3 * 32767 * sg.ratio;
         for (var i = 0; i < segN; i++)
         {
             var env = 1;
