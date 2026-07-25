@@ -1,7 +1,8 @@
 # smoke.ps1 - THE screen smoke (session 11 redesign). All assertions run
 # inside the game: `call vwa_dev_selftest` unit-tests the pure modules and
 # `call vwa_dev_walk_start <screen>` sweeps every node of the focused
-# screen, verifying real speech against a fresh live resolve (scrVwaTest).
+# screen, verifying real speech against a fresh live resolve (scrVwaTest
+# and scrVwaTestWalk).
 # This script is deliberately dumb: it opens screens, starts walks, polls
 # status, runs a few flow checks whose expectations are read live from the
 # game, and diffs the mod log for new ERROR lines. It never composes an

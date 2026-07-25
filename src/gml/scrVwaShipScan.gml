@@ -137,7 +137,7 @@
 // vwa_scan_prune (instance removal, item drop,
 // prune-to-empty), vwa_scan_locate (re-seat by key), and
 // vwa_scan_search_group (tier filter and ordering, no-match undefined).
-// The live analog is vwa_dev_shipscan (scrVwaTest): a full category lap
+// The live analog is vwa_dev_shipscan (scrVwaTestShip): a full category lap
 // through the real handlers with every utterance verified against a
 // fresh compose, every snapshot entry re-resolved through its own
 // backend, the vision gate and per-category totals cross-checked against

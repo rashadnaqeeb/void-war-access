@@ -23,7 +23,7 @@ var group = new CodeImportGroup(Data);
 // gml_GlobalScript_<basename>. Adding a script is dropping a file in
 // src/gml - no build-code change. Dev-only scripts are listed here so a
 // future release build can skip them; the dev build imports everything.
-var devOnlyScripts = new HashSet<string> { "scrVwaDev", "scrVwaDevScreens", "scrVwaTest" };
+var devOnlyScripts = new HashSet<string> { "scrVwaDev", "scrVwaDevParse", "scrVwaDevScreens", "scrVwaTest", "scrVwaTestWalk", "scrVwaTestShip" };
 var scriptFiles = Directory.GetFiles(gmlDir, "scr*.gml")
     .OrderBy(p => Path.GetFileName(p), StringComparer.Ordinal)
     .ToList();

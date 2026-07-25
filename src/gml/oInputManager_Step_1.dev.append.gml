@@ -30,7 +30,7 @@ if (variable_global_exists("vwaShimReady") && global.vwaShimReady)
     }
 }
 
-// The screen walker's frame tick (scrVwaTest): advances a running walk one
+// The screen walker's frame tick (scrVwaTestWalk): advances a running walk one
 // step per frame, after the input tick's rerender and observe. Catches its
 // own errors into the walk's failure list.
 vwa_dev_walk_tick();

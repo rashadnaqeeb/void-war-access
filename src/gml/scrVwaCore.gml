@@ -97,8 +97,8 @@ function vwa_shim_init()
     }
 }
 
-// The chokepoint's pure join, factored out so the in-game walker
-// (scrVwaTest, dev builds) can render the expected text of a parts array
+// The chokepoint's pure join, factored out so the in-game test scripts
+// (scrVwaTest*, dev builds) can render the expected text of a parts array
 // through the exact code the chokepoint uses. Two shapes (Rashad's line
 // model, session 10):
 // - flat: every element a string (or struct with .text) - ONE spoken line,
@@ -157,7 +157,7 @@ function vwa_speak_render(parts)
 // shim is involved, so speech is diagnosable even with no DLL at all
 // (a multi-line utterance is one log entry per line, indented after the
 // first, so the log stays one-utterance-per-entry greppable).
-// global.vwaSpeakTap, when set (dev builds: the scrVwaTest walker), receives
+// global.vwaSpeakTap, when set (dev builds: the test scripts' walkers), receives
 // every utterance's final text - the sanctioned observation point for
 // in-game speech verification. It must never speak.
 function vwa_speak(parts, interrupt)

@@ -165,7 +165,7 @@
 // visibility gate and its token placement, the where-am-I read order).
 // The mode-provider suspension rule is asserted against
 // vwa_live_categories directly. The live analog is vwa_dev_shipwalk
-// (scrVwaTest): a full arrow-driven sweep of the focused hull against
+// (scrVwaTestShip): a full arrow-driven sweep of the focused hull against
 // fresh resolves and the game's own connectivity lists, which also
 // drives every slot-level section on live instances.
 
