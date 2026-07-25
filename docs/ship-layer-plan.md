@@ -414,8 +414,8 @@ due east/west, half at 45 degrees), loudness the Euclidean distance -
 never the zigzag walking legs the announcement speaks (revised in
 play from the oni-access two-segment sequence); distance falls 1 dB
 per tile flooring at -20 dB from 20 tiles (hull-scale, vs
-oni-access's hundreds), base amplitude ffmpeg-calibrated against the
-click sounds this layer already plays. The `global.vwaEarconDirTones` toggle shipped
+oni-access's hundreds), base amplitude set by ear in play over the
+music (initially ffmpeg-calibrated against the layer's click sounds). The `global.vwaEarconDirTones` toggle shipped
 settings-forward. Volume was revised in play: gain is 1.5 x
 `global.volumeMax_SFX` read live, so the game's SFX slider is the one
 volume control and there is no mod-side volume setting (the

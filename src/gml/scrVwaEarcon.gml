@@ -32,10 +32,13 @@
 //   (1) due east or west, 0.5 at 45 degrees, center at pure vertical
 //   (Rashad's calibration; oni-access's 0.79 cap dropped with the
 //   two-segment shape).
-// - LOUDNESS is straight-line (Euclidean) distance: baked base
-//   amplitude 0.25 of full scale (sine RMS about -15 dBFS, calibrated
-//   with ffmpeg against the game assets this layer already plays -
-//   vs_ui_click2 mean -17 dB, sfxDoorOpen_crop mean -18 dB), falling
+// - LOUDNESS is straight-line (Euclidean) distance: the baked base
+//   amplitude is 0.4/1.5 of full scale, so after the 1.5x gain the
+//   tone rides at a FULL 0.4 with the game's SFX slider at 100
+//   percent (Rashad's by-ear target over the music; revised up from
+//   the original ffmpeg calibration of 0.25 against the click assets
+//   this layer plays - vs_ui_click2 mean -17 dB, sfxDoorOpen_crop
+//   mean -18 dB), falling
 //   1 dB per tile and flooring at -20 dB (ratio 0.1) from 20 tiles
 //   out - hulls run at most about 20 tiles across, so the whole
 //   audible range maps onto real ship distances (oni-access reaches
@@ -250,7 +253,7 @@ function vwa_earcon_dir_segments(up, rt)
 // One event: withWrap layers the scan-wrap click in before the tone.
 // The toggle suppresses only the tone. Synthesis: 48kHz stereo s16,
 // 55ms segments (5ms fades), constant-power pan and the distance ratio
-// baked per segment on the 0.25 base amplitude (the loop stays
+// baked per segment on the header's base amplitude (the loop stays
 // multi-segment-capable with a 10ms gap, though the current tone is a
 // single segment); the buffer sound is freed by the NEXT event's stop
 // (one outstanding tone at most). Failures log; the tone augments
@@ -292,7 +295,9 @@ function vwa_earcon_dir(up, rt, withWrap)
         var ang = (sg.pan + 1) * pi / 4;
         var ampL = cos(ang);
         var ampR = sin(ang);
-        var amp = 0.25 * 32767 * sg.ratio;
+        // 0.4/1.5: a full 0.4 effective after the 1.5x gain at SFX 100
+        // (the by-ear target in the header).
+        var amp = (0.4 / 1.5) * 32767 * sg.ratio;
         for (var i = 0; i < segN; i++)
         {
             var env = 1;
