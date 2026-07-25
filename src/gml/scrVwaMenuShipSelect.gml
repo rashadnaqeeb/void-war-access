@@ -278,14 +278,25 @@ function vwa_ship_select_build(bd)
 }
 
 // ---- stop 1: the ship ----
+
+// One function per control cluster, in painted order.
 function vwa_ship_stop_build(bd)
 {
-    var sel = instance_find(oShipMenu_shipSelector, 0);
+    vwa_ship_cycler_add(bd);
+    vwa_ship_variant_add(bd);
+    vwa_ship_name_add(bd);
+    vwa_ship_randomize_add(bd);
+    vwa_ship_view_list_add(bd);
+    vwa_ship_unlock_add(bd);
+}
 
-    // The hull cycler. onAdjust drives the game's own
-    // selectedIndex_previous/next - the exact methods its native
-    // arrow-key cycling calls (they skip disabled hulls themselves). The
-    // raw-arrow consume lives in the screen's postDispatch.
+// The hull cycler. onAdjust drives the game's own
+// selectedIndex_previous/next - the exact methods its native
+// arrow-key cycling calls (they skip disabled hulls themselves). The
+// raw-arrow consume lives in the screen's postDispatch.
+function vwa_ship_cycler_add(bd)
+{
+    var sel = instance_find(oShipMenu_shipSelector, 0);
     vwa_gb_add(bd, vwa_id_ref(sel, "ship-cycler"), {
         typeKey: "slider",
         parts: [
@@ -314,11 +325,14 @@ function vwa_ship_stop_build(bd)
             vwa_ship_goto_sync();
         })
     });
+}
 
-    // The variant slider (A/B/C). Landing IS selection: onAdjust steps to
-    // the next buttonActive variant and runs the game's own stored onPress
-    // (badge clear, get_selectedRoom, goToSelectedRoom - the full press
-    // path). The second live part speaks the resulting ship.
+// The variant slider (A/B/C). Landing IS selection: onAdjust steps to
+// the next buttonActive variant and runs the game's own stored onPress
+// (badge clear, get_selectedRoom, goToSelectedRoom - the full press
+// path). The second live part speaks the resulting ship.
+function vwa_ship_variant_add(bd)
+{
     var vs = vwa_ship_variant_selector();
     if (vs != undefined)
     {
@@ -356,15 +370,18 @@ function vwa_ship_stop_build(bd)
             })
         });
     }
+}
 
-    // The ship name field. Editable exactly when the game's field is
-    // (visible and not locked-without-debug: oShipMenu_shipName Draw_64);
-    // otherwise a NO DATA label, mirroring what the game paints. The edit
-    // adapter mirrors all three of the field's own branches: click-to-edit
-    // on entry, the Enter branch on commit (the game's stored set_name -
-    // writes customHullName and saves), and the Escape branch on cancel
-    // (flags only, nothing written; the field's own Step then repaints the
-    // stored name while no custom name is set - its behavior, mirrored).
+// The ship name field. Editable exactly when the game's field is
+// (visible and not locked-without-debug: oShipMenu_shipName Draw_64);
+// otherwise a NO DATA label, mirroring what the game paints. The edit
+// adapter mirrors all three of the field's own branches: click-to-edit
+// on entry, the Enter branch on commit (the game's stored set_name -
+// writes customHullName and saves), and the Escape branch on cancel
+// (flags only, nothing written; the field's own Step then repaints the
+// stored name while no custom name is set - its behavior, mirrored).
+function vwa_ship_name_add(bd)
+{
     var sn = instance_find(oShipMenu_shipName, 0);
     if (instance_exists(sn))
     {
@@ -441,11 +458,14 @@ function vwa_ship_stop_build(bd)
             });
         }
     }
+}
 
-    // Randomize name (mirrors oShipMenu_randomShipName's press; the live
-    // value part is the name the game paints, so activation speaks the
-    // roll - and stays NO DATA on a hidden or locked hull, where the game
-    // rolls invisibly behind its NO DATA field).
+// Randomize name (mirrors oShipMenu_randomShipName's press; the live
+// value part is the name the game paints, so activation speaks the
+// roll - and stays NO DATA on a hidden or locked hull, where the game
+// rolls invisibly behind its NO DATA field).
+function vwa_ship_randomize_add(bd)
+{
     var rnd = instance_find(oShipMenu_randomShipName, 0);
     if (instance_exists(rnd))
     {
@@ -467,11 +487,14 @@ function vwa_ship_stop_build(bd)
             })
         });
     }
+}
 
-    // View List (opens the ship list overlay; its Step spawns oShipListMenu
-    // and flips the flag to 11 - the ship-list screen then stacks on top).
-    // The live part mirrors the red badge count on the button: hulls
-    // unlocked but never yet hovered.
+// View List (opens the ship list overlay; its Step spawns oShipListMenu
+// and flips the flag to 11 - the ship-list screen then stacks on top).
+// The live part mirrors the red badge count on the button: hulls
+// unlocked but never yet hovered.
+function vwa_ship_view_list_add(bd)
+{
     var lbtn = instance_find(oShipMenu_shipListButton, 0);
     if (instance_exists(lbtn))
     {
@@ -504,12 +527,15 @@ function vwa_ship_stop_build(bd)
             })
         });
     }
+}
 
-    // Locked hull extras: the game's Purchase button (spawned by the
-    // selector's Room Start only while the hull is locked with a price)
-    // and the Resonance counter next to it - the same pattern as the
-    // commander screen's Resonance node, tooltip mirrored verbatim
-    // (game-authored English hardcoded in the counter's draw).
+// Locked hull extras: the game's Purchase button (spawned by the
+// selector's Room Start only while the hull is locked with a price)
+// and the Resonance counter next to it - the same pattern as the
+// commander screen's Resonance node, tooltip mirrored verbatim
+// (game-authored English hardcoded in the counter's draw).
+function vwa_ship_unlock_add(bd)
+{
     var ub = instance_find(oButton_metaUnlock, 0);
     if (instance_exists(ub))
     {
