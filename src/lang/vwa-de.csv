@@ -107,7 +107,7 @@ vwa--ship-airlock-open,offene Luftschleuse
 vwa--ship-airlock-closed,geschlossene Luftschleuse
 vwa--ship-door-open,offene Tür
 vwa--ship-door-closed,geschlossene Tür
-vwa--ship-door-battered,aufgebrochene Tür
+vwa--ship-door-destroyed,zerstörte Tür
 vwa--ship-sys-damaged,"beschädigt, {n} von {m}"
 vwa--ship-sys-destroyed,zerstört
 vwa--action-ship-where,Wo bin ich
@@ -161,3 +161,8 @@ vwa--ship-scan-search,Suchergebnisse
 vwa--ship-scan-search-prompt,Suche
 vwa--ship-scan-no-return,nichts zum Zurückkehren
 vwa--ship-detached,abgetrennt
+vwa--ship-scan-doors,Türen und Luftschleusen
+vwa--ship-scan-edge-up,obere Kante
+vwa--ship-scan-edge-down,untere Kante
+vwa--ship-scan-edge-left,linke Kante
+vwa--ship-scan-edge-right,rechte Kante

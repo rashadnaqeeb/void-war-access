@@ -107,7 +107,7 @@ vwa--ship-airlock-open,sas ouvert
 vwa--ship-airlock-closed,sas fermé
 vwa--ship-door-open,porte ouverte
 vwa--ship-door-closed,porte fermée
-vwa--ship-door-battered,porte défoncée
+vwa--ship-door-destroyed,porte détruite
 vwa--ship-sys-damaged,"endommagé, {n} sur {m}"
 vwa--ship-sys-destroyed,détruit
 vwa--action-ship-where,Où suis-je
@@ -161,3 +161,8 @@ vwa--ship-scan-search,résultats de recherche
 vwa--ship-scan-search-prompt,Recherche
 vwa--ship-scan-no-return,rien où revenir
 vwa--ship-detached,détaché
+vwa--ship-scan-doors,portes et sas
+vwa--ship-scan-edge-up,bord supérieur
+vwa--ship-scan-edge-down,bord inférieur
+vwa--ship-scan-edge-left,bord gauche
+vwa--ship-scan-edge-right,bord droit

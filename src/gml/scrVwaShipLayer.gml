@@ -56,7 +56,7 @@
 // the edge rules evaluated at move time (vwa_ship_move_plan, PURE):
 // - target tile inside the same cell: free move, no edge resolution;
 // - across a cell edge holding an oDoor: passes whatever the door state,
-//   and every state (0 open, 1 closed, 2 battered) plays its own
+//   and every state (0 open, 1 closed, 2 destroyed) plays its own
 //   door-cross earcon (vwa_earcon, scrVwaEarcon - the door channel is
 //   audio-only, the piece-5 decision). The old spoken state token
 //   survives ONLY as the never-strand fallback, prepended to the tile
@@ -65,7 +65,7 @@
 //   stays, the block earcon plays - wall-block for walls and bare
 //   off-hull edges, or the airlock-block pair carrying the airlock's
 //   live state (0 open, 1 closed; airlocks have no HP and cannot be
-//   battered - the game's door-attack path scans oDoor only). The
+//   destroyed - the game's door-attack path scans oDoor only). The
 //   spoken wall/airlock tokens are the same never-strand fallback on
 //   earcon failure. A blocked bump with a working earcon no longer
 //   interrupts ongoing speech (the cursor did not move, so it is not
@@ -387,6 +387,9 @@ function vwa_ship_geom_build(records)
     // tiles: tile = round((worldCoord - origin) / 36). adj is the
     // passability graph, built lazily by vwa_ship_geom_adj (it needs
     // live edge instances, so the pure builder leaves it empty).
+    // curDists is the scanner's cursor-BFS memo ({fromKey, dists}), a
+    // pure derivation of adj keyed by the cursor tile
+    // (vwa_ship_scan_cursor_dists); it resets with the index.
     return {
         tiles: tiles, count: count, dupes: dupes,
         w: maxTx + 1, h: maxTy + 1,
@@ -394,7 +397,8 @@ function vwa_ship_geom_build(records)
         defaultTile: { tx: defTx, ty: defTy },
         ox: minX, oy: minY,
         builtRoom: undefined,
-        adj: undefined
+        adj: undefined,
+        curDists: undefined
     };
 }
 
@@ -953,9 +957,11 @@ function vwa_ship_compose_run(sections, quar, hull, cell, slot, ctx)
     return parts;
 }
 
-// The door-state mappings, shared by the cursor and the dev walker:
-// state (0 open, 1 closed, 2 battered) to the door-cross earcon event
-// and to its never-strand fallback token key.
+// The door-state mappings, shared by the cursor, the scanner, and the
+// dev walker: state (0 open, 1 closed, 2 destroyed - the game's own
+// mechanics: a zero-HP door force-opens, passes crew and air, and
+// repairs only at a warp jump with no enemy crew aboard) to the
+// door-cross earcon event and to its never-strand fallback token key.
 function vwa_ship_door_earcon(doorState)
 {
     if (doorState == 1)
@@ -964,7 +970,7 @@ function vwa_ship_door_earcon(doorState)
     }
     if (doorState == 2)
     {
-        return "door-battered";
+        return "door-destroyed";
     }
     return "door-open";
 }
@@ -977,7 +983,7 @@ function vwa_ship_door_token(doorState)
     }
     if (doorState == 2)
     {
-        return "vwa--ship-door-battered";
+        return "vwa--ship-door-destroyed";
     }
     return "vwa--ship-door-open";
 }

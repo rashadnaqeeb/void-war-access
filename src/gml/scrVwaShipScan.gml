@@ -12,20 +12,24 @@
 // mode), so any stacked screen suspends them.
 // Imported by tools/build-mod.csx as a new global script. Ships in release.
 //
-// Categories (v1, a fixed set, empty allowed in the snapshot): my crew,
-// enemy crew, systems, hazards - all scoped to the focused ship, which
-// does real work: "enemy crew" while focused on the player ship IS the
-// boarder list. The category cycle SKIPS empty categories (revised in
-// play with Rashad: if there's nothing in them, they shouldn't be
+// Categories (a fixed set, empty allowed in the snapshot): my crew,
+// enemy crew, systems, hazards, doors - all scoped to the focused ship,
+// which does real work: "enemy crew" while focused on the player ship IS
+// the boarder list. "doors" carries doors AND airlocks: entries group
+// into up to five items by kind and live state (open/closed/destroyed
+// door, open/closed airlock - the state IS the item name, so a state
+// change regroups the entry on the next rebuild while its key follows
+// the same instance). The category cycle SKIPS empty categories (revised
+// in play with Rashad: if there's nothing in them, they shouldn't be
 // discoverable - no boarders means "enemy crew" never comes up); with
 // every category empty it speaks the bare empty token and stays put. A
 // category that empties out mid-browse still announces itself plus
 // "empty" on the item/instance keys - the honest answer beats a silent
-// jump elsewhere. (Doors/airlocks as a fifth category is an open plan
-// decision, settled in play.)
+// jump elsewhere.
 //
 // Backends, one per category, stateless. scan(alliedSide, geom) emits
-// identity-only entries ({item, key, cell, ref/htype}); resolve(
+// identity-only entries ({item, key, cell, ref/htype}; sides add their
+// kind, stamped state, and candidate flanking tiles); resolve(
 // alliedSide, geom, entry) is the ONE source of location and detail,
 // called fresh at build AND before every announcement - it re-validates
 // the entry against live state and returns {tx, ty, detail} or undefined
@@ -47,22 +51,41 @@
 //   room, never the built one. my-crew detail: "selected" when the crew
 //   sits in oUICursor.currSelected, read live.
 // - systems: one entry per oSysGroup on the hull (deduplicated by
-//   instance; a system can overlap several cells, and the entry's cell
-//   is chosen deterministically - console cell first, then top-left-most
-//   anchor - because cell iteration order is not guaranteed); item =
-//   system name; detail = damaged n-of-m / destroyed, the tile-section
-//   wording. Tile: the console slot's tile when the system is mannable,
-//   else the cell anchor.
+//   instance; a system can overlap several cells); item = system name;
+//   detail = damaged n-of-m / destroyed, the tile-section wording.
+//   Tile: the NEAREST tile of the system to the live cursor -
+//   cursor-path distance over every tile of its visible cells
+//   (vwa_scan_near_pick) - so a multi-cell system meets you at its
+//   closest point; resolve re-picks per announcement, and a system
+//   whose every cell lost visibility is stale.
 // - hazards: one entry per (type, room) - fire, warp fire, breach -
 //   grouped by the hazard instances' currentCellID; item = the bare type
 //   word; detail = the count wording only above one ("3 fires" - slot
 //   count is the honest severity number; at one the item name already
 //   said it). resolve recounts and prunes at zero. Tile: the cell anchor.
+// - doors (doors AND airlocks): one entry per oDoor/oAirlock instance on
+//   the hull, discovered by resolving every tile edge that leaves a cell
+//   (vwa_ship_edge_resolve, the cursor's own mechanism; walls are
+//   skipped, and a bare off-hull edge with no side instance is simply
+//   not a listing - the adjacency build already logs the pathological
+//   cross-cell case); item = the kind+state token, the cursor's own
+//   fallback vocabulary (vwa_ship_scan_side_token); key = "side:" +
+//   instance. Tile: the nearest flanking tile to the live cursor (a
+//   door has one per side, an airlock only its interior one); detail =
+//   the edge direction from that tile ("left edge") - the path legs
+//   land you beside the door, the edge word says which arrow crosses
+//   it. resolve prunes an entry whose instance died OR whose state no
+//   longer matches the stamped item name (a normal browse rebuilds
+//   first and re-emits it regrouped, so the state prune only bites in
+//   frozen search snapshots).
 // Visibility lives in the backends, so the snapshot can never contain
 // what a sighted player can't see: crew and hazards (gated) emit only for
 // cells with playerHasVision; systems respect playerHasVision on the own
 // hull (dark below sensor level 1) and emit regardless on the enemy hull,
-// matching what the game draws without sensor parity.
+// matching what the game draws without sensor parity; sides emit ungated
+// on both hulls (the game draws sides and their state sprites under
+// per-ship flags only, never interior vision - verified in oCellSide's
+// drawConditionsMet).
 //
 // REFRESH MODEL (identity-preserving; the state is per hull, in the hull
 // container's scan field: {catIx, itemIx, instIx, snap, preJump,
@@ -161,9 +184,14 @@
 // vwa_scan_path_legs (shortest-move min-turn legs, tie order,
 // unreachable), vwa_scan_path_str (the leg phrase, "here" at zero),
 // vwa_scan_next_nonempty (the category skip rule),
-// vwa_scan_prune (instance removal, item drop,
-// prune-to-empty), vwa_scan_locate (re-seat by key), and
+// vwa_scan_near_pick (nearest-candidate pick: path distance, row/column
+// ties, unreachable fallback), vwa_scan_prune (instance removal, item
+// drop, prune-to-empty), vwa_scan_locate (re-seat by key), and
 // vwa_scan_search_group (tier filter and ordering, no-match undefined).
+// Nearest-tile picks ride a per-cursor-tile BFS memo cached on the
+// geometry index (vwa_ship_scan_cursor_dists) - a pure derivation of
+// the immutable passability graph keyed by the cursor tile, the
+// geometry cache's family, never game state.
 // The live analog is vwa_dev_shipscan (scrVwaTestShip): a full category lap
 // through the real handlers with every utterance verified against a
 // fresh compose, every snapshot entry re-resolved through its own
@@ -254,7 +282,7 @@ function vwa_ship_scan_init()
 // The fixed category set, in cycle order.
 function vwa_ship_scan_cats()
 {
-    return ["my-crew", "enemy-crew", "systems", "hazards"];
+    return ["my-crew", "enemy-crew", "systems", "hazards", "doors"];
 }
 
 // Category key -> spoken label; the synthetic "search" category resolves
@@ -304,6 +332,15 @@ function vwa_ship_scan_backends_init()
           resolve: function(alliedSide, geom, e)
         {
             return vwa_ship_scan_hazards_resolve(alliedSide, geom, e);
+        } },
+        { cat: "doors", gated: false,
+          scan: function(alliedSide, geom)
+        {
+            return vwa_ship_scan_sides_scan(alliedSide, geom);
+        },
+          resolve: function(alliedSide, geom, e)
+        {
+            return vwa_ship_scan_sides_resolve(alliedSide, geom, e);
         } }
     ];
 }
@@ -374,20 +411,29 @@ function vwa_ship_scan_cell_anchor(geom, cell)
     throw ("scan: cell not in the geometry index");
 }
 
-// The tile of one slot of a cell, or undefined when the pair is not in
-// the index.
-function vwa_ship_scan_slot_tile(geom, cell, slotNum)
+// The cursor-BFS memo (see header): path distances from the live cursor
+// tile over the passability graph, cached on the geometry index and
+// recomputed only when the cursor tile changed. A pure derivation of
+// immutable topology keyed by the cursor - never game state.
+function vwa_ship_scan_cursor_dists(alliedSide)
 {
-    var keys = variable_struct_get_names(geom.tiles);
-    for (var i = 0; i < array_length(keys); i++)
+    var geom = vwa_ship_geom(alliedSide);
+    var cur = vwa_ship_cursor(alliedSide);
+    var k = string(cur.tx) + "," + string(cur.ty);
+    if (geom.curDists != undefined && geom.curDists.fromKey == k)
     {
-        var t = variable_struct_get(geom.tiles, keys[i]);
-        if (t.cell == cell && t.slot == slotNum)
-        {
-            return { tx: t.tx, ty: t.ty };
-        }
+        return geom.curDists.dists;
     }
-    return undefined;
+    var dists = vwa_scan_path_dists(vwa_ship_geom_adj(alliedSide), k);
+    geom.curDists = { fromKey: k, dists: dists };
+    return dists;
+}
+
+// The index of the candidate tile nearest the live cursor by path
+// distance (vwa_scan_near_pick's rule). cands must be non-empty.
+function vwa_ship_scan_near(alliedSide, cands)
+{
+    return vwa_scan_near_pick(vwa_ship_scan_cursor_dists(alliedSide), cands);
 }
 
 // The per-category visibility rule (see header): gated categories mirror
@@ -485,15 +531,13 @@ function vwa_ship_scan_crew_resolve(alliedSide, geom, e, channel)
 
 // ---- systems backend ----
 
-// One entry per oSysGroup - but a system can OVERLAP SEVERAL CELLS, and
-// cell iteration order is not guaranteed, so the entry's cell is chosen
-// deterministically: the console cell wins (jump lands where manning
-// happens), then the top-left-most anchor. First-seen bit us live: the
-// same system announced different tiles across rebuilds.
+// One entry per oSysGroup with any visible cell (deduplicated by
+// instance). The entry's location lives entirely in resolve (the
+// nearest-tile rule), so scan carries only identity.
 function vwa_ship_scan_systems_scan(alliedSide, geom)
 {
     var entries = [];
-    var recs = [];
+    var seen = [];
     var cells = vwa_ship_scan_cells(geom);
     for (var i = 0; i < array_length(cells); i++)
     {
@@ -503,56 +547,45 @@ function vwa_ship_scan_systems_scan(alliedSide, geom)
         {
             continue;
         }
-        var hasConsole = (cc.system.mannable && cc.sysConsoleSlot > 0);
-        var rec = undefined;
-        for (var j = 0; j < array_length(recs); j++)
+        if (vwa_array_index_of(seen, cc.system) >= 0)
         {
-            if (recs[j].entry.ref == cc.system)
-            {
-                rec = recs[j];
-                break;
-            }
-        }
-        if (rec == undefined)
-        {
-            var e = { item: vwa_sheet_flatten(cc.system.name),
-                key: "sys:" + string(cc.system), cell: cc, ref: cc.system };
-            array_push(entries, e);
-            array_push(recs, { entry: e, ax: cells[i].tx, ay: cells[i].ty,
-                console: hasConsole });
             continue;
         }
-        if ((hasConsole && !rec.console)
-            || (hasConsole == rec.console
-                && (cells[i].ty < rec.ay
-                    || (cells[i].ty == rec.ay && cells[i].tx < rec.ax))))
-        {
-            rec.entry.cell = cc;
-            rec.ax = cells[i].tx;
-            rec.ay = cells[i].ty;
-            rec.console = hasConsole;
-        }
+        array_push(seen, cc.system);
+        array_push(entries, { item: vwa_sheet_flatten(cc.system.name),
+            key: "sys:" + string(cc.system), cell: cc, ref: cc.system });
     }
     return entries;
 }
 
+// Location is the system's nearest tile to the live cursor: every tile
+// of every visible cell the system overlaps is a candidate (see header;
+// a multi-cell system meets you at its closest point). No visible cell
+// left means stale.
 function vwa_ship_scan_systems_resolve(alliedSide, geom, e)
 {
     var sys = e.ref;
-    if (!instance_exists(sys) || !instance_exists(e.cell)
-        || !vwa_ship_scan_cell_visible(alliedSide, e.cell, false))
+    if (!instance_exists(sys))
     {
         return undefined;
     }
-    var tile = undefined;
-    if (sys.mannable && e.cell.sysConsoleSlot > 0)
+    var cands = [];
+    var keys = variable_struct_get_names(geom.tiles);
+    for (var i = 0; i < array_length(keys); i++)
     {
-        tile = vwa_ship_scan_slot_tile(geom, e.cell, e.cell.sysConsoleSlot);
+        var t = variable_struct_get(geom.tiles, keys[i]);
+        if (instance_exists(t.cell) && t.cell.system == sys
+            && vwa_ship_scan_cell_visible(alliedSide, t.cell, false))
+        {
+            array_push(cands, { tx: t.tx, ty: t.ty });
+        }
     }
-    if (tile == undefined)
+    if (array_length(cands) == 0)
     {
-        tile = vwa_ship_scan_cell_anchor(geom, e.cell);
+        return undefined;
     }
+    var nearIx = vwa_ship_scan_near(alliedSide, cands);
+    var pick = cands[nearIx];
     var detail = [];
     if (sys.currHP <= 0)
     {
@@ -563,7 +596,7 @@ function vwa_ship_scan_systems_resolve(alliedSide, geom, e)
         array_push(detail, vwa_sheet_t("vwa--ship-sys-damaged", ["n", "m"],
             [sys.currHP, sys.maxHP]));
     }
-    return { tx: tile.tx, ty: tile.ty, detail: detail };
+    return { tx: pick.tx, ty: pick.ty, detail: detail };
 }
 
 // ---- hazards backend ----
@@ -637,6 +670,93 @@ function vwa_ship_scan_hazards_resolve(alliedSide, geom, e)
             "vwa--ship-" + e.htype + "-many")
         : [];
     return { tx: tile.tx, ty: tile.ty, detail: detail };
+}
+
+// ---- doors backend (doors AND airlocks; see header) ----
+
+// The kind+state item token - the cursor's own fallback vocabulary, so
+// the scanner and the movement channel speak one language. Door states
+// via vwa_ship_door_token (0 open, 1 closed, 2 destroyed); airlocks are
+// binary and stateless beyond open/closed.
+function vwa_ship_scan_side_token(kind, sideState)
+{
+    if (kind == "door")
+    {
+        return vwa_ship_door_token(sideState);
+    }
+    return (sideState == 1)
+        ? "vwa--ship-airlock-closed" : "vwa--ship-airlock-open";
+}
+
+// One entry per door/airlock instance, discovered by resolving every
+// tile edge that leaves a cell - the cursor's own edge mechanism, so
+// the listing can never disagree with what arrowing finds. Each
+// discovery records a candidate flanking tile with the direction from
+// it to the side (resolve picks the nearest and speaks its edge word).
+// Walls are skipped; a bare off-hull edge with no side instance is
+// simply not a listing.
+function vwa_ship_scan_sides_scan(alliedSide, geom)
+{
+    var entries = [];
+    var dirs = vwa_ship_dirs();
+    var keys = variable_struct_get_names(geom.tiles);
+    for (var i = 0; i < array_length(keys); i++)
+    {
+        var t = variable_struct_get(geom.tiles, keys[i]);
+        for (var d = 0; d < array_length(dirs); d++)
+        {
+            var toE = vwa_ship_geom_tile(geom,
+                t.tx + dirs[d].dx, t.ty + dirs[d].dy);
+            if (toE != undefined && toE.cell == t.cell)
+            {
+                continue;
+            }
+            var edge = vwa_ship_edge_resolve(t, dirs[d].dx, dirs[d].dy);
+            if (edge == undefined
+                || (edge.kind != "door" && edge.kind != "airlock"))
+            {
+                continue;
+            }
+            var e = undefined;
+            for (var j = 0; j < array_length(entries); j++)
+            {
+                if (entries[j].ref == edge.inst)
+                {
+                    e = entries[j];
+                    break;
+                }
+            }
+            if (e == undefined)
+            {
+                e = { item: vwa_t(vwa_ship_scan_side_token(
+                        edge.kind, edge.inst.state)),
+                      key: "side:" + string(edge.inst), cell: t.cell,
+                      ref: edge.inst, kind: edge.kind,
+                      sideState: edge.inst.state, cands: [] };
+                array_push(entries, e);
+            }
+            array_push(e.cands, { tx: t.tx, ty: t.ty, dir: d });
+        }
+    }
+    return entries;
+}
+
+// Location is the nearest flanking tile to the live cursor; detail is
+// that tile's edge direction word. A dead instance OR a state that no
+// longer matches the stamped item name is stale (see header: the state
+// prune only bites in frozen search snapshots - normal browses rebuild
+// first and regroup the entry).
+function vwa_ship_scan_sides_resolve(alliedSide, geom, e)
+{
+    if (!instance_exists(e.ref) || e.ref.state != e.sideState)
+    {
+        return undefined;
+    }
+    var nearIx = vwa_ship_scan_near(alliedSide, e.cands);
+    var cand = e.cands[nearIx];
+    var dirs = vwa_ship_dirs();
+    return { tx: cand.tx, ty: cand.ty,
+             detail: [vwa_t("vwa--ship-scan-edge-" + dirs[cand.dir].key)] };
 }
 
 // ---- pure snapshot machinery ----
@@ -870,6 +990,31 @@ function vwa_scan_path_dists(adj, fromKey)
         }
     }
     return dists;
+}
+
+// PURE: the index of the candidate tile ({tx, ty, ...}) nearest by the
+// given path distances (vwa_scan_path_dists' shape): minimum distance,
+// ties by row then column; an unreachable candidate ranks at the
+// detached sentinel, so any reachable one beats it and all-unreachable
+// falls back to the top-left-most (the deterministic anchor rule).
+// cands must be non-empty - an empty list is a caller bug.
+function vwa_scan_near_pick(dists, cands)
+{
+    var bestIx = 0;
+    var bestKey = undefined;
+    for (var i = 0; i < array_length(cands); i++)
+    {
+        var k = string(cands[i].tx) + "," + string(cands[i].ty);
+        var d = variable_struct_exists(dists, k)
+            ? variable_struct_get(dists, k) : 1000000;
+        var key = [d, cands[i].ty, cands[i].tx];
+        if (bestKey == undefined || vwa_scan_key_gt(bestKey, key))
+        {
+            bestIx = i;
+            bestKey = key;
+        }
+    }
+    return bestIx;
 }
 
 // PURE: the shortest cursor path between two tiles of the passability

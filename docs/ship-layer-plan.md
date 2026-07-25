@@ -315,8 +315,9 @@ header is the authoritative spec, vwa_dev_shipscan the live check).
 Decisions settled at build: keys are Ctrl+PageUp/PageDown for
 categories, PageUp/PageDown for items, Alt+PageUp/PageDown for
 instances, Home jump, End orient, Backspace pre-jump return, Ctrl+F
-search (chosen with Rashad); the four v1 categories shipped
-(doors/airlocks as a fifth stays an in-play decision below); instance
+search (chosen with Rashad); the four v1 categories shipped, with
+doors/airlocks joining as the fifth (decided; see open decisions
+below); instance
 position "n of m" speaks only when an item has more than one instance;
 the category cycle skips empty categories (revised in play: nothing in
 them means not discoverable; a category that empties mid-browse still
@@ -572,7 +573,14 @@ before the next starts.
   sounds replace the piece-2 spoken tokens (earcon layer section).
 - Fine selection gestures: room-select, slot-select, additive modifiers
   (piece 6/7 debate).
-- Whether doors/airlocks become a fifth scanner category.
+- DECIDED - Doors/airlocks are a fifth scanner category ("doors"): all
+  doors and airlocks, grouped into up to five items by kind and live
+  state (open/closed/destroyed door, open/closed airlock), each entry
+  resolving to its nearest flanking tile with an edge-direction detail
+  word; the same nearest-point rule now locates multi-cell systems.
+  Normal doors carry no scanner-independent listing beyond this - path
+  legs and door-cross earcons already teach door topology in motion
+  (scrVwaShipScan's header is the spec).
 - Whether the scanner gets an auto-move option (cursor follows each
   announced entry) in addition to explicit jump; cheap, but changes how
   distance announcements read, so decided in play.

@@ -337,10 +337,13 @@ function vwa_dev_shipwalk_earjoin(ear)
 // categories, skipped ones included - must pass its own backend's
 // resolve, sit in its category, carry a stable key, and honor the
 // visibility gate
-// (gated entries only on vision-true cells), with per-category totals
-// cross-checked against direct live enumeration (deduplicated crew on
-// visible cells, distinct visible systems, per-type hazard rooms) -
-// membership derived live, never hardcoded. Then, on the first non-empty
+// (gated entries only on vision-true cells; systems and doors are
+// ungated), with per-category totals cross-checked against direct live
+// enumeration (deduplicated crew on visible cells, distinct visible
+// systems, per-type hazard rooms, every door and airlock instance on
+// the hull - each door entry's item name also re-derived from the live
+// instance's kind and state) - membership derived live, never
+// hardcoded. Then, on the first non-empty
 // category: an identity-preserving refresh must re-seat the browse on
 // the same entry key; an item cycle, an instance cycle, and an orient
 // speak one verified utterance each; a Home jump's cursor must land on
@@ -707,11 +710,19 @@ function vwa_dev_shipscan_validate(tc, alliedSide, st, geom, catIx)
             vwa_test_ok(tc, "shipscan: fresh entry resolves " + cat.key
                 + " " + string(e.item), res != undefined,
                 "stale immediately after rebuild");
-            if (cat.key != "systems")
+            if (cat.key != "systems" && cat.key != "doors")
             {
                 vwa_test_ok(tc, "shipscan: gated entry has vision " + cat.key
                     + " " + string(e.item), e.cell.playerHasVision,
                     "vision-false cell in a gated category");
+            }
+            if (cat.key == "doors" && instance_exists(e.ref))
+            {
+                // The item name must be the live-derived kind+state
+                // token - a state drift here would be stale speech.
+                vwa_test_eq(tc, "shipscan: side item matches live state "
+                    + string(e.key), e.item,
+                    vwa_t(vwa_ship_scan_side_token(e.kind, e.ref.state)));
             }
         }
     }
@@ -755,7 +766,7 @@ function vwa_dev_shipscan_validate(tc, alliedSide, st, geom, catIx)
             }
         }
     }
-    else
+    else if (cat.key == "hazards")
     {
         var types = ["fire", "warpfire", "breach"];
         for (var i = 0; i < array_length(cells); i++)
@@ -771,6 +782,26 @@ function vwa_dev_shipscan_validate(tc, alliedSide, st, geom, catIx)
                 {
                     want += 1;
                 }
+            }
+        }
+    }
+    else
+    {
+        // doors: every door and airlock instance on this hull, ungated
+        // (the game draws sides without interior vision). The allied
+        // flag is the hull membership truth the game itself sets.
+        with (oDoor)
+        {
+            if (allied == alliedSide)
+            {
+                want += 1;
+            }
+        }
+        with (oAirlock)
+        {
+            if (allied == alliedSide)
+            {
+                want += 1;
             }
         }
     }

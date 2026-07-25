@@ -8,7 +8,7 @@
 // airlock-block pair (airlock-open-block / airlock-closed-block: the
 // airlock's live door-state sound layered with a hiss that marks it as
 // an airlock; the layering is provisional, judged by ear in play), the
-// door-cross events door-open / door-closed / door-battered - and the
+// door-cross events door-open / door-closed / door-destroyed - and the
 // scanner channel (scrVwaShipScan): the direction tone below (a wrap
 // click shipped here briefly and was removed in play - not needed).
 // Selection events join with piece 6.
@@ -129,7 +129,7 @@ function vwa_earcon_sounds(name)
             return [sfxDoorOpen_crop];
         case "door-closed":
             return [sfxDoorClose_crop];
-        case "door-battered":
+        case "door-destroyed":
             return [Metlimpt_Ji_B_03_soundbits];
     }
     return undefined;

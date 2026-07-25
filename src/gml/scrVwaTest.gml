@@ -83,7 +83,8 @@ function vwa_dev_selftest()
 }
 
 // The ship scanner's pure pieces (scrVwaShipScan): grouping and both
-// sorts with their tie-breaks, offset wording, prune behavior.
+// sorts with their tie-breaks, offset wording, the nearest-candidate
+// pick, prune behavior.
 function vwa_test_shipscan(tc)
 {
     // Grouping: every given category present in order, empty allowed;
@@ -180,6 +181,24 @@ function vwa_test_shipscan(tc)
         vwa_sheet_t("vwa--ship-scan-down", ["n"], [1]) + " "
             + vwa_sheet_t("vwa--ship-scan-right", ["n"], [2]) + " "
             + vwa_sheet_t("vwa--ship-scan-up", ["n"], [1]));
+
+    // The nearest-candidate pick over the same graph's distances:
+    // path distance wins outright, ties break by row then column, an
+    // unreachable candidate loses to any reachable one, and
+    // all-unreachable falls back to the top-left-most.
+    var npd = vwa_scan_path_dists(padj, "0,0");
+    vwa_test_eq(tc, "shipscan: near pick takes the path-nearest",
+        vwa_scan_near_pick(npd, [
+            { tx: 2, ty: 1 }, { tx: 1, ty: 0 }]), 1);
+    vwa_test_eq(tc, "shipscan: near pick distance tie breaks by row",
+        vwa_scan_near_pick(npd, [
+            { tx: 0, ty: 1 }, { tx: 1, ty: 0 }]), 1);
+    vwa_test_eq(tc, "shipscan: near pick reachable beats unreachable",
+        vwa_scan_near_pick(npd, [
+            { tx: 9, ty: 9 }, { tx: 2, ty: 0 }]), 1);
+    vwa_test_eq(tc, "shipscan: near pick all-unreachable falls back top-left",
+        vwa_scan_near_pick(npd, [
+            { tx: 9, ty: 9 }, { tx: 8, ty: 8 }]), 1);
 
     // The category-cycle skip rule: empty categories are stepped over,
     // wrapping; a lone non-empty category wraps to itself; all empty
@@ -393,7 +412,7 @@ function vwa_test_shiplayer(tc)
     // fallback tokens. An unknown name stays unresolved - the
     // chokepoint throws on it, a mod bug.
     var evs = ["wall-block", "airlock-open-block", "airlock-closed-block",
-               "door-open", "door-closed", "door-battered"];
+               "door-open", "door-closed", "door-destroyed"];
     for (var i = 0; i < array_length(evs); i++)
     {
         var snds = vwa_earcon_sounds(evs[i]);

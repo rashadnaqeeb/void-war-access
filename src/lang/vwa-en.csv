@@ -107,7 +107,7 @@ vwa--ship-airlock-open,open airlock
 vwa--ship-airlock-closed,closed airlock
 vwa--ship-door-open,open door
 vwa--ship-door-closed,closed door
-vwa--ship-door-battered,battered door
+vwa--ship-door-destroyed,destroyed door
 vwa--ship-sys-damaged,"damaged, {n} of {m}"
 vwa--ship-sys-destroyed,destroyed
 vwa--action-ship-where,Where am I
@@ -161,3 +161,8 @@ vwa--ship-scan-search,search results
 vwa--ship-scan-search-prompt,Search
 vwa--ship-scan-no-return,nothing to return to
 vwa--ship-detached,detached
+vwa--ship-scan-doors,doors and airlocks
+vwa--ship-scan-edge-up,top edge
+vwa--ship-scan-edge-down,bottom edge
+vwa--ship-scan-edge-left,left edge
+vwa--ship-scan-edge-right,right edge
